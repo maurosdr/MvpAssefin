@@ -2,12 +2,15 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import TechnicalChart from '@/components/TechnicalChart';
+import TradingViewChart from '@/components/TradingViewChart';
+import CryptoInfoPanel from '@/components/CryptoInfoPanel';
 import BinanceLoginModal from '@/components/BinanceLoginModal';
 import { useBinance } from '@/context/BinanceContext';
 import { getCryptoName } from '@/lib/crypto-names';
 import { calculateRSI, calculateSMA, calculateVolatility } from '@/lib/indicators';
 import { OHLCV } from '@/types/crypto';
+
+type ActiveTab = 'chart' | 'info';
 
 interface CryptoStats {
   price: number;
@@ -29,6 +32,7 @@ export default function CryptoDetailPage() {
   const [stats, setStats] = useState<CryptoStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [showBinanceModal, setShowBinanceModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<ActiveTab>('chart');
 
   const fetchStats = useCallback(async () => {
     try {
@@ -221,8 +225,42 @@ export default function CryptoDetailPage() {
               </div>
             )}
 
-            {/* Technical Chart */}
-            <TechnicalChart symbol={symbol} />
+            {/* Tab Toggle: Chart / Information */}
+            <div className="flex items-center gap-2 bg-gray-900/50 border border-gray-800 rounded-2xl p-2">
+              <button
+                onClick={() => setActiveTab('chart')}
+                className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium text-sm transition-all ${
+                  activeTab === 'chart'
+                    ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                </svg>
+                TradingView Chart
+              </button>
+              <button
+                onClick={() => setActiveTab('info')}
+                className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium text-sm transition-all ${
+                  activeTab === 'info'
+                    ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Information & Flow
+              </button>
+            </div>
+
+            {/* Tab Content */}
+            {activeTab === 'chart' ? (
+              <TradingViewChart symbol={symbol} />
+            ) : (
+              <CryptoInfoPanel symbol={symbol} stats={stats} />
+            )}
 
             {/* Binance Position */}
             {connected && position && (

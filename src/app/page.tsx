@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import CryptoSearch from '@/components/CryptoSearch';
 import TopCryptosTable from '@/components/TopCryptosTable';
 import PriceChart from '@/components/PriceChart';
@@ -8,6 +8,7 @@ import FearGreedIndex from '@/components/FearGreedIndex';
 import KalshiTrump from '@/components/KalshiTrump';
 import BinancePortfolio from '@/components/BinancePortfolio';
 import BinanceLoginModal from '@/components/BinanceLoginModal';
+import PolymarketMarkets from '@/components/PolymarketMarkets';
 import { useBinance } from '@/context/BinanceContext';
 
 interface CryptoData {
@@ -25,7 +26,9 @@ export default function Home() {
   const [cryptos, setCryptos] = useState<CryptoData[]>([]);
   const [loading, setLoading] = useState(true);
   const [showBinanceModal, setShowBinanceModal] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const { connected } = useBinance();
+  const isFirstLoad = useRef(true);
 
   useEffect(() => {
     const fetchCryptos = async () => {
@@ -34,16 +37,21 @@ export default function Home() {
         const data = await res.json();
         if (Array.isArray(data)) {
           setCryptos(data);
+          setLastUpdate(new Date());
         }
       } catch {
         // API fetch failed
       } finally {
-        setLoading(false);
+        if (isFirstLoad.current) {
+          setLoading(false);
+          isFirstLoad.current = false;
+        }
       }
     };
 
     fetchCryptos();
-    const interval = setInterval(fetchCryptos, 30000);
+    // Update tables every 5 seconds
+    const interval = setInterval(fetchCryptos, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -59,7 +67,15 @@ export default function Home() {
                   <path d="M11.944 17.97L4.58 13.62 11.943 24l7.37-10.38-7.372 4.35zM12.056 0L4.69 12.223l7.365 4.354 7.365-4.35L12.056 0z" />
                 </svg>
               </div>
-              <h1 className="text-xl font-bold text-white hidden sm:block">Crypto Dashboard</h1>
+              <div className="hidden sm:block">
+                <h1 className="text-xl font-bold text-white">Crypto Dashboard</h1>
+                {lastUpdate && (
+                  <p className="text-xs text-gray-500">
+                    Live <span className="inline-block w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse ml-1 mr-1" />
+                    updates every 5s
+                  </p>
+                )}
+              </div>
             </div>
 
             <CryptoSearch cryptos={cryptos} />
@@ -104,6 +120,9 @@ export default function Home() {
                 <FearGreedIndex />
               </div>
             </div>
+
+            {/* Polymarket Top Markets */}
+            <PolymarketMarkets />
 
             {/* Kalshi Trump Predictions */}
             <KalshiTrump />
