@@ -5,11 +5,13 @@ import { useParams, useRouter } from 'next/navigation';
 import TradingViewChart from '@/components/TradingViewChart';
 import CryptoInfoPanel from '@/components/CryptoInfoPanel';
 import BinanceLoginModal from '@/components/BinanceLoginModal';
+import RiskManagement from '@/components/RiskManagement';
 import { useBinance } from '@/context/BinanceContext';
 import { getCryptoName } from '@/lib/crypto-names';
 import { calculateRSI, calculateSMA, calculateVolatility } from '@/lib/indicators';
 import { OHLCV } from '@/types/crypto';
 
+type PageMode = 'market' | 'risk';
 type ActiveTab = 'chart' | 'info';
 
 interface CryptoStats {
@@ -32,6 +34,7 @@ export default function CryptoDetailPage() {
   const [stats, setStats] = useState<CryptoStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [showBinanceModal, setShowBinanceModal] = useState(false);
+  const [pageMode, setPageMode] = useState<PageMode>('market');
   const [activeTab, setActiveTab] = useState<ActiveTab>('chart');
 
   const fetchStats = useCallback(async () => {
@@ -171,12 +174,50 @@ export default function CryptoDetailPage() {
         </div>
       </header>
 
+      {/* Page Mode Navigation Bar */}
+      <div className="border-b border-gray-800 bg-gray-900/50 sticky top-[73px] z-30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <nav className="flex gap-1 py-2">
+            <button
+              onClick={() => setPageMode('market')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm transition-all ${
+                pageMode === 'market'
+                  ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+              </svg>
+              Market
+            </button>
+            <button
+              onClick={() => setPageMode('risk')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm transition-all ${
+                pageMode === 'risk'
+                  ? 'bg-red-500 text-white shadow-lg shadow-red-500/20'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              Risk Management
+            </button>
+          </nav>
+        </div>
+      </div>
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-12 h-12 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
           </div>
+        ) : pageMode === 'risk' ? (
+          /* Risk Management Mode */
+          <RiskManagement symbol={symbol} currentPrice={stats?.price} />
         ) : (
+          /* Market Mode (default) */
           <>
             {/* Stats Cards */}
             {stats && (

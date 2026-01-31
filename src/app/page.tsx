@@ -5,10 +5,10 @@ import CryptoSearch from '@/components/CryptoSearch';
 import TopCryptosTable from '@/components/TopCryptosTable';
 import PriceChart from '@/components/PriceChart';
 import FearGreedIndex from '@/components/FearGreedIndex';
-import KalshiTrump from '@/components/KalshiTrump';
 import BinancePortfolio from '@/components/BinancePortfolio';
 import BinanceLoginModal from '@/components/BinanceLoginModal';
 import PolymarketMarkets from '@/components/PolymarketMarkets';
+import NewsSection from '@/components/NewsSection';
 import { useBinance } from '@/context/BinanceContext';
 
 interface CryptoData {
@@ -124,8 +124,39 @@ export default function Home() {
             {/* Polymarket Top Markets */}
             <PolymarketMarkets />
 
-            {/* Kalshi Trump Predictions */}
-            <KalshiTrump />
+            {/* News Sections */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <NewsSection
+                category="politics"
+                title="Politics"
+                accentColor="text-blue-400"
+                icon={
+                  <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                }
+              />
+              <NewsSection
+                category="crypto"
+                title="Crypto"
+                accentColor="text-yellow-400"
+                icon={
+                  <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2L6.5 7.5 12 13l5.5-5.5L12 2zm0 22l5.5-5.5L12 13l-5.5 5.5L12 24zm-10-10l5.5 5.5L13 12 7.5 6.5 2 12zm20 0l-5.5-5.5L11 12l5.5 5.5L22 12z" />
+                  </svg>
+                }
+              />
+              <NewsSection
+                category="economy"
+                title="Economy"
+                accentColor="text-green-400"
+                icon={
+                  <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                }
+              />
+            </div>
 
             {/* Binance Portfolio */}
             <BinancePortfolio />
