@@ -5,10 +5,10 @@ import CryptoSearch from '@/components/CryptoSearch';
 import TopCryptosTable from '@/components/TopCryptosTable';
 import PriceChart from '@/components/PriceChart';
 import FearGreedIndex from '@/components/FearGreedIndex';
-import KalshiTrump from '@/components/KalshiTrump';
 import BinancePortfolio from '@/components/BinancePortfolio';
 import BinanceLoginModal from '@/components/BinanceLoginModal';
-import PolymarketMarkets from '@/components/PolymarketMarkets';
+import PolymarketCards from '@/components/PolymarketCards';
+import NewsSection from '@/components/NewsSection';
 import { useBinance } from '@/context/BinanceContext';
 
 interface CryptoData {
@@ -121,11 +121,11 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Polymarket Top Markets */}
-            <PolymarketMarkets />
+            {/* Latest News */}
+            <NewsSection />
 
-            {/* Kalshi Trump Predictions */}
-            <KalshiTrump />
+            {/* Polymarket Predictions by Category */}
+            <PolymarketCards />
 
             {/* Binance Portfolio */}
             <BinancePortfolio />
