@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import TradingViewChart from '@/components/TradingViewChart';
 import CryptoInfoPanel from '@/components/CryptoInfoPanel';
-import TradeIdeas from '@/components/TradeIdeas';
+import TradeIdeas, { StopLossTrackerCard, StopLossTrackerConfig } from '@/components/TradeIdeas';
 import BinanceLoginModal from '@/components/BinanceLoginModal';
 import { useExchange } from '@/context/ExchangeContext';
 import { getCryptoName } from '@/lib/crypto-names';
@@ -37,6 +37,24 @@ export default function CryptoDetailPage() {
   const [showBinanceModal, setShowBinanceModal] = useState(false);
   const [topTab, setTopTab] = useState<TopTab>('market');
   const [activeTab, setActiveTab] = useState<ActiveTab>('chart');
+  const [stopLossCards, setStopLossCards] = useState<StopLossTrackerConfig[]>([]);
+
+  const handleAddStopLossCard = useCallback((config: StopLossTrackerConfig) => {
+    setStopLossCards((prev) => {
+      // Replace if same type already exists, otherwise add
+      const exists = prev.findIndex((c) => c.type === config.type);
+      if (exists >= 0) {
+        const updated = [...prev];
+        updated[exists] = config;
+        return updated;
+      }
+      return [...prev, config];
+    });
+  }, []);
+
+  const handleRemoveStopLossCard = useCallback((id: string) => {
+    setStopLossCards((prev) => prev.filter((c) => c.id !== id));
+  }, []);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -264,6 +282,29 @@ export default function CryptoDetailPage() {
                   </div>
                 )}
 
+                {/* Stop Loss Tracker Cards */}
+                {stopLossCards.length > 0 && (
+                  <div className="space-y-4">
+                    <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                      <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      Stop Loss Tracking
+                    </h2>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {stopLossCards.map((card) => (
+                        <StopLossTrackerCard
+                          key={card.id}
+                          config={card}
+                          symbol={symbol}
+                          currentPrice={stats?.price}
+                          onRemove={handleRemoveStopLossCard}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Tab Toggle: Chart / Information */}
                 <div className="flex items-center gap-2 bg-gray-900/50 border border-gray-800 rounded-2xl p-2">
                   <button
@@ -374,7 +415,7 @@ export default function CryptoDetailPage() {
 
             {/* ─── TRADE IDEAS TAB ─── */}
             {topTab === 'trade-ideas' && (
-              <TradeIdeas symbol={symbol} currentPrice={stats?.price} />
+              <TradeIdeas symbol={symbol} currentPrice={stats?.price} onAddStopLossCard={handleAddStopLossCard} />
             )}
           </>
         )}
