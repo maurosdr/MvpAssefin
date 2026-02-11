@@ -1,7 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { BinancePosition } from '@/types/crypto';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { BinancePosition, BookEntry } from '@/types/crypto';
 
 export type ExchangeName = 'binance' | 'coinbase';
 
@@ -20,6 +20,7 @@ interface ExchangeContextType {
   connect: (exchange: ExchangeName, apiKey: string, secret: string) => Promise<boolean>;
   disconnect: (exchange: ExchangeName) => Promise<void>;
   refreshPortfolio: (exchange: ExchangeName) => Promise<void>;
+  refreshAllPortfolios: () => void;
   // Convenience getters for backwards compatibility
   connected: boolean;
   apiKeyPreview: string;
@@ -30,6 +31,8 @@ interface ExchangeContextType {
   allPositions: BinancePosition[];
   allTotalValue: number;
   connectedExchanges: ExchangeName[];
+  // Consolidated Book
+  book: BookEntry[];
 }
 
 const defaultConnection: ExchangeConnection = {
@@ -50,6 +53,7 @@ const ExchangeContext = createContext<ExchangeContextType>({
   connect: async () => false,
   disconnect: async () => {},
   refreshPortfolio: async () => {},
+  refreshAllPortfolios: () => {},
   connected: false,
   apiKeyPreview: '',
   positions: [],
@@ -58,6 +62,7 @@ const ExchangeContext = createContext<ExchangeContextType>({
   allPositions: [],
   allTotalValue: 0,
   connectedExchanges: [],
+  book: [],
 });
 
 const EXCHANGE_NAMES: ExchangeName[] = ['binance', 'coinbase'];
@@ -82,7 +87,6 @@ export function ExchangeProvider({ children }: { children: React.ReactNode }) {
   const checkConnection = useCallback(
     async (name: ExchangeName) => {
       try {
-        // Try the new multi-exchange endpoint
         const res = await fetch(`/api/exchange/${name}/keys`);
         const data = await res.json();
         updateExchange(name, {
@@ -90,7 +94,6 @@ export function ExchangeProvider({ children }: { children: React.ReactNode }) {
           apiKeyPreview: data.apiKeyPreview || '',
         });
       } catch {
-        // Fallback for binance to old endpoint for backwards compat
         if (name === 'binance') {
           try {
             const res = await fetch('/api/binance/keys');
@@ -142,15 +145,20 @@ export function ExchangeProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const refreshPortfolio = async (name: ExchangeName) => {
+  const refreshPortfolio = useCallback(async (name: ExchangeName) => {
     if (!exchangeStates[name].connected) return;
     updateExchange(name, { loading: true });
     try {
       const res = await fetch(`/api/exchange/${name}/portfolio`);
       if (res.ok) {
         const data = await res.json();
+        // Tag each position with its exchange source
+        const taggedPositions = (data.positions || []).map((p: BinancePosition) => ({
+          ...p,
+          exchange: name,
+        }));
         updateExchange(name, {
-          positions: data.positions || [],
+          positions: taggedPositions,
           totalValue: data.totalValue || 0,
         });
       }
@@ -159,14 +167,52 @@ export function ExchangeProvider({ children }: { children: React.ReactNode }) {
     } finally {
       updateExchange(name, { loading: false });
     }
-  };
+  }, [exchangeStates, updateExchange]);
 
-  const active = exchangeStates[activeExchange];
   const connectedExchanges = EXCHANGE_NAMES.filter((n) => exchangeStates[n].connected);
 
-  // Aggregate positions across all connected exchanges
+  const refreshAllPortfolios = useCallback(() => {
+    connectedExchanges.forEach((name) => refreshPortfolio(name));
+  }, [connectedExchanges, refreshPortfolio]);
+
+  const active = exchangeStates[activeExchange];
+
+  // Flat aggregate of all positions (tagged with exchange)
   const allPositions = EXCHANGE_NAMES.flatMap((n) => exchangeStates[n].positions);
   const allTotalValue = EXCHANGE_NAMES.reduce((sum, n) => sum + exchangeStates[n].totalValue, 0);
+
+  // Consolidated Book: merge same-asset across exchanges
+  const book = useMemo<BookEntry[]>(() => {
+    const map = new Map<string, BookEntry>();
+
+    for (const name of EXCHANGE_NAMES) {
+      for (const pos of exchangeStates[name].positions) {
+        const existing = map.get(pos.asset);
+        const entry = {
+          exchange: pos.exchange || name,
+          free: pos.free,
+          locked: pos.locked,
+          total: pos.total,
+          usdValue: pos.usdValue,
+        };
+
+        if (existing) {
+          existing.totalAmount += pos.total;
+          existing.totalUsdValue += pos.usdValue;
+          existing.exchanges.push(entry);
+        } else {
+          map.set(pos.asset, {
+            asset: pos.asset,
+            totalAmount: pos.total,
+            totalUsdValue: pos.usdValue,
+            exchanges: [entry],
+          });
+        }
+      }
+    }
+
+    return Array.from(map.values()).sort((a, b) => b.totalUsdValue - a.totalUsdValue);
+  }, [exchangeStates]);
 
   return (
     <ExchangeContext.Provider
@@ -177,7 +223,7 @@ export function ExchangeProvider({ children }: { children: React.ReactNode }) {
         connect,
         disconnect,
         refreshPortfolio,
-        // Backwards compat — returns active exchange state
+        refreshAllPortfolios,
         connected: active.connected,
         apiKeyPreview: active.apiKeyPreview,
         positions: active.positions,
@@ -186,6 +232,7 @@ export function ExchangeProvider({ children }: { children: React.ReactNode }) {
         allPositions,
         allTotalValue,
         connectedExchanges,
+        book,
       }}
     >
       {children}
@@ -199,13 +246,13 @@ export const useExchange = () => useContext(ExchangeContext);
 export const useBinance = () => {
   const ctx = useContext(ExchangeContext);
   return {
-    connected: ctx.exchanges.binance.connected || ctx.exchanges.coinbase.connected,
+    connected: ctx.connectedExchanges.length > 0,
     apiKeyPreview: ctx.exchanges.binance.apiKeyPreview || ctx.exchanges.coinbase.apiKeyPreview,
     positions: ctx.allPositions,
     totalValue: ctx.allTotalValue,
     loading: ctx.exchanges.binance.loading || ctx.exchanges.coinbase.loading,
     connect: (apiKey: string, secret: string) => ctx.connect('binance', apiKey, secret),
     disconnect: () => ctx.disconnect('binance'),
-    refreshPortfolio: () => ctx.refreshPortfolio('binance'),
+    refreshPortfolio: () => ctx.refreshAllPortfolios(),
   };
 };
