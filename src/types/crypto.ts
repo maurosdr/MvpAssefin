@@ -40,6 +40,20 @@ export interface BinancePosition {
   locked: number;
   total: number;
   usdValue: number;
+  exchange?: string;
+}
+
+export interface BookEntry {
+  asset: string;
+  totalAmount: number;
+  totalUsdValue: number;
+  exchanges: {
+    exchange: string;
+    free: number;
+    locked: number;
+    total: number;
+    usdValue: number;
+  }[];
 }
 
 export interface BinanceKeys {

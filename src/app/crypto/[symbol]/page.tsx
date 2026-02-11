@@ -6,7 +6,7 @@ import TradingViewChart from '@/components/TradingViewChart';
 import CryptoInfoPanel from '@/components/CryptoInfoPanel';
 import TradeIdeas from '@/components/TradeIdeas';
 import BinanceLoginModal from '@/components/BinanceLoginModal';
-import { useBinance } from '@/context/BinanceContext';
+import { useExchange } from '@/context/ExchangeContext';
 import { getCryptoName } from '@/lib/crypto-names';
 import { calculateRSI, calculateSMA, calculateVolatility } from '@/lib/indicators';
 import { OHLCV } from '@/types/crypto';
@@ -30,7 +30,8 @@ export default function CryptoDetailPage() {
   const params = useParams();
   const router = useRouter();
   const symbol = (params.symbol as string)?.toUpperCase() || 'BTC';
-  const { connected, positions, refreshPortfolio } = useBinance();
+  const { connectedExchanges, book, refreshAllPortfolios } = useExchange();
+  const connected = connectedExchanges.length > 0;
   const [stats, setStats] = useState<CryptoStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [showBinanceModal, setShowBinanceModal] = useState(false);
@@ -91,11 +92,11 @@ export default function CryptoDetailPage() {
 
   useEffect(() => {
     if (connected) {
-      refreshPortfolio();
+      refreshAllPortfolios();
     }
-  }, [connected, refreshPortfolio]);
+  }, [connected, refreshAllPortfolios]);
 
-  const position = positions.find((p) => p.asset === symbol);
+  const bookEntry = book.find((e) => e.asset === symbol);
 
   const formatPrice = (p: number) => {
     if (p >= 1) return '$' + p.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -168,7 +169,9 @@ export default function CryptoDetailPage() {
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2L6.5 7.5 12 13l5.5-5.5L12 2zm0 22l5.5-5.5L12 13l-5.5 5.5L12 24zm-10-10l5.5 5.5L13 12 7.5 6.5 2 12zm20 0l-5.5-5.5L11 12l5.5 5.5L22 12z" />
               </svg>
-              {connected ? 'Connected' : 'Connect'}
+              {connected
+                ? `${connectedExchanges.length}/2`
+                : 'Connect'}
             </button>
           </div>
         </div>
@@ -298,41 +301,72 @@ export default function CryptoDetailPage() {
                   <CryptoInfoPanel symbol={symbol} stats={stats} />
                 )}
 
-                {/* Binance Position */}
-                {connected && position && (
+                {/* Multi-exchange Position */}
+                {connected && bookEntry && (
                   <div className="bg-gray-900/50 border border-yellow-500/30 rounded-2xl p-6">
                     <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                      <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 2L6.5 7.5 12 13l5.5-5.5L12 2zm0 22l5.5-5.5L12 13l-5.5 5.5L12 24zm-10-10l5.5 5.5L13 12 7.5 6.5 2 12zm20 0l-5.5-5.5L11 12l5.5 5.5L22 12z" />
+                      <svg className="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                       </svg>
                       Your {symbol} Position
                     </h2>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {/* Consolidated totals */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
                       <div>
-                        <p className="text-sm text-gray-400">Total</p>
-                        <p className="text-white font-mono text-lg">{position.total.toLocaleString(undefined, { maximumFractionDigits: 8 })}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-400">Available</p>
-                        <p className="text-white font-mono text-lg">{position.free.toLocaleString(undefined, { maximumFractionDigits: 8 })}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-400">Locked</p>
-                        <p className="text-white font-mono text-lg">{position.locked.toLocaleString(undefined, { maximumFractionDigits: 8 })}</p>
+                        <p className="text-sm text-gray-400">Total Amount</p>
+                        <p className="text-white font-mono text-lg">{bookEntry.totalAmount.toLocaleString(undefined, { maximumFractionDigits: 8 })}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-400">USD Value</p>
                         <p className="text-yellow-400 font-mono text-lg font-bold">
-                          ${position.usdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                          ${bookEntry.totalUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                         </p>
                       </div>
+                      <div>
+                        <p className="text-sm text-gray-400">Exchanges</p>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          {bookEntry.exchanges.map((ex) => (
+                            <span
+                              key={ex.exchange}
+                              className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
+                                ex.exchange === 'binance'
+                                  ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                                  : 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                              }`}
+                            >
+                              {ex.exchange.charAt(0).toUpperCase() + ex.exchange.slice(1)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
                     </div>
+                    {/* Per-exchange breakdown */}
+                    {bookEntry.exchanges.length > 1 && (
+                      <div className="border-t border-gray-800 pt-3 space-y-2">
+                        {bookEntry.exchanges.map((ex) => (
+                          <div key={ex.exchange} className="flex items-center justify-between bg-gray-800/40 rounded-lg px-4 py-2">
+                            <div className="flex items-center gap-2">
+                              <span className={`w-2 h-2 rounded-full ${ex.exchange === 'binance' ? 'bg-yellow-500' : 'bg-blue-500'}`} />
+                              <span className="text-sm text-gray-300">{ex.exchange.charAt(0).toUpperCase() + ex.exchange.slice(1)}</span>
+                            </div>
+                            <div className="flex items-center gap-6">
+                              <span className="text-sm text-gray-400 font-mono">
+                                {ex.total.toLocaleString(undefined, { maximumFractionDigits: 8 })}
+                              </span>
+                              <span className="text-sm text-white font-mono">
+                                ${ex.usdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {connected && !position && (
+                {connected && !bookEntry && (
                   <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-6 text-center">
-                    <p className="text-gray-500">No {symbol} position found in your Binance account.</p>
+                    <p className="text-gray-500">No {symbol} position found across your connected exchanges.</p>
                   </div>
                 )}
               </div>
@@ -340,7 +374,7 @@ export default function CryptoDetailPage() {
 
             {/* ─── TRADE IDEAS TAB ─── */}
             {topTab === 'trade-ideas' && (
-              <TradeIdeas symbol={symbol} />
+              <TradeIdeas symbol={symbol} currentPrice={stats?.price} />
             )}
           </>
         )}
