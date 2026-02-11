@@ -91,7 +91,7 @@ export default function Home() {
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2L6.5 7.5 12 13l5.5-5.5L12 2zm0 22l5.5-5.5L12 13l-5.5 5.5L12 24zm-10-10l5.5 5.5L13 12 7.5 6.5 2 12zm20 0l-5.5-5.5L11 12l5.5 5.5L22 12z" />
               </svg>
-              {connected ? 'Binance Connected' : 'Connect Binance'}
+              {connected ? 'Exchange Connected' : 'Connect Exchange'}
             </button>
           </div>
         </div>

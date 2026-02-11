@@ -340,7 +340,7 @@ export default function CryptoDetailPage() {
 
             {/* ─── TRADE IDEAS TAB ─── */}
             {topTab === 'trade-ideas' && (
-              <TradeIdeas symbol={symbol} />
+              <TradeIdeas symbol={symbol} currentPrice={stats?.price} />
             )}
           </>
         )}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   LineChart,
   Line,
@@ -22,6 +22,30 @@ type Section = 'market-cycle' | 'ratio-indicators' | 'risk-manager';
 
 interface TradeIdeasProps {
   symbol: string;
+  currentPrice?: number;
+}
+
+// ─── Heatmap & S2F data types ────────────────────────────────────
+interface HeatmapDataPoint {
+  date: string;
+  week: number;
+  price: number;
+  ma200w: number;
+  monthlyChange: number;
+}
+
+interface S2FDataPoint {
+  date: string;
+  actualPrice: number;
+  s2fPrice: number;
+  s2fRatio: number;
+  stock: number;
+}
+
+interface S2FHalvingDate {
+  date: string;
+  blockReward: number;
+  label: string;
 }
 
 interface StopLossSimView {
@@ -42,7 +66,7 @@ interface MonteCarloResult {
 }
 
 // ─── Component ────────────────────────────────────────────────────
-export default function TradeIdeas({ symbol }: TradeIdeasProps) {
+export default function TradeIdeas({ symbol, currentPrice }: TradeIdeasProps) {
   const [activeSection, setActiveSection] = useState<Section>('market-cycle');
 
   const sections: { id: Section; label: string }[] = [
@@ -73,7 +97,7 @@ export default function TradeIdeas({ symbol }: TradeIdeasProps) {
       </div>
 
       {/* Section Content */}
-      {activeSection === 'market-cycle' && <MarketCycleSection symbol={symbol} />}
+      {activeSection === 'market-cycle' && <MarketCycleSection symbol={symbol} currentPrice={currentPrice} />}
       {activeSection === 'ratio-indicators' && <RatioIndicatorsSection symbol={symbol} />}
       {activeSection === 'risk-manager' && <RiskManagerSection symbol={symbol} />}
     </div>
@@ -83,96 +107,189 @@ export default function TradeIdeas({ symbol }: TradeIdeasProps) {
 // ═══════════════════════════════════════════════════════════════════
 // MARKET CYCLE SECTION
 // ═══════════════════════════════════════════════════════════════════
-function MarketCycleSection({ symbol }: { symbol: string }) {
+function MarketCycleSection({ symbol, currentPrice }: { symbol: string; currentPrice?: number }) {
   return (
     <div className="space-y-6">
-      <HeatmapCard symbol={symbol} />
-      <StockToFlowCard symbol={symbol} />
+      <HeatmapCard symbol={symbol} currentPrice={currentPrice} />
+      <StockToFlowCard symbol={symbol} currentPrice={currentPrice} />
     </div>
   );
 }
 
 // ─── 200 Week Moving Average Heatmap Card ─────────────────────────
-function HeatmapCard({ symbol }: { symbol: string }) {
+function HeatmapCard({ symbol, currentPrice }: { symbol: string; currentPrice?: number }) {
   const [expanded, setExpanded] = useState(false);
+  const [data, setData] = useState<HeatmapDataPoint[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Generate illustrative 200WMA heatmap data
-  const data = generateHeatmapData();
+  const fetchData = useCallback(async () => {
+    try {
+      const pair = `${symbol}/USDT`;
+      const res = await fetch(`/api/crypto/heatmap?symbol=${encodeURIComponent(pair)}`);
+      if (!res.ok) throw new Error('Failed to fetch heatmap data');
+      const result: HeatmapDataPoint[] = await res.json();
+      if (Array.isArray(result) && result.length > 0) {
+        setData(result);
+        setError(null);
+      }
+      setLastUpdate(new Date());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  }, [symbol]);
+
+  useEffect(() => {
+    fetchData();
+    // Refresh weekly data every 5 minutes (the data itself is weekly, but we refresh for the latest week)
+    intervalRef.current = setInterval(fetchData, 5 * 60 * 1000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [fetchData]);
+
+  // If we have live price data, update the last data point
+  const displayData = data.length > 0 && currentPrice
+    ? data.map((d, i) => (i === data.length - 1 ? { ...d, price: currentPrice } : d))
+    : data;
+
+  const livePrice = currentPrice || (data.length > 0 ? data[data.length - 1]?.price : undefined);
 
   return (
     <div className="bg-gray-900/50 border border-gray-800 rounded-2xl overflow-hidden">
       <div className="p-6">
-        <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
-          <svg className="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-          </svg>
-          200 Week Moving Average Heatmap
-        </h3>
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <svg className="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            200 Week Moving Average Heatmap
+          </h3>
+          {lastUpdate && (
+            <span className="text-[10px] text-gray-600 flex items-center gap-1">
+              <span className="inline-block w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+              Live — weekly data
+            </span>
+          )}
+        </div>
         <p className="text-gray-500 text-sm mb-4">
           Shows 200w MA vs {symbol} Price with dots showing % monthly increase of 200w MA
         </p>
 
-        {/* Chart */}
-        <div className="h-[300px] mb-4">
-          <ResponsiveContainer width="100%" height="100%">
-            <ScatterChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-              <XAxis
-                dataKey="week"
-                type="number"
-                tick={{ fill: '#9ca3af', fontSize: 11 }}
-                axisLine={{ stroke: '#374151' }}
-                label={{ value: 'Weeks', position: 'bottom', fill: '#6b7280', fontSize: 11 }}
-              />
-              <YAxis
-                dataKey="price"
-                type="number"
-                scale="log"
-                domain={['auto', 'auto']}
-                tick={{ fill: '#9ca3af', fontSize: 11 }}
-                axisLine={{ stroke: '#374151' }}
-                tickFormatter={(v) => `$${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}`}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#111827',
-                  border: '1px solid #374151',
-                  borderRadius: '0.75rem',
-                  color: '#fff',
-                  fontSize: '12px',
-                }}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                formatter={(value: any, name: any) => {
-                  if (name === 'price') return [`$${(value ?? 0).toLocaleString()}`, 'Price'];
-                  if (name === 'ma200w') return [`$${(value ?? 0).toLocaleString()}`, '200w MA'];
-                  return [`${(value ?? 0).toFixed(1)}%`, 'Monthly % Change'];
-                }}
-              />
-              <Scatter data={data} shape="circle">
-                {data.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={getHeatmapColor(entry.monthlyChange)}
-                    r={4}
-                  />
-                ))}
-              </Scatter>
-            </ScatterChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Color Legend */}
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <span className="text-xs text-gray-500">Low % increase</span>
-          <div className="flex h-3 rounded overflow-hidden">
-            {['#6366f1', '#818cf8', '#a78bfa', '#c084fc', '#e879f9', '#f472b6', '#fb923c', '#f87171', '#ef4444', '#dc2626'].map(
-              (c) => (
-                <div key={c} className="w-6 h-full" style={{ backgroundColor: c }} />
-              )
-            )}
+        {loading ? (
+          <div className="h-[300px] flex items-center justify-center">
+            <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
           </div>
-          <span className="text-xs text-gray-500">High % increase</span>
-        </div>
+        ) : error ? (
+          <div className="h-[300px] flex items-center justify-center">
+            <p className="text-red-400 text-sm">{error}</p>
+          </div>
+        ) : (
+          <>
+            {/* Chart */}
+            <div className="h-[300px] mb-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <ScatterChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                  <XAxis
+                    dataKey="date"
+                    type="category"
+                    tick={{ fill: '#9ca3af', fontSize: 10 }}
+                    axisLine={{ stroke: '#374151' }}
+                    interval={Math.max(0, Math.floor(displayData.length / 6))}
+                  />
+                  <YAxis
+                    dataKey="price"
+                    type="number"
+                    scale="log"
+                    domain={['auto', 'auto']}
+                    tick={{ fill: '#9ca3af', fontSize: 11 }}
+                    axisLine={{ stroke: '#374151' }}
+                    tickFormatter={(v) => `$${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#111827',
+                      border: '1px solid #374151',
+                      borderRadius: '0.75rem',
+                      color: '#fff',
+                      fontSize: '12px',
+                    }}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    formatter={(value: any, name: any) => {
+                      if (name === 'price') return [`$${(value ?? 0).toLocaleString()}`, 'Price'];
+                      if (name === 'ma200w') return [`$${(value ?? 0).toLocaleString()}`, '200w MA'];
+                      return [`${(value ?? 0).toFixed(2)}%`, 'Monthly % Change'];
+                    }}
+                  />
+                  {/* Current price horizontal reference line */}
+                  {livePrice && (
+                    <ReferenceLine
+                      y={livePrice}
+                      stroke="#eab308"
+                      strokeDasharray="4 4"
+                      strokeWidth={1.5}
+                      label={{ value: `$${livePrice.toLocaleString()}`, fill: '#eab308', fontSize: 10, position: 'right' }}
+                    />
+                  )}
+                  <Scatter data={displayData} shape="circle">
+                    {displayData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={getHeatmapColor(entry.monthlyChange)}
+                        r={4}
+                      />
+                    ))}
+                  </Scatter>
+                </ScatterChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Color Legend */}
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <span className="text-xs text-gray-500">Low % increase</span>
+              <div className="flex h-3 rounded overflow-hidden">
+                {['#6366f1', '#818cf8', '#a78bfa', '#c084fc', '#e879f9', '#f472b6', '#fb923c', '#f87171', '#ef4444', '#dc2626'].map(
+                  (c) => (
+                    <div key={c} className="w-6 h-full" style={{ backgroundColor: c }} />
+                  )
+                )}
+              </div>
+              <span className="text-xs text-gray-500">High % increase</span>
+            </div>
+            <div className="flex items-center gap-4 mb-4 text-xs">
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-0 border-t-2 border-dashed border-yellow-500 inline-block" /> Current Price
+              </span>
+            </div>
+
+            {/* Live stats */}
+            {data.length > 0 && (
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="bg-gray-800/50 rounded-lg p-2 border border-gray-700/50">
+                  <p className="text-[10px] text-gray-500">200w MA</p>
+                  <p className="text-sm font-bold font-mono text-white">
+                    ${data[data.length - 1].ma200w.toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-gray-800/50 rounded-lg p-2 border border-gray-700/50">
+                  <p className="text-[10px] text-gray-500">Monthly MA Change</p>
+                  <p className={`text-sm font-bold font-mono ${data[data.length - 1].monthlyChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {data[data.length - 1].monthlyChange >= 0 ? '+' : ''}{data[data.length - 1].monthlyChange.toFixed(2)}%
+                  </p>
+                </div>
+                <div className="bg-gray-800/50 rounded-lg p-2 border border-gray-700/50">
+                  <p className="text-[10px] text-gray-500">Data Points</p>
+                  <p className="text-sm font-bold font-mono text-white">{data.length} weeks</p>
+                </div>
+              </div>
+            )}
+          </>
+        )}
 
         {/* Description Cards */}
         <div className="space-y-3">
@@ -193,89 +310,192 @@ function HeatmapCard({ symbol }: { symbol: string }) {
 }
 
 // ─── Stock-to-Flow Model Card ─────────────────────────────────────
-function StockToFlowCard({ symbol }: { symbol: string }) {
+function StockToFlowCard({ symbol, currentPrice }: { symbol: string; currentPrice?: number }) {
   const [expanded, setExpanded] = useState(false);
-  const data = generateStockToFlowData();
+  const [data, setData] = useState<S2FDataPoint[]>([]);
+  const [halvingDates, setHalvingDates] = useState<S2FHalvingDate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const pair = `${symbol}/USDT`;
+      const res = await fetch(`/api/crypto/s2f?symbol=${encodeURIComponent(pair)}`);
+      if (!res.ok) throw new Error('Failed to fetch S2F data');
+      const result = await res.json();
+      if (result.data && Array.isArray(result.data) && result.data.length > 0) {
+        setData(result.data);
+        setHalvingDates(result.halvingDates || []);
+        setError(null);
+      }
+      setLastUpdate(new Date());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  }, [symbol]);
+
+  useEffect(() => {
+    fetchData();
+    // Refresh daily data every 5 minutes; the latest day's price updates with currentPrice
+    intervalRef.current = setInterval(fetchData, 5 * 60 * 1000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [fetchData]);
+
+  // Update the last data point with live price
+  const displayData = data.length > 0 && currentPrice
+    ? data.map((d, i) => (i === data.length - 1 ? { ...d, actualPrice: currentPrice } : d))
+    : data;
+
+  // Downsample for X axis labels: show ~15 labels max
+  const labelInterval = Math.max(1, Math.floor(displayData.length / 15));
+
+  // Calculate Y-axis ticks with closer spacing (not just powers of 10)
+  const yTicks = [1000, 2000, 3000, 5000, 7000, 10000, 15000, 20000, 30000, 50000, 70000, 100000, 150000, 200000, 300000, 500000];
 
   return (
     <div className="bg-gray-900/50 border border-gray-800 rounded-2xl overflow-hidden">
       <div className="p-6">
-        <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
-          <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-          </svg>
-          Stock-to-Flow Model
-        </h3>
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            </svg>
+            Stock-to-Flow Model
+          </h3>
+          {lastUpdate && (
+            <span className="text-[10px] text-gray-600 flex items-center gap-1">
+              <span className="inline-block w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+              Live — daily data
+            </span>
+          )}
+        </div>
         <p className="text-gray-500 text-sm mb-4">
-          The Bitcoin Stock-to-Flow (S2F) model is a valuation framework that estimates Bitcoin&apos;s price
-          based on its scarcity, measured as the ratio between existing supply (stock) and new issuance (flow).
-          The model gained popularity for linking Bitcoin&apos;s supply schedule to long-term price behaviour,
-          particularly around halving events.
-        </p>
-        <p className="text-gray-500 text-sm mb-4">
-          It creates a line on the chart that shows an estimated price level based on the number of
-          bitcoins available in the market relative to the amount being produced (mined) each year.
-        </p>
-        <p className="text-gray-500 text-sm mb-4">
-          The score on the stock to flow line is the forecasted price for {symbol.toLowerCase() === 'btc' ? 'bitcoin' : symbol} at
-          that particular time. By hovering your cursor over the line on the chart, you can see the forecasted price.
-          To date, it has broadly forecasted price correctly as $BTC price has followed the stock to flow line.
+          Last two halving cycles. The S2F model estimates Bitcoin&apos;s price based on scarcity (stock / flow ratio).
+          Daily actual price shown against the model prediction.
         </p>
 
-        {/* Chart */}
-        <div className="h-[300px] mb-4">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-              <XAxis
-                dataKey="year"
-                tick={{ fill: '#9ca3af', fontSize: 11 }}
-                axisLine={{ stroke: '#374151' }}
-              />
-              <YAxis
-                scale="log"
-                domain={['auto', 'auto']}
-                tick={{ fill: '#9ca3af', fontSize: 11 }}
-                axisLine={{ stroke: '#374151' }}
-                tickFormatter={(v) => `$${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}`}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#111827',
-                  border: '1px solid #374151',
-                  borderRadius: '0.75rem',
-                  color: '#fff',
-                  fontSize: '12px',
-                }}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                formatter={(value: any, name: any) => [
-                  `$${(value ?? 0).toLocaleString()}`,
-                  name === 's2fPrice' ? 'S2F Model Price' : 'Actual Price',
-                ]}
-              />
-              <Line type="monotone" dataKey="s2fPrice" stroke="#a855f7" strokeWidth={2} dot={false} name="s2fPrice" />
-              <Line type="monotone" dataKey="actualPrice" stroke="#eab308" strokeWidth={1.5} dot={false} name="actualPrice" />
-              {/* Halving lines */}
-              <ReferenceLine x="2012" stroke="#374151" strokeDasharray="5 5" label={{ value: 'Halving 1', fill: '#6b7280', fontSize: 10 }} />
-              <ReferenceLine x="2016" stroke="#374151" strokeDasharray="5 5" label={{ value: 'Halving 2', fill: '#6b7280', fontSize: 10 }} />
-              <ReferenceLine x="2020" stroke="#374151" strokeDasharray="5 5" label={{ value: 'Halving 3', fill: '#6b7280', fontSize: 10 }} />
-              <ReferenceLine x="2024" stroke="#374151" strokeDasharray="5 5" label={{ value: 'Halving 4', fill: '#6b7280', fontSize: 10 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        {loading ? (
+          <div className="h-[380px] flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-gray-500 text-xs">Loading S2F data (fetching daily candles)...</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="h-[380px] flex items-center justify-center">
+            <p className="text-red-400 text-sm">{error}</p>
+          </div>
+        ) : (
+          <>
+            {/* Chart */}
+            <div className="h-[380px] mb-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={displayData} margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: '#9ca3af', fontSize: 10 }}
+                    axisLine={{ stroke: '#374151' }}
+                    interval={labelInterval}
+                    angle={-30}
+                    textAnchor="end"
+                    height={50}
+                  />
+                  <YAxis
+                    scale="log"
+                    domain={['auto', 'auto']}
+                    ticks={yTicks}
+                    tick={{ fill: '#9ca3af', fontSize: 10 }}
+                    axisLine={{ stroke: '#374151' }}
+                    tickFormatter={(v) => {
+                      if (v >= 1000) return `$${(v / 1000).toFixed(0)}k`;
+                      return `$${v}`;
+                    }}
+                    width={55}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#111827',
+                      border: '1px solid #374151',
+                      borderRadius: '0.75rem',
+                      color: '#fff',
+                      fontSize: '12px',
+                    }}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    formatter={(value: any, name: any) => [
+                      `$${(value ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+                      name === 's2fPrice' ? 'S2F Model Price' : 'Actual Price',
+                    ]}
+                    labelFormatter={(label) => `Date: ${label}`}
+                  />
+                  <Line type="monotone" dataKey="s2fPrice" stroke="#a855f7" strokeWidth={2} dot={false} name="s2fPrice" isAnimationActive={false} />
+                  <Line type="monotone" dataKey="actualPrice" stroke="#eab308" strokeWidth={1.5} dot={false} name="actualPrice" isAnimationActive={false} />
+                  {/* Halving lines from API data */}
+                  {halvingDates.map((h) => (
+                    <ReferenceLine
+                      key={h.date}
+                      x={h.date}
+                      stroke="#374151"
+                      strokeDasharray="5 5"
+                      label={{ value: h.label, fill: '#6b7280', fontSize: 10 }}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
 
-        {/* Legend */}
-        <div className="flex items-center gap-6 mb-4 text-xs">
-          <span className="flex items-center gap-1.5">
-            <span className="w-4 h-0.5 bg-purple-500 inline-block rounded" /> S2F Model Price
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-4 h-0.5 bg-yellow-500 inline-block rounded" /> Actual Price
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-4 h-px bg-gray-500 inline-block border-dashed border-t border-gray-500" /> Halving Events
-          </span>
-        </div>
+            {/* Legend */}
+            <div className="flex items-center gap-6 mb-4 text-xs">
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-0.5 bg-purple-500 inline-block rounded" /> S2F Model Price
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-0.5 bg-yellow-500 inline-block rounded" /> Actual Price
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-px bg-gray-500 inline-block border-dashed border-t border-gray-500" /> Halving Events
+              </span>
+            </div>
+
+            {/* Live stats */}
+            {data.length > 0 && (
+              <div className="grid grid-cols-4 gap-3 mb-4">
+                <div className="bg-gray-800/50 rounded-lg p-2 border border-gray-700/50">
+                  <p className="text-[10px] text-gray-500">S2F Model Price</p>
+                  <p className="text-sm font-bold font-mono text-purple-400">
+                    ${data[data.length - 1].s2fPrice.toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-gray-800/50 rounded-lg p-2 border border-gray-700/50">
+                  <p className="text-[10px] text-gray-500">Actual Price</p>
+                  <p className="text-sm font-bold font-mono text-yellow-400">
+                    ${(currentPrice || data[data.length - 1].actualPrice).toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-gray-800/50 rounded-lg p-2 border border-gray-700/50">
+                  <p className="text-[10px] text-gray-500">S2F Ratio</p>
+                  <p className="text-sm font-bold font-mono text-white">
+                    {data[data.length - 1].s2fRatio}
+                  </p>
+                </div>
+                <div className="bg-gray-800/50 rounded-lg p-2 border border-gray-700/50">
+                  <p className="text-[10px] text-gray-500">Deviation</p>
+                  <p className={`text-sm font-bold font-mono ${
+                    (currentPrice || data[data.length - 1].actualPrice) > data[data.length - 1].s2fPrice ? 'text-red-400' : 'text-green-400'
+                  }`}>
+                    {(((currentPrice || data[data.length - 1].actualPrice) - data[data.length - 1].s2fPrice) / data[data.length - 1].s2fPrice * 100).toFixed(1)}%
+                  </p>
+                </div>
+              </div>
+            )}
+          </>
+        )}
 
         <DescriptionCard
           title="How To View The Chart"
@@ -1282,40 +1502,7 @@ function getHeatmapColor(pctChange: number): string {
   return '#6366f1';
 }
 
-function generateHeatmapData() {
-  const data: { week: number; price: number; ma200w: number; monthlyChange: number }[] = [];
-  let price = 1;
-  let ma = 1;
-
-  for (let w = 0; w < 600; w++) {
-    // Simulate BTC-like price with halving cycles
-    const cycle = Math.sin((w / 209) * Math.PI * 2) * 0.02;
-    const trend = 0.003;
-    const noise = (Math.random() - 0.48) * 0.06;
-    price *= 1 + trend + cycle + noise;
-    if (price < 0.1) price = 0.1;
-
-    ma = ma * 0.99 + price * 0.01; // simplified 200w MA approximation
-    const monthlyChange = w > 4 ? ((ma - (data[w - 4]?.ma200w || ma)) / (data[w - 4]?.ma200w || ma)) * 100 : 0;
-
-    data.push({ week: w, price: Math.round(price * 100) / 100, ma200w: Math.round(ma * 100) / 100, monthlyChange });
-  }
-
-  return data;
-}
-
-function generateStockToFlowData() {
-  const data: { year: string; s2fPrice: number; actualPrice: number }[] = [];
-  const years = ['2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025', '2026'];
-  const s2fValues = [0.1, 1, 10, 100, 300, 500, 800, 5000, 8000, 10000, 30000, 100000, 50000, 30000, 60000, 100000, 150000];
-  const actualValues = [0.05, 0.5, 5, 150, 800, 250, 400, 15000, 3500, 8000, 10000, 65000, 17000, 28000, 45000, 95000, 105000];
-
-  for (let i = 0; i < years.length; i++) {
-    data.push({ year: years[i], s2fPrice: s2fValues[i], actualPrice: actualValues[i] });
-  }
-
-  return data;
-}
+// generateHeatmapData and generateStockToFlowData removed — now using real API data
 
 function generateSTHMVRVData() {
   const data: { date: string; value: number }[] = [];
