@@ -1,0 +1,1548 @@
+'use client';
+
+import { useState, useCallback, useEffect, useRef } from 'react';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  AreaChart,
+  Area,
+  ReferenceLine,
+  ScatterChart,
+  Scatter,
+  Cell,
+} from 'recharts';
+
+// ─── Types ────────────────────────────────────────────────────────
+type Section = 'market-cycle' | 'ratio-indicators' | 'risk-manager';
+
+interface TradeIdeasProps {
+  symbol: string;
+  currentPrice?: number;
+}
+
+// ─── Heatmap & S2F data types ────────────────────────────────────
+interface HeatmapDataPoint {
+  date: string;
+  week: number;
+  price: number;
+  ma200w: number;
+  monthlyChange: number;
+}
+
+interface S2FDataPoint {
+  date: string;
+  actualPrice: number;
+  s2fPrice: number;
+  s2fRatio: number;
+  stock: number;
+}
+
+interface S2FHalvingDate {
+  date: string;
+  blockReward: number;
+  label: string;
+}
+
+interface StopLossSimView {
+  type: 'atr' | 'technical' | 'trailing' | 'ratio';
+  label: string;
+}
+
+// ─── Monte Carlo result types ─────────────────────────────────────
+interface MonteCarloResult {
+  paths: number[][];
+  cvar95: number;
+  cvar99: number;
+  maxDrawdown: number;
+  meanReturn: number;
+  medianReturn: number;
+  percentile5: number;
+  percentile95: number;
+}
+
+// ─── Component ────────────────────────────────────────────────────
+export default function TradeIdeas({ symbol, currentPrice }: TradeIdeasProps) {
+  const [activeSection, setActiveSection] = useState<Section>('market-cycle');
+
+  const sections: { id: Section; label: string }[] = [
+    { id: 'market-cycle', label: 'Market Cycle' },
+    { id: 'ratio-indicators', label: 'Ratio Indicators' },
+    { id: 'risk-manager', label: 'Risk Manager' },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Fixed Section Navigation */}
+      <div className="sticky top-[73px] z-30 bg-black/90 backdrop-blur-sm pb-2 pt-2 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+        <div className="flex items-center gap-2 bg-gray-900/80 border border-gray-800 rounded-2xl p-1.5 overflow-x-auto">
+          {sections.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setActiveSection(s.id)}
+              className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-medium text-sm transition-all whitespace-nowrap ${
+                activeSection === s.id
+                  ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Section Content */}
+      {activeSection === 'market-cycle' && <MarketCycleSection symbol={symbol} currentPrice={currentPrice} />}
+      {activeSection === 'ratio-indicators' && <RatioIndicatorsSection symbol={symbol} />}
+      {activeSection === 'risk-manager' && <RiskManagerSection symbol={symbol} />}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MARKET CYCLE SECTION
+// ═══════════════════════════════════════════════════════════════════
+function MarketCycleSection({ symbol, currentPrice }: { symbol: string; currentPrice?: number }) {
+  return (
+    <div className="space-y-6">
+      <HeatmapCard symbol={symbol} currentPrice={currentPrice} />
+      <StockToFlowCard symbol={symbol} currentPrice={currentPrice} />
+    </div>
+  );
+}
+
+// ─── 200 Week Moving Average Heatmap Card ─────────────────────────
+function HeatmapCard({ symbol, currentPrice }: { symbol: string; currentPrice?: number }) {
+  const [expanded, setExpanded] = useState(false);
+  const [data, setData] = useState<HeatmapDataPoint[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const pair = `${symbol}/USDT`;
+      const res = await fetch(`/api/crypto/heatmap?symbol=${encodeURIComponent(pair)}`);
+      if (!res.ok) throw new Error('Failed to fetch heatmap data');
+      const result: HeatmapDataPoint[] = await res.json();
+      if (Array.isArray(result) && result.length > 0) {
+        setData(result);
+        setError(null);
+      }
+      setLastUpdate(new Date());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  }, [symbol]);
+
+  useEffect(() => {
+    fetchData();
+    // Refresh weekly data every 5 minutes (the data itself is weekly, but we refresh for the latest week)
+    intervalRef.current = setInterval(fetchData, 5 * 60 * 1000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [fetchData]);
+
+  // If we have live price data, update the last data point
+  const displayData = data.length > 0 && currentPrice
+    ? data.map((d, i) => (i === data.length - 1 ? { ...d, price: currentPrice } : d))
+    : data;
+
+  const livePrice = currentPrice || (data.length > 0 ? data[data.length - 1]?.price : undefined);
+
+  return (
+    <div className="bg-gray-900/50 border border-gray-800 rounded-2xl overflow-hidden">
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <svg className="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            200 Week Moving Average Heatmap
+          </h3>
+          {lastUpdate && (
+            <span className="text-[10px] text-gray-600 flex items-center gap-1">
+              <span className="inline-block w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+              Live — weekly data
+            </span>
+          )}
+        </div>
+        <p className="text-gray-500 text-sm mb-4">
+          Shows 200w MA vs {symbol} Price with dots showing % monthly increase of 200w MA
+        </p>
+
+        {loading ? (
+          <div className="h-[300px] flex items-center justify-center">
+            <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : error ? (
+          <div className="h-[300px] flex items-center justify-center">
+            <p className="text-red-400 text-sm">{error}</p>
+          </div>
+        ) : (
+          <>
+            {/* Chart */}
+            <div className="h-[300px] mb-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <ScatterChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                  <XAxis
+                    dataKey="date"
+                    type="category"
+                    tick={{ fill: '#9ca3af', fontSize: 10 }}
+                    axisLine={{ stroke: '#374151' }}
+                    interval={Math.max(0, Math.floor(displayData.length / 6))}
+                  />
+                  <YAxis
+                    dataKey="price"
+                    type="number"
+                    scale="log"
+                    domain={['auto', 'auto']}
+                    tick={{ fill: '#9ca3af', fontSize: 11 }}
+                    axisLine={{ stroke: '#374151' }}
+                    tickFormatter={(v) => `$${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#111827',
+                      border: '1px solid #374151',
+                      borderRadius: '0.75rem',
+                      color: '#fff',
+                      fontSize: '12px',
+                    }}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    formatter={(value: any, name: any) => {
+                      if (name === 'price') return [`$${(value ?? 0).toLocaleString()}`, 'Price'];
+                      if (name === 'ma200w') return [`$${(value ?? 0).toLocaleString()}`, '200w MA'];
+                      return [`${(value ?? 0).toFixed(2)}%`, 'Monthly % Change'];
+                    }}
+                  />
+                  {/* Current price horizontal reference line */}
+                  {livePrice && (
+                    <ReferenceLine
+                      y={livePrice}
+                      stroke="#eab308"
+                      strokeDasharray="4 4"
+                      strokeWidth={1.5}
+                      label={{ value: `$${livePrice.toLocaleString()}`, fill: '#eab308', fontSize: 10, position: 'right' }}
+                    />
+                  )}
+                  <Scatter data={displayData} shape="circle">
+                    {displayData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={getHeatmapColor(entry.monthlyChange)}
+                        r={4}
+                      />
+                    ))}
+                  </Scatter>
+                </ScatterChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Color Legend */}
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <span className="text-xs text-gray-500">Low % increase</span>
+              <div className="flex h-3 rounded overflow-hidden">
+                {['#6366f1', '#818cf8', '#a78bfa', '#c084fc', '#e879f9', '#f472b6', '#fb923c', '#f87171', '#ef4444', '#dc2626'].map(
+                  (c) => (
+                    <div key={c} className="w-6 h-full" style={{ backgroundColor: c }} />
+                  )
+                )}
+              </div>
+              <span className="text-xs text-gray-500">High % increase</span>
+            </div>
+            <div className="flex items-center gap-4 mb-4 text-xs">
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-0 border-t-2 border-dashed border-yellow-500 inline-block" /> Current Price
+              </span>
+            </div>
+
+            {/* Live stats */}
+            {data.length > 0 && (
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="bg-gray-800/50 rounded-lg p-2 border border-gray-700/50">
+                  <p className="text-[10px] text-gray-500">200w MA</p>
+                  <p className="text-sm font-bold font-mono text-white">
+                    ${data[data.length - 1].ma200w.toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-gray-800/50 rounded-lg p-2 border border-gray-700/50">
+                  <p className="text-[10px] text-gray-500">Monthly MA Change</p>
+                  <p className={`text-sm font-bold font-mono ${data[data.length - 1].monthlyChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {data[data.length - 1].monthlyChange >= 0 ? '+' : ''}{data[data.length - 1].monthlyChange.toFixed(2)}%
+                  </p>
+                </div>
+                <div className="bg-gray-800/50 rounded-lg p-2 border border-gray-700/50">
+                  <p className="text-[10px] text-gray-500">Data Points</p>
+                  <p className="text-sm font-bold font-mono text-white">{data.length} weeks</p>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Description Cards */}
+        <div className="space-y-3">
+          <DescriptionCard
+            title="How It Can Be Used"
+            content="The long term Bitcoin investor can monitor the monthly colour changes. Historically, when we see orange and red dots assigned to the price chart, this has been a good time to sell Bitcoin as the market overheats. Periods where the price dots are purple and close to the 200 week MA have historically been good times to buy."
+          />
+          <DescriptionCard
+            title="Bitcoin Price Prediction Using This Tool"
+            content={`If you are looking to predict the price of Bitcoin or forecast where it may go in the future, the 200WMA heatmap can be a useful tool as it shows on a historical basis whether the current price is overextending (red dots) and may need to cool down. It can also show when Bitcoin price may be good value on a historical basis. This can be when the dots on the chart are purple or blue.`}
+            collapsed={!expanded}
+            onToggle={() => setExpanded(!expanded)}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Stock-to-Flow Model Card ─────────────────────────────────────
+function StockToFlowCard({ symbol, currentPrice }: { symbol: string; currentPrice?: number }) {
+  const [expanded, setExpanded] = useState(false);
+  const [data, setData] = useState<S2FDataPoint[]>([]);
+  const [halvingDates, setHalvingDates] = useState<S2FHalvingDate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const pair = `${symbol}/USDT`;
+      const res = await fetch(`/api/crypto/s2f?symbol=${encodeURIComponent(pair)}`);
+      if (!res.ok) throw new Error('Failed to fetch S2F data');
+      const result = await res.json();
+      if (result.data && Array.isArray(result.data) && result.data.length > 0) {
+        setData(result.data);
+        setHalvingDates(result.halvingDates || []);
+        setError(null);
+      }
+      setLastUpdate(new Date());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  }, [symbol]);
+
+  useEffect(() => {
+    fetchData();
+    // Refresh daily data every 5 minutes; the latest day's price updates with currentPrice
+    intervalRef.current = setInterval(fetchData, 5 * 60 * 1000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [fetchData]);
+
+  // Update the last data point with live price
+  const displayData = data.length > 0 && currentPrice
+    ? data.map((d, i) => (i === data.length - 1 ? { ...d, actualPrice: currentPrice } : d))
+    : data;
+
+  // Downsample for X axis labels: show ~15 labels max
+  const labelInterval = Math.max(1, Math.floor(displayData.length / 15));
+
+  // Calculate Y-axis ticks with closer spacing (not just powers of 10)
+  const yTicks = [1000, 2000, 3000, 5000, 7000, 10000, 15000, 20000, 30000, 50000, 70000, 100000, 150000, 200000, 300000, 500000];
+
+  return (
+    <div className="bg-gray-900/50 border border-gray-800 rounded-2xl overflow-hidden">
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            </svg>
+            Stock-to-Flow Model
+          </h3>
+          {lastUpdate && (
+            <span className="text-[10px] text-gray-600 flex items-center gap-1">
+              <span className="inline-block w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+              Live — daily data
+            </span>
+          )}
+        </div>
+        <p className="text-gray-500 text-sm mb-4">
+          Last two halving cycles. The S2F model estimates Bitcoin&apos;s price based on scarcity (stock / flow ratio).
+          Daily actual price shown against the model prediction.
+        </p>
+
+        {loading ? (
+          <div className="h-[380px] flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-gray-500 text-xs">Loading S2F data (fetching daily candles)...</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="h-[380px] flex items-center justify-center">
+            <p className="text-red-400 text-sm">{error}</p>
+          </div>
+        ) : (
+          <>
+            {/* Chart */}
+            <div className="h-[380px] mb-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={displayData} margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: '#9ca3af', fontSize: 10 }}
+                    axisLine={{ stroke: '#374151' }}
+                    interval={labelInterval}
+                    angle={-30}
+                    textAnchor="end"
+                    height={50}
+                  />
+                  <YAxis
+                    scale="log"
+                    domain={['auto', 'auto']}
+                    ticks={yTicks}
+                    tick={{ fill: '#9ca3af', fontSize: 10 }}
+                    axisLine={{ stroke: '#374151' }}
+                    tickFormatter={(v) => {
+                      if (v >= 1000) return `$${(v / 1000).toFixed(0)}k`;
+                      return `$${v}`;
+                    }}
+                    width={55}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#111827',
+                      border: '1px solid #374151',
+                      borderRadius: '0.75rem',
+                      color: '#fff',
+                      fontSize: '12px',
+                    }}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    formatter={(value: any, name: any) => [
+                      `$${(value ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+                      name === 's2fPrice' ? 'S2F Model Price' : 'Actual Price',
+                    ]}
+                    labelFormatter={(label) => `Date: ${label}`}
+                  />
+                  <Line type="monotone" dataKey="s2fPrice" stroke="#a855f7" strokeWidth={2} dot={false} name="s2fPrice" isAnimationActive={false} />
+                  <Line type="monotone" dataKey="actualPrice" stroke="#eab308" strokeWidth={1.5} dot={false} name="actualPrice" isAnimationActive={false} />
+                  {/* Halving lines from API data */}
+                  {halvingDates.map((h) => (
+                    <ReferenceLine
+                      key={h.date}
+                      x={h.date}
+                      stroke="#374151"
+                      strokeDasharray="5 5"
+                      label={{ value: h.label, fill: '#6b7280', fontSize: 10 }}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Legend */}
+            <div className="flex items-center gap-6 mb-4 text-xs">
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-0.5 bg-purple-500 inline-block rounded" /> S2F Model Price
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-0.5 bg-yellow-500 inline-block rounded" /> Actual Price
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-px bg-gray-500 inline-block border-dashed border-t border-gray-500" /> Halving Events
+              </span>
+            </div>
+
+            {/* Live stats */}
+            {data.length > 0 && (
+              <div className="grid grid-cols-4 gap-3 mb-4">
+                <div className="bg-gray-800/50 rounded-lg p-2 border border-gray-700/50">
+                  <p className="text-[10px] text-gray-500">S2F Model Price</p>
+                  <p className="text-sm font-bold font-mono text-purple-400">
+                    ${data[data.length - 1].s2fPrice.toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-gray-800/50 rounded-lg p-2 border border-gray-700/50">
+                  <p className="text-[10px] text-gray-500">Actual Price</p>
+                  <p className="text-sm font-bold font-mono text-yellow-400">
+                    ${(currentPrice || data[data.length - 1].actualPrice).toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-gray-800/50 rounded-lg p-2 border border-gray-700/50">
+                  <p className="text-[10px] text-gray-500">S2F Ratio</p>
+                  <p className="text-sm font-bold font-mono text-white">
+                    {data[data.length - 1].s2fRatio}
+                  </p>
+                </div>
+                <div className="bg-gray-800/50 rounded-lg p-2 border border-gray-700/50">
+                  <p className="text-[10px] text-gray-500">Deviation</p>
+                  <p className={`text-sm font-bold font-mono ${
+                    (currentPrice || data[data.length - 1].actualPrice) > data[data.length - 1].s2fPrice ? 'text-red-400' : 'text-green-400'
+                  }`}>
+                    {(((currentPrice || data[data.length - 1].actualPrice) - data[data.length - 1].s2fPrice) / data[data.length - 1].s2fPrice * 100).toFixed(1)}%
+                  </p>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        <DescriptionCard
+          title="How To View The Chart"
+          content={`On the above bitcoin chart, price is overlaid on top of the stock-to-flow ratio line. We can see that price has continued to follow the stock-to-flow of Bitcoin over time. The theory, therefore, suggests that we can project where price may go by observing the projected stock-to-flow line, which can be calculated as we know the approximate mining schedule of future Bitcoin mining.
+
+The colored dots on the price line of this chart show the number of days until the next Bitcoin halving (sometimes called 'halvening') event. This is an event where the reward for mining new blocks is halved, meaning miners receive 50% fewer bitcoins for verifying transactions.
+
+Bitcoin halvings are scheduled to occur every 210,000 blocks – roughly every four years – until the maximum supply of 21 million bitcoins has been generated by the network. That makes the stock-to-flow ratio (scarcity) higher so in theory price should go up. This has held true previously in Bitcoin's history.
+
+The stock-to-flow line on this chart incorporates a 365-day average into the model to smooth out the changes caused in the market by the halving events.
+
+In addition to the main stock-to-flow chart, we created an additional tool for you to use which is free. It is located at the lower section of the chart and is a divergence chart tool. It shows the difference between price and stock-to-flow.
+
+When price moves above the stock-to-flow level, the divergence line turns from green to red. When price moves below the stock-to-flow line the divergence tool turns from red to green. Because of this, it allows us to easily see how price interacts with stock-to-flow through market cycles over time. This divergence line is also sometimes referred to as 'Stock-to-flow Deflection Bitcoin'.`}
+          collapsed={!expanded}
+          onToggle={() => setExpanded(!expanded)}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RATIO INDICATORS SECTION
+// ═══════════════════════════════════════════════════════════════════
+function RatioIndicatorsSection({ symbol }: { symbol: string }) {
+  return (
+    <div className="space-y-6">
+      <STHMVRVCard symbol={symbol} />
+      <MVRVZScoreCard symbol={symbol} />
+    </div>
+  );
+}
+
+// ─── Short Term Holder MVRV Card ──────────────────────────────────
+function STHMVRVCard({ symbol }: { symbol: string }) {
+  const data = generateSTHMVRVData();
+
+  return (
+    <div className="bg-gray-900/50 border border-gray-800 rounded-2xl overflow-hidden">
+      <div className="p-6">
+        <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
+          <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          Short Term Holder MVRV
+        </h3>
+        <p className="text-gray-500 text-sm mb-4">
+          Short-Term Holder MVRV (STH-MVRV) is MVRV that only analyses UTXOs younger than 155 days.
+          As a result it is focussed only on shorter-term investors who are moving coins within a less
+          than 155 days period.
+        </p>
+        <p className="text-gray-500 text-sm mb-4">
+          <span className="text-gray-400 font-medium">What is MVRV?</span> The ratio between Market Value
+          (price multiplied by bitcoins in circulation) and Realized Value (the price of UTXO&apos;s when they
+          last moved onchain).
+        </p>
+        <p className="text-gray-500 text-sm mb-4">
+          Short-Term Holder MVRV is useful as it can highlight when the market value of {symbol.toLowerCase() === 'btc' ? 'bitcoin' : symbol} is
+          significantly higher or lower than the average cost basis for short-term market participants.
+          Historically, these periods have coincided with $BTC being near its respective market highs and
+          lows as shown on the chart above.
+        </p>
+
+        {/* Chart */}
+        <div className="h-[280px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data} margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+              <defs>
+                <linearGradient id="sthMvrvGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+              <XAxis
+                dataKey="date"
+                tick={{ fill: '#9ca3af', fontSize: 11 }}
+                axisLine={{ stroke: '#374151' }}
+              />
+              <YAxis
+                tick={{ fill: '#9ca3af', fontSize: 11 }}
+                axisLine={{ stroke: '#374151' }}
+                tickFormatter={(v) => v.toFixed(1)}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#111827',
+                  border: '1px solid #374151',
+                  borderRadius: '0.75rem',
+                  color: '#fff',
+                  fontSize: '12px',
+                }}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                formatter={(value: any) => [(value ?? 0).toFixed(3), 'STH-MVRV']}
+              />
+              <ReferenceLine y={1} stroke="#eab308" strokeDasharray="5 5" label={{ value: 'Break-even', fill: '#eab308', fontSize: 10 }} />
+              <ReferenceLine y={1.4} stroke="#ef4444" strokeDasharray="3 3" label={{ value: 'Overvalued', fill: '#ef4444', fontSize: 10 }} />
+              <ReferenceLine y={0.7} stroke="#22c55e" strokeDasharray="3 3" label={{ value: 'Undervalued', fill: '#22c55e', fontSize: 10 }} />
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke="#06b6d4"
+                strokeWidth={2}
+                fill="url(#sthMvrvGrad)"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── MVRV Z-Score Card ────────────────────────────────────────────
+function MVRVZScoreCard({ symbol }: { symbol: string }) {
+  const data = generateMVRVZScoreData();
+
+  return (
+    <div className="bg-gray-900/50 border border-gray-800 rounded-2xl overflow-hidden">
+      <div className="p-6">
+        <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
+          <svg className="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+          </svg>
+          MVRV Z-Score
+        </h3>
+        <p className="text-gray-500 text-sm mb-4">
+          MVRV Z-Score is a {symbol.toLowerCase() === 'btc' ? 'bitcoin' : symbol} chart that uses blockchain analysis to identify
+          periods where Bitcoin is extremely over or undervalued relative to its &apos;fair value&apos;.
+        </p>
+
+        {/* Metrics Description */}
+        <div className="space-y-3 mb-6">
+          <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
+            <p className="text-sm text-white font-medium mb-1">1. Market Value (black line)</p>
+            <p className="text-xs text-gray-400">
+              The current price of Bitcoin multiplied by the number of coins in circulation.
+              This is like market cap in traditional markets i.e. share price multiplied by number of shares.
+            </p>
+          </div>
+          <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
+            <p className="text-sm text-white font-medium mb-1">2. Realised Value (blue line)</p>
+            <p className="text-xs text-gray-400">
+              Rather than taking the current price of Bitcoin, Realised Value takes the price of each Bitcoin
+              when it was last moved i.e. the last time it was sent from one wallet to another wallet. It then
+              adds up all those individual prices and takes an average of them. It then multiplies that average
+              price by the total number of coins in circulation. In doing so, it strips out the short term
+              market sentiment. It can therefore be seen as a more &apos;true&apos; long term measure of Bitcoin value.
+            </p>
+          </div>
+          <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
+            <p className="text-sm text-white font-medium mb-1">3. Z-Score (orange line)</p>
+            <p className="text-xs text-gray-400">
+              A standard deviation test that pulls out the extremes in the data between market value and realised value.
+            </p>
+          </div>
+        </div>
+
+        {/* Chart */}
+        <div className="h-[300px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data} margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+              <XAxis
+                dataKey="date"
+                tick={{ fill: '#9ca3af', fontSize: 11 }}
+                axisLine={{ stroke: '#374151' }}
+              />
+              <YAxis
+                yAxisId="price"
+                orientation="left"
+                tick={{ fill: '#9ca3af', fontSize: 11 }}
+                axisLine={{ stroke: '#374151' }}
+                tickFormatter={(v) => `$${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}`}
+              />
+              <YAxis
+                yAxisId="zscore"
+                orientation="right"
+                tick={{ fill: '#9ca3af', fontSize: 11 }}
+                axisLine={{ stroke: '#374151' }}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#111827',
+                  border: '1px solid #374151',
+                  borderRadius: '0.75rem',
+                  color: '#fff',
+                  fontSize: '12px',
+                }}
+              />
+              <ReferenceLine yAxisId="zscore" y={7} stroke="#ef4444" strokeDasharray="3 3" label={{ value: 'Overvalued', fill: '#ef4444', fontSize: 10 }} />
+              <ReferenceLine yAxisId="zscore" y={0} stroke="#6b7280" strokeDasharray="3 3" />
+              <ReferenceLine yAxisId="zscore" y={-0.5} stroke="#22c55e" strokeDasharray="3 3" label={{ value: 'Undervalued', fill: '#22c55e', fontSize: 10 }} />
+              <Line yAxisId="price" type="monotone" dataKey="marketValue" stroke="#ffffff" strokeWidth={1.5} dot={false} name="Market Value" />
+              <Line yAxisId="price" type="monotone" dataKey="realisedValue" stroke="#3b82f6" strokeWidth={1.5} dot={false} name="Realised Value" />
+              <Line yAxisId="zscore" type="monotone" dataKey="zScore" stroke="#f97316" strokeWidth={2} dot={false} name="Z-Score" />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Legend */}
+        <div className="flex items-center gap-6 mt-3 text-xs flex-wrap">
+          <span className="flex items-center gap-1.5">
+            <span className="w-4 h-0.5 bg-white inline-block rounded" /> Market Value
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-4 h-0.5 bg-blue-500 inline-block rounded" /> Realised Value
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-4 h-0.5 bg-orange-500 inline-block rounded" /> Z-Score
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RISK MANAGER SECTION
+// ═══════════════════════════════════════════════════════════════════
+function RiskManagerSection({ symbol }: { symbol: string }) {
+  return (
+    <div className="space-y-6">
+      <PositionCard symbol={symbol} />
+      <CVaRMonteCarloCard symbol={symbol} />
+      <StopLossCard symbol={symbol} />
+    </div>
+  );
+}
+
+// ─── Position Sizing Card ─────────────────────────────────────────
+function PositionCard({ symbol }: { symbol: string }) {
+  // Position Size Calculator
+  const [accountRisk, setAccountRisk] = useState('100');
+  const [entryPrice, setEntryPrice] = useState('');
+  const [stopLossPrice, setStopLossPrice] = useState('');
+
+  // Kelly Criterion
+  const [winRate, setWinRate] = useState('55');
+  const [winLossRatio, setWinLossRatio] = useState('2');
+
+  // Sharpe / Sortino time window
+  const [timeWindow, setTimeWindow] = useState('30');
+  const [avgReturn, setAvgReturn] = useState('0.5');
+  const [riskFreeRate, setRiskFreeRate] = useState('0.02');
+  const [totalVol, setTotalVol] = useState('15');
+  const [downVol, setDownVol] = useState('10');
+
+  const positionSize =
+    entryPrice && stopLossPrice && parseFloat(entryPrice) !== parseFloat(stopLossPrice)
+      ? parseFloat(accountRisk) / Math.abs(parseFloat(entryPrice) - parseFloat(stopLossPrice))
+      : null;
+
+  const p = parseFloat(winRate) / 100;
+  const b = parseFloat(winLossRatio);
+  const q = 1 - p;
+  const kelly = b > 0 ? ((b * p - q) / b) * 100 : 0;
+
+  const sharpe =
+    parseFloat(totalVol) > 0
+      ? (parseFloat(avgReturn) - parseFloat(riskFreeRate)) / parseFloat(totalVol)
+      : 0;
+
+  const sortino =
+    parseFloat(downVol) > 0
+      ? (parseFloat(avgReturn) - parseFloat(riskFreeRate)) / parseFloat(downVol)
+      : 0;
+
+  return (
+    <div className="bg-gray-900/50 border border-gray-800 rounded-2xl overflow-hidden">
+      <div className="p-6">
+        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+          <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Position Sizing
+        </h3>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Position Size Calculator */}
+          <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
+            <h4 className="text-sm font-semibold text-white mb-3">Position Size Calculator</h4>
+            <p className="text-xs text-gray-500 mb-3">Position Size = Account Risk / (Entry Price - Stop-Loss Price)</p>
+            <div className="space-y-3">
+              <InputField label="Account Risk ($)" value={accountRisk} onChange={setAccountRisk} placeholder="100" />
+              <InputField label={`Entry Price ($)`} value={entryPrice} onChange={setEntryPrice} placeholder="50000" />
+              <InputField label={`Stop-Loss Price ($)`} value={stopLossPrice} onChange={setStopLossPrice} placeholder="48000" />
+              <div className="bg-gray-900/80 rounded-lg p-3 border border-gray-700">
+                <p className="text-xs text-gray-500">Position Size</p>
+                <p className="text-xl font-bold font-mono text-yellow-400">
+                  {positionSize !== null ? `${positionSize.toFixed(6)} ${symbol}` : '—'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Kelly Criterion */}
+          <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
+            <h4 className="text-sm font-semibold text-white mb-3">Kelly Criterion</h4>
+            <p className="text-xs text-gray-500 mb-3">f* = (bp - q) / b</p>
+            <div className="space-y-3">
+              <InputField label="Win Rate (%)" value={winRate} onChange={setWinRate} placeholder="55" />
+              <InputField label="Win/Loss Ratio (b)" value={winLossRatio} onChange={setWinLossRatio} placeholder="2" />
+              <div className="bg-gray-900/80 rounded-lg p-3 border border-gray-700">
+                <p className="text-xs text-gray-500">Optimal Bet Size (f*)</p>
+                <p className={`text-xl font-bold font-mono ${kelly > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {kelly.toFixed(2)}%
+                </p>
+                <p className="text-xs text-gray-600 mt-1">
+                  {kelly > 0 ? 'Positive edge — bet within Kelly fraction' : 'Negative edge — do not bet'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Sharpe & Sortino Ratios */}
+          <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50 lg:col-span-2">
+            <h4 className="text-sm font-semibold text-white mb-3">Sharpe & Sortino Ratios</h4>
+            <p className="text-xs text-gray-500 mb-3">
+              <span className="text-gray-400">Sharpe:</span> Excess return per unit of total volatility.{' '}
+              <span className="text-gray-400">Sortino (Preferred for Crypto):</span> Only penalizes downside
+              volatility. Since crypto &quot;moons&quot; are technically a form of volatility, the Sharpe ratio might
+              make a great trade look &quot;risky.&quot; The Sortino ratio ignores upside volatility and only looks at the
+              risk of losing money.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
+              <InputField label="Time Window (days)" value={timeWindow} onChange={setTimeWindow} placeholder="30" />
+              <InputField label="Avg Return (%)" value={avgReturn} onChange={setAvgReturn} placeholder="0.5" />
+              <InputField label="Risk-Free Rate (%)" value={riskFreeRate} onChange={setRiskFreeRate} placeholder="0.02" />
+              <InputField label="Total Volatility (%)" value={totalVol} onChange={setTotalVol} placeholder="15" />
+              <InputField label="Downside Volatility (%)" value={downVol} onChange={setDownVol} placeholder="10" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-gray-900/80 rounded-lg p-3 border border-gray-700">
+                <p className="text-xs text-gray-500">Sharpe Ratio</p>
+                <p className={`text-xl font-bold font-mono ${sharpe > 1 ? 'text-green-400' : sharpe > 0 ? 'text-yellow-400' : 'text-red-400'}`}>
+                  {sharpe.toFixed(4)}
+                </p>
+              </div>
+              <div className="bg-gray-900/80 rounded-lg p-3 border border-gray-700">
+                <p className="text-xs text-gray-500">Sortino Ratio</p>
+                <p className={`text-xl font-bold font-mono ${sortino > 1 ? 'text-green-400' : sortino > 0 ? 'text-yellow-400' : 'text-red-400'}`}>
+                  {sortino.toFixed(4)}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── CVaR Monte Carlo Card ────────────────────────────────────────
+function CVaRMonteCarloCard({ symbol }: { symbol: string }) {
+  const [numSims, setNumSims] = useState('1000');
+  const [numDays, setNumDays] = useState('252');
+  const [initInvestment, setInitInvestment] = useState('10000');
+  const [expectedReturn, setExpectedReturn] = useState('0.05');
+  const [volatility, setVolatility] = useState('60');
+  const [confidenceLevel, setConfidenceLevel] = useState('95');
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<MonteCarloResult | null>(null);
+
+  const runSimulation = useCallback(() => {
+    setRunning(true);
+
+    // Run the Monte Carlo simulation in next tick to allow UI update
+    setTimeout(() => {
+      const sims = parseInt(numSims) || 1000;
+      const days = parseInt(numDays) || 252;
+      const init = parseFloat(initInvestment) || 10000;
+      const mu = (parseFloat(expectedReturn) || 0.05) / 252; // daily
+      const sigma = (parseFloat(volatility) || 60) / 100 / Math.sqrt(252); // daily vol
+      const conf = (parseFloat(confidenceLevel) || 95) / 100;
+
+      const finalValues: number[] = [];
+      const maxDrawdowns: number[] = [];
+      const paths: number[][] = [];
+      const pathsToStore = Math.min(sims, 50); // store up to 50 for display
+
+      for (let s = 0; s < sims; s++) {
+        let value = init;
+        let peak = init;
+        let maxDD = 0;
+        const path: number[] = s < pathsToStore ? [init] : [];
+
+        for (let d = 0; d < days; d++) {
+          // Box-Muller transform for normal distribution
+          const u1 = Math.random();
+          const u2 = Math.random();
+          const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+          const dailyReturn = mu + sigma * z;
+          value *= 1 + dailyReturn;
+          if (value > peak) peak = value;
+          const dd = (peak - value) / peak;
+          if (dd > maxDD) maxDD = dd;
+          if (s < pathsToStore) path.push(value);
+        }
+
+        finalValues.push(value);
+        maxDrawdowns.push(maxDD);
+        if (s < pathsToStore) paths.push(path);
+      }
+
+      // Sort for percentile calculations
+      const sortedReturns = finalValues.map((v) => (v - init) / init).sort((a, b) => a - b);
+      const sortedDD = maxDrawdowns.sort((a, b) => b - a);
+
+      const cvarIdx = Math.floor(sortedReturns.length * (1 - conf));
+      const cvarSlice = sortedReturns.slice(0, cvarIdx);
+      const cvar = cvarSlice.length > 0 ? (cvarSlice.reduce((a, b) => a + b, 0) / cvarSlice.length) * 100 : 0;
+
+      const cvar99Idx = Math.floor(sortedReturns.length * 0.01);
+      const cvar99Slice = sortedReturns.slice(0, cvar99Idx);
+      const cvar99 = cvar99Slice.length > 0 ? (cvar99Slice.reduce((a, b) => a + b, 0) / cvar99Slice.length) * 100 : 0;
+
+      const meanRet = (sortedReturns.reduce((a, b) => a + b, 0) / sortedReturns.length) * 100;
+      const medianRet = sortedReturns[Math.floor(sortedReturns.length / 2)] * 100;
+      const p5 = sortedReturns[Math.floor(sortedReturns.length * 0.05)] * 100;
+      const p95 = sortedReturns[Math.floor(sortedReturns.length * 0.95)] * 100;
+
+      setResult({
+        paths,
+        cvar95: cvar,
+        cvar99: cvar99,
+        maxDrawdown: sortedDD[0] * 100,
+        meanReturn: meanRet,
+        medianReturn: medianRet,
+        percentile5: p5,
+        percentile95: p95,
+      });
+      setRunning(false);
+    }, 50);
+  }, [numSims, numDays, initInvestment, expectedReturn, volatility, confidenceLevel]);
+
+  // Prepare chart data from paths
+  const chartData = result
+    ? Array.from({ length: (parseInt(numDays) || 252) + 1 }, (_, i) => {
+        const point: Record<string, number> = { day: i };
+        result.paths.forEach((path, idx) => {
+          if (path[i] !== undefined) point[`p${idx}`] = path[i];
+        });
+        return point;
+      })
+    : [];
+
+  return (
+    <div className="bg-gray-900/50 border border-gray-800 rounded-2xl overflow-hidden">
+      <div className="p-6">
+        <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
+          <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          CVaR Simulation (Monte Carlo)
+        </h3>
+        <p className="text-gray-500 text-sm mb-4">
+          Set your scenario parameters and run a Monte Carlo simulation to estimate Conditional Value at Risk (CVaR)
+          and Max Drawdown for {symbol}.
+        </p>
+
+        {/* Parameter Inputs */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+          <InputField label="Number of Simulations" value={numSims} onChange={setNumSims} placeholder="1000" />
+          <InputField label="Time Horizon (days)" value={numDays} onChange={setNumDays} placeholder="252" />
+          <InputField label="Initial Investment ($)" value={initInvestment} onChange={setInitInvestment} placeholder="10000" />
+          <InputField label="Expected Annual Return (%)" value={expectedReturn} onChange={setExpectedReturn} placeholder="5" />
+          <InputField label="Annual Volatility (%)" value={volatility} onChange={setVolatility} placeholder="60" />
+          <InputField label="Confidence Level (%)" value={confidenceLevel} onChange={setConfidenceLevel} placeholder="95" />
+        </div>
+
+        {/* Run Button */}
+        <button
+          onClick={runSimulation}
+          disabled={running}
+          className="w-full py-3 rounded-xl font-semibold text-sm transition-all bg-yellow-500 text-black hover:bg-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          {running ? (
+            <>
+              <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+              Running Simulation...
+            </>
+          ) : (
+            'Start Simulation'
+          )}
+        </button>
+
+        {/* Results */}
+        {result && (
+          <div className="mt-6 space-y-4">
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
+                <p className="text-xs text-gray-500">CVaR (95%)</p>
+                <p className="text-lg font-bold font-mono text-red-400">{result.cvar95.toFixed(2)}%</p>
+              </div>
+              <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
+                <p className="text-xs text-gray-500">CVaR (99%)</p>
+                <p className="text-lg font-bold font-mono text-red-500">{result.cvar99.toFixed(2)}%</p>
+              </div>
+              <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
+                <p className="text-xs text-gray-500">Max Drawdown</p>
+                <p className="text-lg font-bold font-mono text-orange-400">{result.maxDrawdown.toFixed(2)}%</p>
+              </div>
+              <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
+                <p className="text-xs text-gray-500">Mean Return</p>
+                <p className={`text-lg font-bold font-mono ${result.meanReturn >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {result.meanReturn >= 0 ? '+' : ''}{result.meanReturn.toFixed(2)}%
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
+                <p className="text-xs text-gray-500">Median Return</p>
+                <p className={`text-sm font-bold font-mono ${result.medianReturn >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {result.medianReturn >= 0 ? '+' : ''}{result.medianReturn.toFixed(2)}%
+                </p>
+              </div>
+              <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
+                <p className="text-xs text-gray-500">5th Percentile</p>
+                <p className="text-sm font-bold font-mono text-red-400">{result.percentile5.toFixed(2)}%</p>
+              </div>
+              <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
+                <p className="text-xs text-gray-500">95th Percentile</p>
+                <p className="text-sm font-bold font-mono text-green-400">+{result.percentile95.toFixed(2)}%</p>
+              </div>
+            </div>
+
+            {/* Monte Carlo Paths Chart */}
+            <div className="bg-gray-800/30 rounded-xl p-4 border border-gray-700/30">
+              <p className="text-xs text-gray-500 mb-2">Simulation Paths (showing up to 50)</p>
+              <div className="h-[280px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <XAxis
+                      dataKey="day"
+                      tick={{ fill: '#9ca3af', fontSize: 10 }}
+                      axisLine={{ stroke: '#374151' }}
+                      label={{ value: 'Days', position: 'bottom', fill: '#6b7280', fontSize: 10 }}
+                    />
+                    <YAxis
+                      tick={{ fill: '#9ca3af', fontSize: 10 }}
+                      axisLine={{ stroke: '#374151' }}
+                      tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#111827',
+                        border: '1px solid #374151',
+                        borderRadius: '0.75rem',
+                        color: '#fff',
+                        fontSize: '11px',
+                      }}
+                      labelFormatter={(v) => `Day ${v}`}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      formatter={(value: any) => [`$${(value ?? 0).toFixed(2)}`, '']}
+                    />
+                    {result.paths.map((_, idx) => (
+                      <Line
+                        key={idx}
+                        type="monotone"
+                        dataKey={`p${idx}`}
+                        stroke={`hsl(${(idx * 7) % 360}, 70%, 60%)`}
+                        strokeWidth={0.5}
+                        strokeOpacity={0.4}
+                        dot={false}
+                        isAnimationActive={false}
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Stop Loss Card ───────────────────────────────────────────────
+function StopLossCard({ symbol }: { symbol: string }) {
+  const [activeView, setActiveView] = useState<StopLossSimView | null>(null);
+
+  // ATR parameters
+  const [atrPeriod, setAtrPeriod] = useState('14');
+  const [atrMultiplier, setAtrMultiplier] = useState('2');
+
+  // Technical stop parameters
+  const [supportLevel, setSupportLevel] = useState('');
+  const [resistanceLevel, setResistanceLevel] = useState('');
+
+  // Trailing stop parameters
+  const [trailPercent, setTrailPercent] = useState('5');
+
+  // Risk-Reward ratio
+  const [riskRewardRatio, setRiskRewardRatio] = useState('3');
+  const [entryPriceSL, setEntryPriceSL] = useState('');
+  const [riskAmount, setRiskAmount] = useState('');
+
+  // Backtest state
+  const [backtesting, setBacktesting] = useState(false);
+  const [backtestResult, setBacktestResult] = useState<{
+    totalTrades: number;
+    wins: number;
+    losses: number;
+    finalReturn: number;
+    maxDrawdown: number;
+    sharpe: number;
+    data: { day: number; value: number }[];
+  } | null>(null);
+
+  const techniques: { type: StopLossSimView['type']; label: string; description: string }[] = [
+    {
+      type: 'atr',
+      label: 'ATR (Average True Range)',
+      description:
+        'Use the ATR indicator to set stops based on current volatility. If BTC is moving $2,000 a day, a $500 stop-loss is too tight and will likely be triggered by "market noise."',
+    },
+    {
+      type: 'technical',
+      label: 'Technical Stops',
+      description:
+        'Place your stop-loss just below a major Support Level or above a Resistance Level. If those levels break, your "thesis" for the trade is officially dead.',
+    },
+    {
+      type: 'trailing',
+      label: 'Trailing Stops',
+      description:
+        'As your trade moves into profit, move your stop-loss up to "lock in" gains while still giving the price room to breathe.',
+    },
+    {
+      type: 'ratio',
+      label: 'Target 1:2 or 1:3',
+      description:
+        'For every $1 you risk, you should aim to make at least $2 or $3. The Math: With a 1:3 ratio, you can be wrong 70% of the time and still be a profitable trader because your few wins are much larger than your many small losses.',
+    },
+  ];
+
+  const runBacktest = useCallback(() => {
+    setBacktesting(true);
+
+    setTimeout(() => {
+      // Simulate a 5-year backtest (1260 trading days)
+      const days = 1260;
+      let capital = 10000;
+      let peak = capital;
+      let maxDD = 0;
+      let wins = 0;
+      let losses = 0;
+      let totalTrades = 0;
+      const dataPoints: { day: number; value: number }[] = [{ day: 0, value: capital }];
+      const dailyReturns: number[] = [];
+
+      let inPosition = false;
+      let posEntry = 0;
+      let stopLevel = 0;
+      let targetLevel = 0;
+      let price = 50000; // simulated starting price
+
+      for (let d = 1; d <= days; d++) {
+        // Random walk with slight upward drift
+        const dailyMove = (Math.random() - 0.48) * 0.03;
+        price *= 1 + dailyMove;
+
+        if (!inPosition) {
+          // Enter a new position randomly (~every 20 days)
+          if (Math.random() < 0.05) {
+            inPosition = true;
+            posEntry = price;
+            totalTrades++;
+
+            if (activeView?.type === 'atr') {
+              const atrVal = price * 0.02 * parseFloat(atrMultiplier || '2');
+              stopLevel = posEntry - atrVal;
+              targetLevel = posEntry + atrVal * parseFloat(riskRewardRatio || '3');
+            } else if (activeView?.type === 'technical') {
+              stopLevel = posEntry * 0.95;
+              targetLevel = posEntry * 1.15;
+            } else if (activeView?.type === 'trailing') {
+              const trail = parseFloat(trailPercent || '5') / 100;
+              stopLevel = posEntry * (1 - trail);
+              targetLevel = posEntry * 1.3;
+            } else {
+              const rr = parseFloat(riskRewardRatio || '3');
+              const risk = posEntry * 0.03;
+              stopLevel = posEntry - risk;
+              targetLevel = posEntry + risk * rr;
+            }
+          }
+        } else {
+          // Update trailing stop if applicable
+          if (activeView?.type === 'trailing' && price > posEntry) {
+            const trail = parseFloat(trailPercent || '5') / 100;
+            const newStop = price * (1 - trail);
+            if (newStop > stopLevel) stopLevel = newStop;
+          }
+
+          // Check stop or target hit
+          if (price <= stopLevel) {
+            const pnl = (stopLevel - posEntry) / posEntry;
+            capital *= 1 + pnl * 0.1; // 10% position size
+            dailyReturns.push(pnl * 0.1);
+            losses++;
+            inPosition = false;
+          } else if (price >= targetLevel) {
+            const pnl = (targetLevel - posEntry) / posEntry;
+            capital *= 1 + pnl * 0.1;
+            dailyReturns.push(pnl * 0.1);
+            wins++;
+            inPosition = false;
+          }
+        }
+
+        if (capital > peak) peak = capital;
+        const dd = (peak - capital) / peak;
+        if (dd > maxDD) maxDD = dd;
+
+        if (d % 5 === 0 || d === days) {
+          dataPoints.push({ day: d, value: capital });
+        }
+      }
+
+      const avgRet = dailyReturns.length > 0 ? dailyReturns.reduce((a, b) => a + b, 0) / dailyReturns.length : 0;
+      const stdDev = dailyReturns.length > 1
+        ? Math.sqrt(dailyReturns.reduce((sum, r) => sum + (r - avgRet) ** 2, 0) / (dailyReturns.length - 1))
+        : 1;
+
+      setBacktestResult({
+        totalTrades,
+        wins,
+        losses,
+        finalReturn: ((capital - 10000) / 10000) * 100,
+        maxDrawdown: maxDD * 100,
+        sharpe: stdDev > 0 ? (avgRet / stdDev) * Math.sqrt(252) : 0,
+        data: dataPoints,
+      });
+      setBacktesting(false);
+    }, 100);
+  }, [activeView, atrMultiplier, riskRewardRatio, trailPercent]);
+
+  return (
+    <div className="bg-gray-900/50 border border-gray-800 rounded-2xl overflow-hidden">
+      <div className="p-6">
+        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+          <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          </svg>
+          {symbol} Stop Loss Techniques
+        </h3>
+
+        {/* Technique Buttons */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+          {techniques.map((t) => (
+            <button
+              key={t.type}
+              onClick={() => {
+                setActiveView(activeView?.type === t.type ? null : { type: t.type, label: t.label });
+                setBacktestResult(null);
+              }}
+              className={`text-left p-4 rounded-xl border transition-all ${
+                activeView?.type === t.type
+                  ? 'bg-yellow-500/10 border-yellow-500/40 ring-1 ring-yellow-500/20'
+                  : 'bg-gray-800/50 border-gray-700/50 hover:border-gray-600'
+              }`}
+            >
+              <p className={`text-sm font-semibold mb-1 ${activeView?.type === t.type ? 'text-yellow-400' : 'text-white'}`}>
+                {t.label}
+              </p>
+              <p className="text-xs text-gray-500">{t.description}</p>
+            </button>
+          ))}
+        </div>
+
+        {/* Simulation View */}
+        {activeView && (
+          <div className="bg-gray-800/30 rounded-xl p-5 border border-gray-700/30 space-y-4">
+            <h4 className="text-sm font-semibold text-white">
+              {activeView.label} — Simulation Parameters
+            </h4>
+
+            {activeView.type === 'atr' && (
+              <div className="grid grid-cols-2 gap-3">
+                <InputField label="ATR Period" value={atrPeriod} onChange={setAtrPeriod} placeholder="14" />
+                <InputField label="ATR Multiplier" value={atrMultiplier} onChange={setAtrMultiplier} placeholder="2" />
+              </div>
+            )}
+
+            {activeView.type === 'technical' && (
+              <div className="grid grid-cols-2 gap-3">
+                <InputField label={`Support Level ($)`} value={supportLevel} onChange={setSupportLevel} placeholder="45000" />
+                <InputField label={`Resistance Level ($)`} value={resistanceLevel} onChange={setResistanceLevel} placeholder="55000" />
+              </div>
+            )}
+
+            {activeView.type === 'trailing' && (
+              <div className="grid grid-cols-2 gap-3">
+                <InputField label="Trail Percentage (%)" value={trailPercent} onChange={setTrailPercent} placeholder="5" />
+                <InputField label="Risk/Reward Ratio" value={riskRewardRatio} onChange={setRiskRewardRatio} placeholder="3" />
+              </div>
+            )}
+
+            {activeView.type === 'ratio' && (
+              <div className="grid grid-cols-3 gap-3">
+                <InputField label={`Entry Price ($)`} value={entryPriceSL} onChange={setEntryPriceSL} placeholder="50000" />
+                <InputField label="Risk Amount ($)" value={riskAmount} onChange={setRiskAmount} placeholder="1000" />
+                <InputField label="Risk/Reward Ratio" value={riskRewardRatio} onChange={setRiskRewardRatio} placeholder="3" />
+              </div>
+            )}
+
+            {activeView.type === 'ratio' && entryPriceSL && riskAmount && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-900/80 rounded-lg p-3 border border-gray-700">
+                  <p className="text-xs text-gray-500">Stop Loss Level</p>
+                  <p className="text-lg font-bold font-mono text-red-400">
+                    ${(parseFloat(entryPriceSL) - parseFloat(riskAmount)).toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-gray-900/80 rounded-lg p-3 border border-gray-700">
+                  <p className="text-xs text-gray-500">Take Profit Level</p>
+                  <p className="text-lg font-bold font-mono text-green-400">
+                    ${(parseFloat(entryPriceSL) + parseFloat(riskAmount) * parseFloat(riskRewardRatio || '3')).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={runBacktest}
+              disabled={backtesting}
+              className="w-full py-3 rounded-xl font-semibold text-sm transition-all bg-yellow-500 text-black hover:bg-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {backtesting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                  Running 5Y Backtest...
+                </>
+              ) : (
+                'Backtest (5 Year)'
+              )}
+            </button>
+
+            {/* Backtest Results */}
+            {backtestResult && (
+              <div className="space-y-4 mt-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                  <MiniStat label="Total Trades" value={backtestResult.totalTrades.toString()} />
+                  <MiniStat label="Wins" value={backtestResult.wins.toString()} color="text-green-400" />
+                  <MiniStat label="Losses" value={backtestResult.losses.toString()} color="text-red-400" />
+                  <MiniStat
+                    label="Win Rate"
+                    value={`${backtestResult.totalTrades > 0 ? ((backtestResult.wins / backtestResult.totalTrades) * 100).toFixed(1) : 0}%`}
+                  />
+                  <MiniStat
+                    label="Return"
+                    value={`${backtestResult.finalReturn >= 0 ? '+' : ''}${backtestResult.finalReturn.toFixed(2)}%`}
+                    color={backtestResult.finalReturn >= 0 ? 'text-green-400' : 'text-red-400'}
+                  />
+                  <MiniStat label="Max DD" value={`${backtestResult.maxDrawdown.toFixed(2)}%`} color="text-orange-400" />
+                </div>
+
+                <div className="h-[220px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={backtestResult.data} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
+                      <defs>
+                        <linearGradient id="btGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#eab308" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#eab308" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                      <XAxis
+                        dataKey="day"
+                        tick={{ fill: '#9ca3af', fontSize: 10 }}
+                        axisLine={{ stroke: '#374151' }}
+                        label={{ value: 'Trading Days', position: 'bottom', fill: '#6b7280', fontSize: 10 }}
+                      />
+                      <YAxis
+                        tick={{ fill: '#9ca3af', fontSize: 10 }}
+                        axisLine={{ stroke: '#374151' }}
+                        tickFormatter={(v) => `$${(v / 1000).toFixed(1)}k`}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#111827',
+                          border: '1px solid #374151',
+                          borderRadius: '0.75rem',
+                          color: '#fff',
+                          fontSize: '11px',
+                        }}
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        formatter={(value: any) => [`$${(value ?? 0).toFixed(2)}`, 'Portfolio Value']}
+                      />
+                      <Area type="monotone" dataKey="value" stroke="#eab308" strokeWidth={2} fill="url(#btGrad)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SHARED / UTILITY COMPONENTS
+// ═══════════════════════════════════════════════════════════════════
+
+function InputField({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div>
+      <label className="block text-xs text-gray-500 mb-1">{label}</label>
+      <input
+        type="number"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-yellow-500/50 focus:ring-1 focus:ring-yellow-500/20 placeholder:text-gray-600"
+      />
+    </div>
+  );
+}
+
+function DescriptionCard({
+  title,
+  content,
+  collapsed,
+  onToggle,
+}: {
+  title: string;
+  content: string;
+  collapsed?: boolean;
+  onToggle?: () => void;
+}) {
+  const isCollapsible = collapsed !== undefined;
+
+  return (
+    <div className="bg-gray-800/40 rounded-xl border border-gray-700/40 overflow-hidden">
+      <button
+        onClick={onToggle}
+        className={`w-full text-left p-4 ${isCollapsible ? 'cursor-pointer hover:bg-gray-800/60' : 'cursor-default'}`}
+      >
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold text-yellow-400">{title}</p>
+          {isCollapsible && (
+            <svg
+              className={`w-4 h-4 text-gray-500 transition-transform ${!collapsed ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          )}
+        </div>
+      </button>
+      {(!isCollapsible || !collapsed) && (
+        <div className="px-4 pb-4">
+          <p className="text-xs text-gray-400 leading-relaxed whitespace-pre-line">{content}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MiniStat({ label, value, color = 'text-white' }: { label: string; value: string; color?: string }) {
+  return (
+    <div className="bg-gray-900/80 rounded-lg p-2 border border-gray-700/50">
+      <p className="text-[10px] text-gray-500">{label}</p>
+      <p className={`text-sm font-bold font-mono ${color}`}>{value}</p>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// DATA GENERATORS (illustrative / placeholder data)
+// ═══════════════════════════════════════════════════════════════════
+
+function getHeatmapColor(pctChange: number): string {
+  if (pctChange >= 8) return '#dc2626';
+  if (pctChange >= 6) return '#ef4444';
+  if (pctChange >= 4) return '#f87171';
+  if (pctChange >= 3) return '#fb923c';
+  if (pctChange >= 2) return '#f472b6';
+  if (pctChange >= 1) return '#e879f9';
+  if (pctChange >= 0.5) return '#c084fc';
+  if (pctChange >= 0) return '#a78bfa';
+  if (pctChange >= -0.5) return '#818cf8';
+  return '#6366f1';
+}
+
+// generateHeatmapData and generateStockToFlowData removed — now using real API data
+
+function generateSTHMVRVData() {
+  const data: { date: string; value: number }[] = [];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  let value = 1.0;
+
+  for (let y = 2023; y <= 2026; y++) {
+    for (let m = 0; m < 12; m++) {
+      if (y === 2026 && m > 1) break;
+      const cycle = Math.sin(((y - 2023) * 12 + m) / 18 * Math.PI) * 0.3;
+      const noise = (Math.random() - 0.5) * 0.1;
+      value = Math.max(0.4, Math.min(1.8, value + cycle * 0.05 + noise));
+      data.push({ date: `${months[m]} ${y}`, value: Math.round(value * 1000) / 1000 });
+    }
+  }
+
+  return data;
+}
+
+function generateMVRVZScoreData() {
+  const data: { date: string; marketValue: number; realisedValue: number; zScore: number }[] = [];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  let mv = 20000;
+  let rv = 15000;
+
+  for (let y = 2021; y <= 2026; y++) {
+    for (let m = 0; m < 12; m++) {
+      if (y === 2026 && m > 1) break;
+      const cycle = Math.sin(((y - 2021) * 12 + m) / 24 * Math.PI * 2) * 0.08;
+      mv *= 1 + cycle + (Math.random() - 0.45) * 0.08;
+      rv *= 1 + (Math.random() - 0.48) * 0.03 + 0.005;
+      const zScore = (mv - rv) / (rv * 0.3);
+      data.push({
+        date: `${months[m]} ${String(y).slice(2)}`,
+        marketValue: Math.round(mv),
+        realisedValue: Math.round(rv),
+        zScore: Math.round(zScore * 100) / 100,
+      });
+    }
+  }
+
+  return data;
+}
