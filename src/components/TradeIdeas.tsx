@@ -20,9 +20,24 @@ import {
 // ─── Types ────────────────────────────────────────────────────────
 type Section = 'market-cycle' | 'ratio-indicators' | 'risk-manager';
 
+export interface StopLossTrackerConfig {
+  id: string;
+  type: 'atr' | 'technical' | 'trailing';
+  label: string;
+  params: {
+    atrPeriod?: string;
+    atrMultiplier?: string;
+    supportLevel?: string;
+    resistanceLevel?: string;
+    trailPercent?: string;
+    riskRewardRatio?: string;
+  };
+}
+
 interface TradeIdeasProps {
   symbol: string;
   currentPrice?: number;
+  onAddStopLossCard?: (config: StopLossTrackerConfig) => void;
 }
 
 // ─── Heatmap & S2F data types ────────────────────────────────────
@@ -66,7 +81,7 @@ interface MonteCarloResult {
 }
 
 // ─── Component ────────────────────────────────────────────────────
-export default function TradeIdeas({ symbol, currentPrice }: TradeIdeasProps) {
+export default function TradeIdeas({ symbol, currentPrice, onAddStopLossCard }: TradeIdeasProps) {
   const [activeSection, setActiveSection] = useState<Section>('market-cycle');
 
   const sections: { id: Section; label: string }[] = [
@@ -99,7 +114,7 @@ export default function TradeIdeas({ symbol, currentPrice }: TradeIdeasProps) {
       {/* Section Content */}
       {activeSection === 'market-cycle' && <MarketCycleSection symbol={symbol} currentPrice={currentPrice} />}
       {activeSection === 'ratio-indicators' && <RatioIndicatorsSection symbol={symbol} />}
-      {activeSection === 'risk-manager' && <RiskManagerSection symbol={symbol} />}
+      {activeSection === 'risk-manager' && <RiskManagerSection symbol={symbol} onAddStopLossCard={onAddStopLossCard} />}
     </div>
   );
 }
@@ -717,12 +732,12 @@ function MVRVZScoreCard({ symbol }: { symbol: string }) {
 // ═══════════════════════════════════════════════════════════════════
 // RISK MANAGER SECTION
 // ═══════════════════════════════════════════════════════════════════
-function RiskManagerSection({ symbol }: { symbol: string }) {
+function RiskManagerSection({ symbol, onAddStopLossCard }: { symbol: string; onAddStopLossCard?: (config: StopLossTrackerConfig) => void }) {
   return (
     <div className="space-y-6">
       <PositionCard symbol={symbol} />
       <CVaRMonteCarloCard symbol={symbol} />
-      <StopLossCard symbol={symbol} />
+      <StopLossCard symbol={symbol} onAddStopLossCard={onAddStopLossCard} />
     </div>
   );
 }
@@ -1080,7 +1095,7 @@ function CVaRMonteCarloCard({ symbol }: { symbol: string }) {
 }
 
 // ─── Stop Loss Card ───────────────────────────────────────────────
-function StopLossCard({ symbol }: { symbol: string }) {
+function StopLossCard({ symbol, onAddStopLossCard }: { symbol: string; onAddStopLossCard?: (config: StopLossTrackerConfig) => void }) {
   const [activeView, setActiveView] = useState<StopLossSimView | null>(null);
 
   // ATR parameters
@@ -1111,6 +1126,8 @@ function StopLossCard({ symbol }: { symbol: string }) {
     data: { day: number; value: number }[];
   } | null>(null);
 
+  const [addedToMarket, setAddedToMarket] = useState<string | null>(null);
+
   const techniques: { type: StopLossSimView['type']; label: string; description: string }[] = [
     {
       type: 'atr',
@@ -1137,6 +1154,29 @@ function StopLossCard({ symbol }: { symbol: string }) {
         'For every $1 you risk, you should aim to make at least $2 or $3. The Math: With a 1:3 ratio, you can be wrong 70% of the time and still be a profitable trader because your few wins are much larger than your many small losses.',
     },
   ];
+
+  const handleAddToMarket = useCallback(() => {
+    if (!activeView || !onAddStopLossCard) return;
+    if (activeView.type === 'ratio') return; // ratio is not trackable as a strategy
+
+    const config: StopLossTrackerConfig = {
+      id: `${activeView.type}-${Date.now()}`,
+      type: activeView.type as 'atr' | 'technical' | 'trailing',
+      label: activeView.label,
+      params: {
+        atrPeriod,
+        atrMultiplier,
+        supportLevel,
+        resistanceLevel,
+        trailPercent,
+        riskRewardRatio,
+      },
+    };
+
+    onAddStopLossCard(config);
+    setAddedToMarket(activeView.type);
+    setTimeout(() => setAddedToMarket(null), 2000);
+  }, [activeView, onAddStopLossCard, atrPeriod, atrMultiplier, supportLevel, resistanceLevel, trailPercent, riskRewardRatio]);
 
   const runBacktest = useCallback(() => {
     setBacktesting(true);
@@ -1326,20 +1366,49 @@ function StopLossCard({ symbol }: { symbol: string }) {
               </div>
             )}
 
-            <button
-              onClick={runBacktest}
-              disabled={backtesting}
-              className="w-full py-3 rounded-xl font-semibold text-sm transition-all bg-yellow-500 text-black hover:bg-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {backtesting ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                  Running 5Y Backtest...
-                </>
-              ) : (
-                'Backtest (5 Year)'
+            <div className="flex gap-3">
+              <button
+                onClick={runBacktest}
+                disabled={backtesting}
+                className="flex-1 py-3 rounded-xl font-semibold text-sm transition-all bg-yellow-500 text-black hover:bg-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {backtesting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                    Running 5Y Backtest...
+                  </>
+                ) : (
+                  'Backtest (5 Year)'
+                )}
+              </button>
+
+              {onAddStopLossCard && activeView.type !== 'ratio' && (
+                <button
+                  onClick={handleAddToMarket}
+                  className={`px-5 py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
+                    addedToMarket === activeView.type
+                      ? 'bg-green-500/20 text-green-400 border border-green-500/40'
+                      : 'bg-gray-700 text-white hover:bg-gray-600 border border-gray-600'
+                  }`}
+                >
+                  {addedToMarket === activeView.type ? (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Added
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Add to Market
+                    </>
+                  )}
+                </button>
               )}
-            </button>
+            </div>
 
             {/* Backtest Results */}
             {backtestResult && (
@@ -1398,6 +1467,354 @@ function StopLossCard({ symbol }: { symbol: string }) {
                 </div>
               </div>
             )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// STOP LOSS TRACKER CARD (rendered in Market Section)
+// ═══════════════════════════════════════════════════════════════════
+
+export function StopLossTrackerCard({
+  config,
+  symbol,
+  currentPrice,
+  onRemove,
+}: {
+  config: StopLossTrackerConfig;
+  symbol: string;
+  currentPrice?: number;
+  onRemove: (id: string) => void;
+}) {
+  const [backtesting, setBacktesting] = useState(false);
+  const [backtestResult, setBacktestResult] = useState<{
+    totalTrades: number;
+    wins: number;
+    losses: number;
+    finalReturn: number;
+    maxDrawdown: number;
+    sharpe: number;
+    data: { day: number; value: number }[];
+  } | null>(null);
+
+  const price = currentPrice || 50000;
+
+  // Compute stop loss and target levels from current price + config
+  const computeLevels = useCallback(() => {
+    const { type, params } = config;
+
+    if (type === 'atr') {
+      const multiplier = parseFloat(params.atrMultiplier || '2');
+      const rr = parseFloat(params.riskRewardRatio || '3');
+      const atrVal = price * 0.02 * multiplier;
+      return {
+        stopLoss: price - atrVal,
+        target: price + atrVal * rr,
+        riskPct: ((atrVal / price) * 100),
+        rewardPct: ((atrVal * rr / price) * 100),
+      };
+    }
+
+    if (type === 'technical') {
+      const support = parseFloat(params.supportLevel || '0') || price * 0.95;
+      const resistance = parseFloat(params.resistanceLevel || '0') || price * 1.15;
+      return {
+        stopLoss: support,
+        target: resistance,
+        riskPct: ((price - support) / price * 100),
+        rewardPct: ((resistance - price) / price * 100),
+      };
+    }
+
+    // trailing
+    const trail = parseFloat(params.trailPercent || '5') / 100;
+    return {
+      stopLoss: price * (1 - trail),
+      target: price * 1.3,
+      riskPct: (trail * 100),
+      rewardPct: 30,
+    };
+  }, [config, price]);
+
+  const levels = computeLevels();
+
+  const runBacktest = useCallback(() => {
+    setBacktesting(true);
+
+    setTimeout(() => {
+      const days = 1260; // 5 years
+      let capital = 10000;
+      let peak = capital;
+      let maxDD = 0;
+      let wins = 0;
+      let losses = 0;
+      let totalTrades = 0;
+      const dataPoints: { day: number; value: number }[] = [{ day: 0, value: capital }];
+      const dailyReturns: number[] = [];
+
+      let inPosition = false;
+      let posEntry = 0;
+      let stopLevel = 0;
+      let targetLevel = 0;
+      let simPrice = 50000;
+
+      const { type, params } = config;
+
+      for (let d = 1; d <= days; d++) {
+        const dailyMove = (Math.random() - 0.48) * 0.03;
+        simPrice *= 1 + dailyMove;
+
+        if (!inPosition) {
+          if (Math.random() < 0.05) {
+            inPosition = true;
+            posEntry = simPrice;
+            totalTrades++;
+
+            if (type === 'atr') {
+              const atrVal = simPrice * 0.02 * parseFloat(params.atrMultiplier || '2');
+              stopLevel = posEntry - atrVal;
+              targetLevel = posEntry + atrVal * parseFloat(params.riskRewardRatio || '3');
+            } else if (type === 'technical') {
+              stopLevel = posEntry * 0.95;
+              targetLevel = posEntry * 1.15;
+            } else {
+              const trail = parseFloat(params.trailPercent || '5') / 100;
+              stopLevel = posEntry * (1 - trail);
+              targetLevel = posEntry * 1.3;
+            }
+          }
+        } else {
+          if (type === 'trailing' && simPrice > posEntry) {
+            const trail = parseFloat(params.trailPercent || '5') / 100;
+            const newStop = simPrice * (1 - trail);
+            if (newStop > stopLevel) stopLevel = newStop;
+          }
+
+          if (simPrice <= stopLevel) {
+            const pnl = (stopLevel - posEntry) / posEntry;
+            capital *= 1 + pnl * 0.1;
+            dailyReturns.push(pnl * 0.1);
+            losses++;
+            inPosition = false;
+          } else if (simPrice >= targetLevel) {
+            const pnl = (targetLevel - posEntry) / posEntry;
+            capital *= 1 + pnl * 0.1;
+            dailyReturns.push(pnl * 0.1);
+            wins++;
+            inPosition = false;
+          }
+        }
+
+        if (capital > peak) peak = capital;
+        const dd = (peak - capital) / peak;
+        if (dd > maxDD) maxDD = dd;
+
+        if (d % 5 === 0 || d === days) {
+          dataPoints.push({ day: d, value: capital });
+        }
+      }
+
+      const avgRet = dailyReturns.length > 0 ? dailyReturns.reduce((a, b) => a + b, 0) / dailyReturns.length : 0;
+      const stdDev = dailyReturns.length > 1
+        ? Math.sqrt(dailyReturns.reduce((sum, r) => sum + (r - avgRet) ** 2, 0) / (dailyReturns.length - 1))
+        : 1;
+
+      setBacktestResult({
+        totalTrades,
+        wins,
+        losses,
+        finalReturn: ((capital - 10000) / 10000) * 100,
+        maxDrawdown: maxDD * 100,
+        sharpe: stdDev > 0 ? (avgRet / stdDev) * Math.sqrt(252) : 0,
+        data: dataPoints,
+      });
+      setBacktesting(false);
+    }, 100);
+  }, [config]);
+
+  const typeColors: Record<string, string> = {
+    atr: 'text-blue-400',
+    technical: 'text-purple-400',
+    trailing: 'text-emerald-400',
+  };
+
+  const typeBgColors: Record<string, string> = {
+    atr: 'bg-blue-500/10 border-blue-500/30',
+    technical: 'bg-purple-500/10 border-purple-500/30',
+    trailing: 'bg-emerald-500/10 border-emerald-500/30',
+  };
+
+  const typeIcons: Record<string, string> = {
+    atr: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
+    technical: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6',
+    trailing: 'M13 17h8m0 0V9m0 8l-8-8-4 4-6-6',
+  };
+
+  const typeLabels: Record<string, string> = {
+    atr: 'ATR Stop Loss',
+    technical: 'Target Stops',
+    trailing: 'Trailing Stop',
+  };
+
+  const paramSummary = () => {
+    if (config.type === 'atr') {
+      return `Period ${config.params.atrPeriod || 14} | Multiplier ${config.params.atrMultiplier || 2}x | R:R 1:${config.params.riskRewardRatio || 3}`;
+    }
+    if (config.type === 'technical') {
+      const s = config.params.supportLevel ? `$${parseFloat(config.params.supportLevel).toLocaleString()}` : 'Auto';
+      const r = config.params.resistanceLevel ? `$${parseFloat(config.params.resistanceLevel).toLocaleString()}` : 'Auto';
+      return `Support ${s} | Resistance ${r}`;
+    }
+    return `Trail ${config.params.trailPercent || 5}% | R:R 1:${config.params.riskRewardRatio || 3}`;
+  };
+
+  return (
+    <div className={`border rounded-2xl overflow-hidden ${typeBgColors[config.type]}`}>
+      <div className="p-5">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <svg className={`w-5 h-5 ${typeColors[config.type]}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={typeIcons[config.type]} />
+            </svg>
+            <h3 className="text-base font-bold text-white">{symbol} {typeLabels[config.type]}</h3>
+            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${typeBgColors[config.type]} ${typeColors[config.type]}`}>
+              Tracking
+            </span>
+          </div>
+          <button
+            onClick={() => onRemove(config.id)}
+            className="text-gray-500 hover:text-red-400 transition-colors p-1"
+            title="Remove card"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Strategy Parameters */}
+        <p className="text-xs text-gray-400 mb-4 font-mono">{paramSummary()}</p>
+
+        {/* Stop Loss & Target Levels */}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="bg-gray-900/60 rounded-xl p-3 border border-gray-700/50">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wider">Stop Loss</p>
+            <p className="text-lg font-bold font-mono text-red-400">
+              ${levels.stopLoss.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+            </p>
+            <p className="text-[10px] text-red-400/70">-{levels.riskPct.toFixed(2)}% from price</p>
+          </div>
+          <div className="bg-gray-900/60 rounded-xl p-3 border border-gray-700/50">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wider">Target</p>
+            <p className="text-lg font-bold font-mono text-green-400">
+              ${levels.target.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+            </p>
+            <p className="text-[10px] text-green-400/70">+{levels.rewardPct.toFixed(2)}% from price</p>
+          </div>
+        </div>
+
+        {/* Visual Range Bar */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between text-[10px] text-gray-500 mb-1">
+            <span>Stop Loss</span>
+            <span className="text-yellow-400 font-medium">Entry ${price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+            <span>Target</span>
+          </div>
+          <div className="h-2 bg-gray-800 rounded-full overflow-hidden relative">
+            <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 rounded-full" style={{ width: '100%' }} />
+            {/* Entry marker */}
+            <div
+              className="absolute top-0 bottom-0 w-0.5 bg-white"
+              style={{
+                left: `${((price - levels.stopLoss) / (levels.target - levels.stopLoss)) * 100}%`,
+              }}
+            />
+          </div>
+          <div className="flex items-center justify-between text-[10px] font-mono mt-1">
+            <span className="text-red-400">${levels.stopLoss.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+            <span className="text-green-400">${levels.target.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+          </div>
+        </div>
+
+        {/* 5Y Backtest Button */}
+        <button
+          onClick={runBacktest}
+          disabled={backtesting}
+          className="w-full py-2.5 rounded-xl font-semibold text-sm transition-all bg-yellow-500 text-black hover:bg-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          {backtesting ? (
+            <>
+              <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+              Running 5Y Backtest...
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              Backtest (5 Year)
+            </>
+          )}
+        </button>
+
+        {/* Backtest Results */}
+        {backtestResult && (
+          <div className="space-y-3 mt-4">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              <MiniStat label="Total Trades" value={backtestResult.totalTrades.toString()} />
+              <MiniStat label="Wins" value={backtestResult.wins.toString()} color="text-green-400" />
+              <MiniStat label="Losses" value={backtestResult.losses.toString()} color="text-red-400" />
+              <MiniStat
+                label="Win Rate"
+                value={`${backtestResult.totalTrades > 0 ? ((backtestResult.wins / backtestResult.totalTrades) * 100).toFixed(1) : 0}%`}
+              />
+              <MiniStat
+                label="Return"
+                value={`${backtestResult.finalReturn >= 0 ? '+' : ''}${backtestResult.finalReturn.toFixed(2)}%`}
+                color={backtestResult.finalReturn >= 0 ? 'text-green-400' : 'text-red-400'}
+              />
+              <MiniStat label="Max DD" value={`${backtestResult.maxDrawdown.toFixed(2)}%`} color="text-orange-400" />
+            </div>
+
+            <div className="h-[180px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={backtestResult.data} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
+                  <defs>
+                    <linearGradient id={`btGrad-${config.id}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#eab308" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#eab308" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                  <XAxis
+                    dataKey="day"
+                    tick={{ fill: '#9ca3af', fontSize: 10 }}
+                    axisLine={{ stroke: '#374151' }}
+                  />
+                  <YAxis
+                    tick={{ fill: '#9ca3af', fontSize: 10 }}
+                    axisLine={{ stroke: '#374151' }}
+                    tickFormatter={(v) => `$${(v / 1000).toFixed(1)}k`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#111827',
+                      border: '1px solid #374151',
+                      borderRadius: '0.75rem',
+                      color: '#fff',
+                      fontSize: '11px',
+                    }}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    formatter={(value: any) => [`$${(value ?? 0).toFixed(2)}`, 'Portfolio Value']}
+                  />
+                  <Area type="monotone" dataKey="value" stroke="#eab308" strokeWidth={2} fill={`url(#btGrad-${config.id})`} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         )}
       </div>
