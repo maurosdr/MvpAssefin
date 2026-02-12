@@ -127,7 +127,7 @@ export default function CryptoDetailPage() {
       <AppHeader>
         <div className="flex items-center gap-4">
           <button
-            onClick={() => router.push('/')}
+            onClick={() => router.push('/crypto')}
             className="text-gray-400 hover:text-white transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

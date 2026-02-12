@@ -16,8 +16,8 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Crypto Dashboard",
-  description: "Live crypto prices, technical analysis, and portfolio tracking",
+  title: "Assefin - Global Markets & News",
+  description: "Global news, prediction markets, crypto prices, and portfolio tracking",
 };
 
 export default function RootLayout({

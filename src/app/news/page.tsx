@@ -8,6 +8,8 @@ import VIXCard from '@/components/VIXCard';
 import CurrencyTable from '@/components/CurrencyTable';
 import YieldCurveChart from '@/components/YieldCurveChart';
 import MacroNewsCard from '@/components/MacroNewsCard';
+import BloombergNewsTicker from '@/components/BloombergNewsTicker';
+import PolymarketCards from '@/components/PolymarketCards';
 
 interface NewsArticle {
   id: string;
@@ -66,7 +68,10 @@ export default function NewsPage() {
           </div>
         </div>
 
-        {/* Row 2: First batch of news */}
+        {/* Row 2: Bloomberg-style News Wire */}
+        <BloombergNewsTicker />
+
+        {/* Row 3: First batch of news */}
         {loading ? (
           <div className="flex justify-center py-10">
             <div className="w-8 h-8 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
@@ -93,7 +98,10 @@ export default function NewsPage() {
           </div>
         </div>
 
-        {/* Row 4: More news */}
+        {/* Row 5: Polymarket Politics Predictions */}
+        <PolymarketCards filterCategories={['politics']} />
+
+        {/* Row 6: More news */}
         {!loading && secondBatch.length > 0 && (
           <div>
             <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
