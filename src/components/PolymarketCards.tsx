@@ -159,7 +159,11 @@ function CategorySection({ config, markets, loading }: { config: CategoryConfig;
   );
 }
 
-export default function PolymarketCards() {
+export default function PolymarketCards({
+  filterCategories,
+}: {
+  filterCategories?: ('politics' | 'crypto' | 'economy')[];
+} = {}) {
   const [data, setData] = useState<PolymarketData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -210,7 +214,10 @@ export default function PolymarketCards() {
         )}
       </div>
 
-      {categories.map((config) => (
+      {(filterCategories
+        ? categories.filter((c) => filterCategories.includes(c.key))
+        : categories
+      ).map((config) => (
         <CategorySection
           key={config.key}
           config={config}

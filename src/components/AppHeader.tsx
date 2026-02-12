@@ -25,7 +25,7 @@ export default function AppHeader({
   const connected = connectedExchanges.length > 0;
   const [showModal, setShowModal] = useState(false);
 
-  const activeNav = pathname === '/news' ? 'news' : 'crypto';
+  const activeNav = pathname.startsWith('/crypto') ? 'crypto' : 'news';
 
   return (
     <>
@@ -36,7 +36,7 @@ export default function AppHeader({
               {/* Logo */}
               <div
                 className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center cursor-pointer"
-                onClick={() => router.push('/')}
+                onClick={() => router.push('/news')}
               >
                 <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M11.944 17.97L4.58 13.62 11.943 24l7.37-10.38-7.372 4.35zM12.056 0L4.69 12.223l7.365 4.354 7.365-4.35L12.056 0z" />
@@ -46,7 +46,7 @@ export default function AppHeader({
               {/* Nav buttons */}
               <nav className="hidden sm:flex items-center gap-1 bg-gray-900/60 border border-gray-800 rounded-xl p-1">
                 <button
-                  onClick={() => router.push('/')}
+                  onClick={() => router.push('/crypto')}
                   className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
                     activeNav === 'crypto'
                       ? 'bg-yellow-500 text-black'
