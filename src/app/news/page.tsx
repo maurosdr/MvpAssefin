@@ -9,6 +9,7 @@ import CurrencyTable from '@/components/CurrencyTable';
 import YieldCurveChart from '@/components/YieldCurveChart';
 import MacroNewsCard from '@/components/MacroNewsCard';
 import BloombergNewsTicker from '@/components/BloombergNewsTicker';
+import FearGreedIndex from '@/components/FearGreedIndex';
 import PolymarketCards from '@/components/PolymarketCards';
 
 interface NewsArticle {
@@ -88,10 +89,11 @@ export default function NewsPage() {
           </div>
         )}
 
-        {/* Row 3: VIX + Currency Table */}
+        {/* Row 4: VIX + Fear & Greed + Currency Table */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div>
+          <div className="space-y-8">
             <VIXCard />
+            <FearGreedIndex />
           </div>
           <div className="lg:col-span-2">
             <CurrencyTable />
