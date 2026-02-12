@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { BinanceProvider } from "@/context/BinanceContext";
+import { StopLossProvider } from "@/context/StopLossContext";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -30,7 +31,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black min-h-screen`}
       >
         <BinanceProvider>
-          {children}
+          <StopLossProvider>
+            {children}
+          </StopLossProvider>
         </BinanceProvider>
       </body>
     </html>
