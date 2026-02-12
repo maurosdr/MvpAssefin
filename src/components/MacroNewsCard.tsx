@@ -7,6 +7,7 @@ interface NewsArticle {
   url: string;
   publishedAt: string;
   category: 'politics' | 'economy';
+  imageUrl?: string;
 }
 
 function formatTimeAgo(dateString: string): string {
@@ -42,22 +43,38 @@ export default function MacroNewsCard({ articles }: { articles: NewsArticle[] })
             href={article.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="block bg-gray-900/50 border border-gray-800 rounded-2xl p-5 hover:bg-gray-800/30 hover:border-gray-700 transition-all group"
+            className="block bg-gray-900/50 border border-gray-800 rounded-2xl overflow-hidden hover:bg-gray-800/30 hover:border-gray-700 transition-all group"
           >
-            <div className="flex items-start justify-between gap-3 mb-2">
-              <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${colors.bg} ${colors.accent} border ${colors.border}`}>
-                {article.category.charAt(0).toUpperCase() + article.category.slice(1)}
-              </span>
-              <span className="text-[10px] text-gray-600 whitespace-nowrap">{formatTimeAgo(article.publishedAt)}</span>
-            </div>
-            <h3 className="text-sm text-white font-medium line-clamp-2 mb-2 group-hover:text-yellow-400 transition-colors">
-              {article.title}
-            </h3>
-            <div className="flex items-center justify-between">
-              <span className={`text-xs ${colors.accent}`}>{article.source}</span>
-              <svg className="w-4 h-4 text-gray-600 group-hover:text-yellow-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
+            {article.imageUrl && (
+              <div className="relative h-40 w-full overflow-hidden bg-gray-800">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={article.imageUrl}
+                  alt=""
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  onError={(e) => {
+                    const parent = (e.target as HTMLElement).parentElement;
+                    if (parent) parent.style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
+            <div className="p-5">
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${colors.bg} ${colors.accent} border ${colors.border}`}>
+                  {article.category.charAt(0).toUpperCase() + article.category.slice(1)}
+                </span>
+                <span className="text-[10px] text-gray-600 whitespace-nowrap">{formatTimeAgo(article.publishedAt)}</span>
+              </div>
+              <h3 className="text-sm text-white font-medium line-clamp-2 mb-2 group-hover:text-yellow-400 transition-colors">
+                {article.title}
+              </h3>
+              <div className="flex items-center justify-between">
+                <span className={`text-xs ${colors.accent}`}>{article.source}</span>
+                <svg className="w-4 h-4 text-gray-600 group-hover:text-yellow-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </div>
             </div>
           </a>
         );
