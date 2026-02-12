@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import AppHeader from '@/components/AppHeader';
 import StockIndicesChart from '@/components/StockIndicesChart';
-import FearGreedIndex from '@/components/FearGreedIndex';
+import MacroIndicatorsCard from '@/components/MacroIndicatorsCard';
 import VIXCard from '@/components/VIXCard';
 import CurrencyTable from '@/components/CurrencyTable';
 import YieldCurveChart from '@/components/YieldCurveChart';
@@ -16,6 +16,7 @@ interface NewsArticle {
   url: string;
   publishedAt: string;
   category: 'politics' | 'economy';
+  imageUrl?: string;
 }
 
 export default function NewsPage() {
@@ -55,13 +56,13 @@ export default function NewsPage() {
           </p>
         </div>
 
-        {/* Row 1: Stock Indices Chart + Fear & Greed */}
+        {/* Row 1: Stock Indices Chart + Macro Indicators */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
             <StockIndicesChart />
           </div>
           <div>
-            <FearGreedIndex />
+            <MacroIndicatorsCard />
           </div>
         </div>
 

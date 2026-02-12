@@ -7,6 +7,7 @@ interface NewsArticle {
   url: string;
   publishedAt: string;
   category: 'politics' | 'economy';
+  imageUrl?: string;
 }
 
 const RSS_FEEDS = [
@@ -35,6 +36,38 @@ async function fetchRSSFeed(url: string): Promise<string | null> {
   }
 }
 
+function extractImageUrl(itemXml: string): string | undefined {
+  // Try <media:content url="...">
+  const mediaContent = itemXml.match(/<media:content[^>]+url=["']([^"']+)["']/);
+  if (mediaContent) return mediaContent[1];
+
+  // Try <media:thumbnail url="...">
+  const mediaThumbnail = itemXml.match(/<media:thumbnail[^>]+url=["']([^"']+)["']/);
+  if (mediaThumbnail) return mediaThumbnail[1];
+
+  // Try <enclosure url="..." type="image/...">
+  const enclosure = itemXml.match(/<enclosure[^>]+url=["']([^"']+)["'][^>]+type=["']image\/[^"']+["']/);
+  if (enclosure) return enclosure[1];
+
+  // Try <enclosure url="..."> with image extension
+  const enclosureExt = itemXml.match(/<enclosure[^>]+url=["']([^"']+(?:\.jpg|\.jpeg|\.png|\.webp)[^"']*)["']/i);
+  if (enclosureExt) return enclosureExt[1];
+
+  // Try <image> tag inside item
+  const imageTag = itemXml.match(/<image>\s*<url>([^<]+)<\/url>/);
+  if (imageTag) return imageTag[1];
+
+  // Try image inside <description> or <content:encoded>
+  const descImg = itemXml.match(/<(?:description|content:encoded)>[\s\S]*?<img[^>]+src=["']([^"']+)["']/);
+  if (descImg) return descImg[1];
+
+  // Try CDATA wrapped content with img
+  const cdataImg = itemXml.match(/<!\[CDATA\[[\s\S]*?<img[^>]+src=["']([^"']+)["']/);
+  if (cdataImg) return cdataImg[1];
+
+  return undefined;
+}
+
 function parseRSSItems(xml: string, category: 'politics' | 'economy', source: string): NewsArticle[] {
   const items: NewsArticle[] = [];
   const itemRegex = /<item>([\s\S]*?)<\/item>/g;
@@ -45,6 +78,7 @@ function parseRSSItems(xml: string, category: 'politics' | 'economy', source: st
     const titleMatch = itemContent.match(/<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/);
     const linkMatch = itemContent.match(/<link>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/link>/);
     const pubDateMatch = itemContent.match(/<pubDate>([\s\S]*?)<\/pubDate>/);
+    const imageUrl = extractImageUrl(itemContent);
 
     if (titleMatch && linkMatch) {
       items.push({
@@ -54,6 +88,7 @@ function parseRSSItems(xml: string, category: 'politics' | 'economy', source: st
         url: linkMatch[1].trim().replace(/<!\[CDATA\[|\]\]>/g, ''),
         publishedAt: pubDateMatch ? pubDateMatch[1].trim() : new Date().toISOString(),
         category,
+        imageUrl,
       });
     }
   }
