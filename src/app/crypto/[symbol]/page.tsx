@@ -5,8 +5,10 @@ import { useParams, useRouter } from 'next/navigation';
 import TradingViewChart from '@/components/TradingViewChart';
 import CryptoInfoPanel from '@/components/CryptoInfoPanel';
 import TradeIdeas from '@/components/TradeIdeas';
-import BinanceLoginModal from '@/components/BinanceLoginModal';
+import AppHeader from '@/components/AppHeader';
+import StopLossTrackingCard from '@/components/StopLossTrackingCard';
 import { useExchange } from '@/context/ExchangeContext';
+// BinanceLoginModal is now managed by AppHeader
 import { getCryptoName } from '@/lib/crypto-names';
 import { calculateRSI, calculateSMA, calculateVolatility } from '@/lib/indicators';
 import { OHLCV } from '@/types/crypto';
@@ -34,7 +36,6 @@ export default function CryptoDetailPage() {
   const connected = connectedExchanges.length > 0;
   const [stats, setStats] = useState<CryptoStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showBinanceModal, setShowBinanceModal] = useState(false);
   const [topTab, setTopTab] = useState<TopTab>('market');
   const [activeTab, setActiveTab] = useState<ActiveTab>('chart');
 
@@ -123,59 +124,38 @@ export default function CryptoDetailPage() {
 
   return (
     <div className="min-h-screen bg-black">
-      {/* Header */}
-      <header className="border-b border-gray-800 bg-black/80 backdrop-blur-sm sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => router.push('/')}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-              </button>
-              <div>
-                <h1 className="text-xl font-bold text-white">
-                  {getCryptoName(symbol)} <span className="text-gray-500 font-normal">({symbol})</span>
-                </h1>
-                {stats && (
-                  <div className="flex items-center gap-3 mt-0.5">
-                    <span className="text-2xl font-bold text-white">{formatPrice(stats.price)}</span>
-                    <span
-                      className={`text-sm font-medium px-2 py-0.5 rounded ${
-                        stats.changePercent24h >= 0
-                          ? 'bg-green-500/20 text-green-400'
-                          : 'bg-red-500/20 text-red-400'
-                      }`}
-                    >
-                      {stats.changePercent24h >= 0 ? '+' : ''}
-                      {stats.changePercent24h.toFixed(2)}%
-                    </span>
-                  </div>
-                )}
+      <AppHeader>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => router.push('/')}
+            className="text-gray-400 hover:text-white transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+          </button>
+          <div>
+            <h1 className="text-lg font-bold text-white">
+              {getCryptoName(symbol)} <span className="text-gray-500 font-normal text-sm">({symbol})</span>
+            </h1>
+            {stats && (
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-xl font-bold text-white">{formatPrice(stats.price)}</span>
+                <span
+                  className={`text-xs font-medium px-2 py-0.5 rounded ${
+                    stats.changePercent24h >= 0
+                      ? 'bg-green-500/20 text-green-400'
+                      : 'bg-red-500/20 text-red-400'
+                  }`}
+                >
+                  {stats.changePercent24h >= 0 ? '+' : ''}
+                  {stats.changePercent24h.toFixed(2)}%
+                </span>
               </div>
-            </div>
-
-            <button
-              onClick={() => setShowBinanceModal(true)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-sm transition-colors ${
-                connected
-                  ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                  : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-              }`}
-            >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2L6.5 7.5 12 13l5.5-5.5L12 2zm0 22l5.5-5.5L12 13l-5.5 5.5L12 24zm-10-10l5.5 5.5L13 12 7.5 6.5 2 12zm20 0l-5.5-5.5L11 12l5.5 5.5L22 12z" />
-              </svg>
-              {connected
-                ? `${connectedExchanges.length}/2`
-                : 'Connect'}
-            </button>
+            )}
           </div>
         </div>
-      </header>
+      </AppHeader>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Top Tab Bar: Market / Trade Ideas */}
@@ -301,6 +281,9 @@ export default function CryptoDetailPage() {
                   <CryptoInfoPanel symbol={symbol} stats={stats} />
                 )}
 
+                {/* Stop Loss Tracking */}
+                <StopLossTrackingCard symbol={symbol} currentPrice={stats?.price} />
+
                 {/* Multi-exchange Position */}
                 {connected && bookEntry && (
                   <div className="bg-gray-900/50 border border-yellow-500/30 rounded-2xl p-6">
@@ -380,7 +363,6 @@ export default function CryptoDetailPage() {
         )}
       </main>
 
-      <BinanceLoginModal open={showBinanceModal} onClose={() => setShowBinanceModal(false)} />
     </div>
   );
 }

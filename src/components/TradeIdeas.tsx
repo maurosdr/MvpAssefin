@@ -12,10 +12,11 @@ import {
   AreaChart,
   Area,
   ReferenceLine,
-  ScatterChart,
+  ComposedChart,
   Scatter,
   Cell,
 } from 'recharts';
+import { useStopLoss } from '@/context/StopLossContext';
 
 // ─── Types ────────────────────────────────────────────────────────
 type Section = 'market-cycle' | 'ratio-indicators' | 'risk-manager';
@@ -99,7 +100,7 @@ export default function TradeIdeas({ symbol, currentPrice }: TradeIdeasProps) {
       {/* Section Content */}
       {activeSection === 'market-cycle' && <MarketCycleSection symbol={symbol} currentPrice={currentPrice} />}
       {activeSection === 'ratio-indicators' && <RatioIndicatorsSection symbol={symbol} />}
-      {activeSection === 'risk-manager' && <RiskManagerSection symbol={symbol} />}
+      {activeSection === 'risk-manager' && <RiskManagerSection symbol={symbol} currentPrice={currentPrice} />}
     </div>
   );
 }
@@ -193,7 +194,7 @@ function HeatmapCard({ symbol, currentPrice }: { symbol: string; currentPrice?: 
             {/* Chart */}
             <div className="h-[300px] mb-4">
               <ResponsiveContainer width="100%" height="100%">
-                <ScatterChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+                <ComposedChart data={displayData} margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
                   <XAxis
                     dataKey="date"
@@ -221,8 +222,8 @@ function HeatmapCard({ symbol, currentPrice }: { symbol: string; currentPrice?: 
                     }}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     formatter={(value: any, name: any) => {
-                      if (name === 'price') return [`$${(value ?? 0).toLocaleString()}`, 'Price'];
-                      if (name === 'ma200w') return [`$${(value ?? 0).toLocaleString()}`, '200w MA'];
+                      if (name === 'price' || name === 'Price') return [`$${(value ?? 0).toLocaleString()}`, 'Price'];
+                      if (name === 'ma200w' || name === '200w MA') return [`$${(value ?? 0).toLocaleString()}`, '200w MA'];
                       return [`${(value ?? 0).toFixed(2)}%`, 'Monthly % Change'];
                     }}
                   />
@@ -236,7 +237,31 @@ function HeatmapCard({ symbol, currentPrice }: { symbol: string; currentPrice?: 
                       label={{ value: `$${livePrice.toLocaleString()}`, fill: '#eab308', fontSize: 10, position: 'right' }}
                     />
                   )}
-                  <Scatter data={displayData} shape="circle">
+                  {/* Price line */}
+                  <Line
+                    type="monotone"
+                    dataKey="price"
+                    stroke="#eab308"
+                    strokeWidth={1.5}
+                    dot={false}
+                    isAnimationActive={false}
+                    connectNulls
+                    name="Price"
+                  />
+                  {/* 200w MA line */}
+                  <Line
+                    type="monotone"
+                    dataKey="ma200w"
+                    stroke="#9ca3af"
+                    strokeWidth={1}
+                    dot={false}
+                    strokeDasharray="4 4"
+                    isAnimationActive={false}
+                    connectNulls
+                    name="200w MA"
+                  />
+                  {/* Heatmap dots colored by monthly % change */}
+                  <Scatter dataKey="price" shape="circle" isAnimationActive={false}>
                     {displayData.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
@@ -245,7 +270,7 @@ function HeatmapCard({ symbol, currentPrice }: { symbol: string; currentPrice?: 
                       />
                     ))}
                   </Scatter>
-                </ScatterChart>
+                </ComposedChart>
               </ResponsiveContainer>
             </div>
 
@@ -261,7 +286,13 @@ function HeatmapCard({ symbol, currentPrice }: { symbol: string; currentPrice?: 
               </div>
               <span className="text-xs text-gray-500">High % increase</span>
             </div>
-            <div className="flex items-center gap-4 mb-4 text-xs">
+            <div className="flex items-center gap-4 mb-4 text-xs flex-wrap">
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-0.5 bg-yellow-500 inline-block rounded" /> Price
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-0 border-t-2 border-dashed border-gray-400 inline-block" /> 200w MA
+              </span>
               <span className="flex items-center gap-1.5">
                 <span className="w-4 h-0 border-t-2 border-dashed border-yellow-500 inline-block" /> Current Price
               </span>
@@ -532,7 +563,30 @@ function RatioIndicatorsSection({ symbol }: { symbol: string }) {
 
 // ─── Short Term Holder MVRV Card ──────────────────────────────────
 function STHMVRVCard({ symbol }: { symbol: string }) {
-  const data = generateSTHMVRVData();
+  const [data, setData] = useState<{ date: string; value: number; price: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const pair = `${symbol}/USDT`;
+      const res = await fetch(`/api/crypto/mvrv?symbol=${encodeURIComponent(pair)}`);
+      if (!res.ok) throw new Error('Failed to fetch MVRV data');
+      const result = await res.json();
+      if (result.sthMvrv && Array.isArray(result.sthMvrv)) {
+        setData(result.sthMvrv);
+        setError(null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  }, [symbol]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   return (
     <div className="bg-gray-900/50 border border-gray-800 rounded-2xl overflow-hidden">
@@ -559,52 +613,65 @@ function STHMVRVCard({ symbol }: { symbol: string }) {
           Historically, these periods have coincided with $BTC being near its respective market highs and
           lows as shown on the chart above.
         </p>
+        <p className="text-gray-600 text-xs mb-4 italic">
+          Proxy-based estimate calculated from price / SMA(155) historical data.
+        </p>
 
         {/* Chart */}
-        <div className="h-[280px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data} margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
-              <defs>
-                <linearGradient id="sthMvrvGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-              <XAxis
-                dataKey="date"
-                tick={{ fill: '#9ca3af', fontSize: 11 }}
-                axisLine={{ stroke: '#374151' }}
-              />
-              <YAxis
-                tick={{ fill: '#9ca3af', fontSize: 11 }}
-                axisLine={{ stroke: '#374151' }}
-                tickFormatter={(v) => v.toFixed(1)}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#111827',
-                  border: '1px solid #374151',
-                  borderRadius: '0.75rem',
-                  color: '#fff',
-                  fontSize: '12px',
-                }}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                formatter={(value: any) => [(value ?? 0).toFixed(3), 'STH-MVRV']}
-              />
-              <ReferenceLine y={1} stroke="#eab308" strokeDasharray="5 5" label={{ value: 'Break-even', fill: '#eab308', fontSize: 10 }} />
-              <ReferenceLine y={1.4} stroke="#ef4444" strokeDasharray="3 3" label={{ value: 'Overvalued', fill: '#ef4444', fontSize: 10 }} />
-              <ReferenceLine y={0.7} stroke="#22c55e" strokeDasharray="3 3" label={{ value: 'Undervalued', fill: '#22c55e', fontSize: 10 }} />
-              <Area
-                type="monotone"
-                dataKey="value"
-                stroke="#06b6d4"
-                strokeWidth={2}
-                fill="url(#sthMvrvGrad)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+        {loading ? (
+          <div className="h-[280px] flex items-center justify-center">
+            <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : error ? (
+          <div className="h-[280px] flex items-center justify-center">
+            <p className="text-red-400 text-sm">{error}</p>
+          </div>
+        ) : (
+          <div className="h-[280px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={data} margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+                <defs>
+                  <linearGradient id="sthMvrvGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fill: '#9ca3af', fontSize: 11 }}
+                  axisLine={{ stroke: '#374151' }}
+                />
+                <YAxis
+                  tick={{ fill: '#9ca3af', fontSize: 11 }}
+                  axisLine={{ stroke: '#374151' }}
+                  tickFormatter={(v) => v.toFixed(1)}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#111827',
+                    border: '1px solid #374151',
+                    borderRadius: '0.75rem',
+                    color: '#fff',
+                    fontSize: '12px',
+                  }}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  formatter={(value: any) => [(value ?? 0).toFixed(3), 'STH-MVRV']}
+                />
+                <ReferenceLine y={1} stroke="#eab308" strokeDasharray="5 5" label={{ value: 'Break-even', fill: '#eab308', fontSize: 10 }} />
+                <ReferenceLine y={1.4} stroke="#ef4444" strokeDasharray="3 3" label={{ value: 'Overvalued', fill: '#ef4444', fontSize: 10 }} />
+                <ReferenceLine y={0.7} stroke="#22c55e" strokeDasharray="3 3" label={{ value: 'Undervalued', fill: '#22c55e', fontSize: 10 }} />
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#06b6d4"
+                  strokeWidth={2}
+                  fill="url(#sthMvrvGrad)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -612,7 +679,30 @@ function STHMVRVCard({ symbol }: { symbol: string }) {
 
 // ─── MVRV Z-Score Card ────────────────────────────────────────────
 function MVRVZScoreCard({ symbol }: { symbol: string }) {
-  const data = generateMVRVZScoreData();
+  const [data, setData] = useState<{ date: string; marketValue: number; realisedValue: number; zScore: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const pair = `${symbol}/USDT`;
+      const res = await fetch(`/api/crypto/mvrv?symbol=${encodeURIComponent(pair)}`);
+      if (!res.ok) throw new Error('Failed to fetch MVRV data');
+      const result = await res.json();
+      if (result.mvrvZScore && Array.isArray(result.mvrvZScore)) {
+        setData(result.mvrvZScore);
+        setError(null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  }, [symbol]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   return (
     <div className="bg-gray-900/50 border border-gray-800 rounded-2xl overflow-hidden">
@@ -654,61 +744,76 @@ function MVRVZScoreCard({ symbol }: { symbol: string }) {
             </p>
           </div>
         </div>
+        <p className="text-gray-600 text-xs mb-4 italic">
+          Proxy-based: Market Value = Price, Realised Value = SMA(365), Z-Score from rolling standard deviation.
+        </p>
 
         {/* Chart */}
-        <div className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-              <XAxis
-                dataKey="date"
-                tick={{ fill: '#9ca3af', fontSize: 11 }}
-                axisLine={{ stroke: '#374151' }}
-              />
-              <YAxis
-                yAxisId="price"
-                orientation="left"
-                tick={{ fill: '#9ca3af', fontSize: 11 }}
-                axisLine={{ stroke: '#374151' }}
-                tickFormatter={(v) => `$${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}`}
-              />
-              <YAxis
-                yAxisId="zscore"
-                orientation="right"
-                tick={{ fill: '#9ca3af', fontSize: 11 }}
-                axisLine={{ stroke: '#374151' }}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#111827',
-                  border: '1px solid #374151',
-                  borderRadius: '0.75rem',
-                  color: '#fff',
-                  fontSize: '12px',
-                }}
-              />
-              <ReferenceLine yAxisId="zscore" y={7} stroke="#ef4444" strokeDasharray="3 3" label={{ value: 'Overvalued', fill: '#ef4444', fontSize: 10 }} />
-              <ReferenceLine yAxisId="zscore" y={0} stroke="#6b7280" strokeDasharray="3 3" />
-              <ReferenceLine yAxisId="zscore" y={-0.5} stroke="#22c55e" strokeDasharray="3 3" label={{ value: 'Undervalued', fill: '#22c55e', fontSize: 10 }} />
-              <Line yAxisId="price" type="monotone" dataKey="marketValue" stroke="#ffffff" strokeWidth={1.5} dot={false} name="Market Value" />
-              <Line yAxisId="price" type="monotone" dataKey="realisedValue" stroke="#3b82f6" strokeWidth={1.5} dot={false} name="Realised Value" />
-              <Line yAxisId="zscore" type="monotone" dataKey="zScore" stroke="#f97316" strokeWidth={2} dot={false} name="Z-Score" />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        {loading ? (
+          <div className="h-[300px] flex items-center justify-center">
+            <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : error ? (
+          <div className="h-[300px] flex items-center justify-center">
+            <p className="text-red-400 text-sm">{error}</p>
+          </div>
+        ) : (
+          <>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data} margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: '#9ca3af', fontSize: 11 }}
+                    axisLine={{ stroke: '#374151' }}
+                  />
+                  <YAxis
+                    yAxisId="price"
+                    orientation="left"
+                    tick={{ fill: '#9ca3af', fontSize: 11 }}
+                    axisLine={{ stroke: '#374151' }}
+                    tickFormatter={(v) => `$${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}`}
+                  />
+                  <YAxis
+                    yAxisId="zscore"
+                    orientation="right"
+                    tick={{ fill: '#9ca3af', fontSize: 11 }}
+                    axisLine={{ stroke: '#374151' }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#111827',
+                      border: '1px solid #374151',
+                      borderRadius: '0.75rem',
+                      color: '#fff',
+                      fontSize: '12px',
+                    }}
+                  />
+                  <ReferenceLine yAxisId="zscore" y={7} stroke="#ef4444" strokeDasharray="3 3" label={{ value: 'Overvalued', fill: '#ef4444', fontSize: 10 }} />
+                  <ReferenceLine yAxisId="zscore" y={0} stroke="#6b7280" strokeDasharray="3 3" />
+                  <ReferenceLine yAxisId="zscore" y={-0.5} stroke="#22c55e" strokeDasharray="3 3" label={{ value: 'Undervalued', fill: '#22c55e', fontSize: 10 }} />
+                  <Line yAxisId="price" type="monotone" dataKey="marketValue" stroke="#ffffff" strokeWidth={1.5} dot={false} name="Market Value" />
+                  <Line yAxisId="price" type="monotone" dataKey="realisedValue" stroke="#3b82f6" strokeWidth={1.5} dot={false} name="Realised Value" />
+                  <Line yAxisId="zscore" type="monotone" dataKey="zScore" stroke="#f97316" strokeWidth={2} dot={false} name="Z-Score" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
 
-        {/* Legend */}
-        <div className="flex items-center gap-6 mt-3 text-xs flex-wrap">
-          <span className="flex items-center gap-1.5">
-            <span className="w-4 h-0.5 bg-white inline-block rounded" /> Market Value
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-4 h-0.5 bg-blue-500 inline-block rounded" /> Realised Value
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-4 h-0.5 bg-orange-500 inline-block rounded" /> Z-Score
-          </span>
-        </div>
+            {/* Legend */}
+            <div className="flex items-center gap-6 mt-3 text-xs flex-wrap">
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-0.5 bg-white inline-block rounded" /> Market Value
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-0.5 bg-blue-500 inline-block rounded" /> Realised Value
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-0.5 bg-orange-500 inline-block rounded" /> Z-Score
+              </span>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -717,12 +822,12 @@ function MVRVZScoreCard({ symbol }: { symbol: string }) {
 // ═══════════════════════════════════════════════════════════════════
 // RISK MANAGER SECTION
 // ═══════════════════════════════════════════════════════════════════
-function RiskManagerSection({ symbol }: { symbol: string }) {
+function RiskManagerSection({ symbol, currentPrice }: { symbol: string; currentPrice?: number }) {
   return (
     <div className="space-y-6">
       <PositionCard symbol={symbol} />
       <CVaRMonteCarloCard symbol={symbol} />
-      <StopLossCard symbol={symbol} />
+      <StopLossCard symbol={symbol} currentPrice={currentPrice} />
     </div>
   );
 }
@@ -1080,8 +1185,10 @@ function CVaRMonteCarloCard({ symbol }: { symbol: string }) {
 }
 
 // ─── Stop Loss Card ───────────────────────────────────────────────
-function StopLossCard({ symbol }: { symbol: string }) {
+function StopLossCard({ symbol, currentPrice }: { symbol: string; currentPrice?: number }) {
+  const { addStopLoss } = useStopLoss();
   const [activeView, setActiveView] = useState<StopLossSimView | null>(null);
+  const [addedMessage, setAddedMessage] = useState<string | null>(null);
 
   // ATR parameters
   const [atrPeriod, setAtrPeriod] = useState('14');
@@ -1326,20 +1433,79 @@ function StopLossCard({ symbol }: { symbol: string }) {
               </div>
             )}
 
+            {/* Add Stop Loss to Tracking */}
             <button
-              onClick={runBacktest}
-              disabled={backtesting}
-              className="w-full py-3 rounded-xl font-semibold text-sm transition-all bg-yellow-500 text-black hover:bg-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              onClick={() => {
+                const price = currentPrice || 50000;
+                let stopLevel = 0;
+                let targetLevel = 0;
+
+                if (activeView?.type === 'atr') {
+                  const atrVal = price * 0.02 * parseFloat(atrMultiplier || '2');
+                  stopLevel = price - atrVal;
+                  targetLevel = price + atrVal * parseFloat(riskRewardRatio || '3');
+                } else if (activeView?.type === 'technical') {
+                  stopLevel = parseFloat(supportLevel) || price * 0.95;
+                  targetLevel = parseFloat(resistanceLevel) || price * 1.15;
+                } else if (activeView?.type === 'trailing') {
+                  const trail = parseFloat(trailPercent) / 100;
+                  stopLevel = price * (1 - trail);
+                  targetLevel = price * (1 + trail * parseFloat(riskRewardRatio || '3'));
+                } else if (activeView?.type === 'ratio') {
+                  const risk = parseFloat(riskAmount) || price * 0.03;
+                  const entry = parseFloat(entryPriceSL) || price;
+                  stopLevel = entry - risk;
+                  targetLevel = entry + risk * parseFloat(riskRewardRatio || '3');
+                }
+
+                addStopLoss({
+                  symbol,
+                  type: activeView!.type,
+                  label: activeView!.label,
+                  entryPrice: activeView?.type === 'ratio' && entryPriceSL ? parseFloat(entryPriceSL) : price,
+                  stopLevel,
+                  targetLevel,
+                  atrPeriod: parseFloat(atrPeriod),
+                  atrMultiplier: parseFloat(atrMultiplier),
+                  trailPercent: parseFloat(trailPercent),
+                  riskRewardRatio: parseFloat(riskRewardRatio),
+                  supportLevel: parseFloat(supportLevel) || undefined,
+                  resistanceLevel: parseFloat(resistanceLevel) || undefined,
+                  riskAmount: parseFloat(riskAmount) || undefined,
+                });
+
+                setAddedMessage('Stop Loss added! Check the Market tab.');
+                setTimeout(() => setAddedMessage(null), 3000);
+              }}
+              className="w-full py-3 rounded-xl font-semibold text-sm transition-all bg-green-600 text-white hover:bg-green-500 flex items-center justify-center gap-2"
             >
-              {backtesting ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                  Running 5Y Backtest...
-                </>
-              ) : (
-                'Backtest (5 Year)'
-              )}
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Stop Loss to Tracking
             </button>
+
+            {addedMessage && (
+              <p className="text-center text-green-400 text-sm animate-pulse">{addedMessage}</p>
+            )}
+
+            {/* Backtest — available for ATR, Trailing, Target only (NOT Technical) */}
+            {activeView?.type !== 'technical' && (
+              <button
+                onClick={runBacktest}
+                disabled={backtesting}
+                className="w-full py-3 rounded-xl font-semibold text-sm transition-all bg-yellow-500 text-black hover:bg-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {backtesting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                    Running 5Y Backtest...
+                  </>
+                ) : (
+                  'Backtest (5 Year)'
+                )}
+              </button>
+            )}
 
             {/* Backtest Results */}
             {backtestResult && (
@@ -1502,47 +1668,5 @@ function getHeatmapColor(pctChange: number): string {
   return '#6366f1';
 }
 
-// generateHeatmapData and generateStockToFlowData removed — now using real API data
-
-function generateSTHMVRVData() {
-  const data: { date: string; value: number }[] = [];
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  let value = 1.0;
-
-  for (let y = 2023; y <= 2026; y++) {
-    for (let m = 0; m < 12; m++) {
-      if (y === 2026 && m > 1) break;
-      const cycle = Math.sin(((y - 2023) * 12 + m) / 18 * Math.PI) * 0.3;
-      const noise = (Math.random() - 0.5) * 0.1;
-      value = Math.max(0.4, Math.min(1.8, value + cycle * 0.05 + noise));
-      data.push({ date: `${months[m]} ${y}`, value: Math.round(value * 1000) / 1000 });
-    }
-  }
-
-  return data;
-}
-
-function generateMVRVZScoreData() {
-  const data: { date: string; marketValue: number; realisedValue: number; zScore: number }[] = [];
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  let mv = 20000;
-  let rv = 15000;
-
-  for (let y = 2021; y <= 2026; y++) {
-    for (let m = 0; m < 12; m++) {
-      if (y === 2026 && m > 1) break;
-      const cycle = Math.sin(((y - 2021) * 12 + m) / 24 * Math.PI * 2) * 0.08;
-      mv *= 1 + cycle + (Math.random() - 0.45) * 0.08;
-      rv *= 1 + (Math.random() - 0.48) * 0.03 + 0.005;
-      const zScore = (mv - rv) / (rv * 0.3);
-      data.push({
-        date: `${months[m]} ${String(y).slice(2)}`,
-        marketValue: Math.round(mv),
-        realisedValue: Math.round(rv),
-        zScore: Math.round(zScore * 100) / 100,
-      });
-    }
-  }
-
-  return data;
-}
+// generateHeatmapData, generateStockToFlowData, generateSTHMVRVData, generateMVRVZScoreData
+// removed — now using real API data
