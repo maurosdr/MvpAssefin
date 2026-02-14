@@ -25,9 +25,9 @@ export default function CurrencyTable() {
   }, []);
 
   return (
-    <div className="bg-gray-900/50 border border-gray-800 rounded-2xl overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-800">
-        <h2 className="text-lg font-bold text-white flex items-center gap-2">
+    <div className="bg-[var(--surface)]/50 border border-[var(--border)] rounded-2xl overflow-hidden">
+      <div className="px-6 py-4 border-b border-[var(--border)]">
+        <h2 className="text-lg font-bold text-[var(--text)] flex items-center gap-2">
           <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
@@ -43,7 +43,7 @@ export default function CurrencyTable() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="text-xs text-gray-500 border-b border-gray-800">
+              <tr className="text-xs text-[var(--text-muted)] border-b border-[var(--border)]">
                 <th className="text-left px-6 py-3 font-medium">Pair</th>
                 <th className="text-right px-6 py-3 font-medium">Price</th>
                 <th className="text-right px-6 py-3 font-medium">1D %</th>
@@ -52,14 +52,14 @@ export default function CurrencyTable() {
             </thead>
             <tbody>
               {currencies.map((c) => (
-                <tr key={c.pair} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
+                <tr key={c.pair} className="border-b border-[var(--border)]/50 hover:bg-gray-800/30 transition-colors">
                   <td className="px-6 py-3">
                     <div>
-                      <span className="text-white font-medium text-sm">{c.pair}</span>
-                      <span className="text-gray-500 text-xs ml-2">{c.name}</span>
+                      <span className="text-[var(--text)] font-medium text-sm">{c.pair}</span>
+                      <span className="text-[var(--text-muted)] text-xs ml-2">{c.name}</span>
                     </div>
                   </td>
-                  <td className="text-right px-6 py-3 text-white font-mono text-sm">
+                  <td className="text-right px-6 py-3 text-[var(--text)] font-mono text-sm">
                     {c.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
                   </td>
                   <td className={`text-right px-6 py-3 font-mono text-sm ${c.change1d >= 0 ? 'text-green-400' : 'text-red-400'}`}>

@@ -6,7 +6,7 @@ interface NewsArticle {
   source: string;
   url: string;
   publishedAt: string;
-  category: 'politics' | 'economy';
+  category: 'politics' | 'economy' | 'crypto';
   imageUrl?: string;
 }
 
@@ -25,9 +25,13 @@ function formatTimeAgo(dateString: string): string {
 }
 
 function getCategoryColor(category: string) {
-  return category === 'politics'
-    ? { accent: 'text-blue-400', bg: 'bg-blue-500/20', border: 'border-blue-500/30' }
-    : { accent: 'text-green-400', bg: 'bg-green-500/20', border: 'border-green-500/30' };
+  if (category === 'politics') {
+    return { accent: 'text-blue-400', bg: 'bg-blue-500/20', border: 'border-blue-500/30' };
+  }
+  if (category === 'crypto') {
+    return { accent: 'text-[var(--accent)]', bg: 'bg-[var(--accent-soft)]', border: 'border-[var(--accent)]/30' };
+  }
+  return { accent: 'text-green-400', bg: 'bg-green-500/20', border: 'border-green-500/30' };
 }
 
 export default function MacroNewsCard({ articles }: { articles: NewsArticle[] }) {
@@ -43,7 +47,7 @@ export default function MacroNewsCard({ articles }: { articles: NewsArticle[] })
             href={article.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="block bg-gray-900/50 border border-gray-800 rounded-2xl overflow-hidden hover:bg-gray-800/30 hover:border-gray-700 transition-all group"
+            className="block bg-[var(--surface)]/50 border border-[var(--border)] rounded-2xl overflow-hidden hover:bg-gray-800/30 hover:border-gray-700 transition-all group"
           >
             {article.imageUrl && (
               <div className="relative h-40 w-full overflow-hidden bg-gray-800">
@@ -66,12 +70,12 @@ export default function MacroNewsCard({ articles }: { articles: NewsArticle[] })
                 </span>
                 <span className="text-[10px] text-gray-600 whitespace-nowrap">{formatTimeAgo(article.publishedAt)}</span>
               </div>
-              <h3 className="text-sm text-white font-medium line-clamp-2 mb-2 group-hover:text-yellow-400 transition-colors">
+              <h3 className="text-sm text-[var(--text)] font-medium line-clamp-2 mb-2 group-hover:text-[var(--accent)] transition-colors">
                 {article.title}
               </h3>
               <div className="flex items-center justify-between">
                 <span className={`text-xs ${colors.accent}`}>{article.source}</span>
-                <svg className="w-4 h-4 text-gray-600 group-hover:text-yellow-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-gray-600 group-hover:text-[var(--accent)] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>
               </div>

@@ -8,7 +8,6 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  CartesianGrid,
 } from 'recharts';
 
 type TimeWindow = '1d' | '1w' | '1m' | '3m' | '6m' | '1y';
@@ -49,7 +48,9 @@ export default function StockIndicesChart() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/market/indices?symbol=${encodeURIComponent(selected)}&window=${window}`);
+      const res = await fetch(`/api/market/indices?symbol=${encodeURIComponent(selected)}&window=${window}`, {
+        cache: 'no-store',
+      });
       const result = await res.json();
       if (result.data && Array.isArray(result.data)) {
         setData(result.data);
@@ -71,11 +72,11 @@ export default function StockIndicesChart() {
   const isPositive = priceChange >= 0;
 
   return (
-    <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
+    <div className="bg-[var(--surface)]/50 border border-[var(--border)] rounded-2xl p-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <h2 className="text-lg font-bold text-[var(--text)] flex items-center gap-2">
+            <svg className="w-5 h-5 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
             </svg>
             Stock Indices
@@ -83,7 +84,7 @@ export default function StockIndicesChart() {
           <select
             value={selected}
             onChange={(e) => setSelected(e.target.value)}
-            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-yellow-500"
+            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-[var(--text)] text-sm focus:outline-none focus:border-[var(--accent)]"
           >
             {INDICES.map((idx) => (
               <option key={idx.symbol} value={idx.symbol}>
@@ -109,7 +110,7 @@ export default function StockIndicesChart() {
               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                 window === w.value
                   ? 'bg-yellow-500 text-black'
-                  : 'text-gray-400 hover:text-white'
+                  : 'text-gray-400 hover:text-[var(--text)]'
               }`}
             >
               {w.label}
@@ -121,50 +122,69 @@ export default function StockIndicesChart() {
       <div className="h-[300px]">
         {loading ? (
           <div className="h-full flex items-center justify-center">
-            <div className="w-8 h-8 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data}>
               <defs>
                 <linearGradient id="indexGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={isPositive ? '#22c55e' : '#ef4444'} stopOpacity={0.3} />
-                  <stop offset="95%" stopColor={isPositive ? '#22c55e' : '#ef4444'} stopOpacity={0} />
+                  <stop
+                    offset="0%"
+                    stopColor={isPositive ? '#22c55e' : '#ef4444'}
+                    stopOpacity={0.35}
+                  />
+                  <stop
+                    offset="100%"
+                    stopColor={isPositive ? '#22c55e' : '#ef4444'}
+                    stopOpacity={0}
+                  />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+
               <XAxis
                 dataKey="date"
-                tick={{ fill: '#6b7280', fontSize: 12 }}
-                axisLine={{ stroke: '#374151' }}
+                tick={{ fill: '#6b7280', fontSize: 11 }}
+                axisLine={false}
                 tickLine={false}
               />
+
               <YAxis
-                domain={['auto', 'auto']}
-                tick={{ fill: '#6b7280', fontSize: 12 }}
-                axisLine={{ stroke: '#374151' }}
+                tick={{ fill: '#6b7280', fontSize: 11 }}
+                axisLine={false}
                 tickLine={false}
                 tickFormatter={(v) => {
                   if (v >= 1000) return `${(v / 1000).toFixed(1)}K`;
                   return v.toFixed(0);
                 }}
               />
+
               <Tooltip
                 contentStyle={{
-                  backgroundColor: '#111827',
-                  border: '1px solid #374151',
+                  backgroundColor: '#0b0f19',
+                  border: '1px solid #1f2937',
                   borderRadius: '0.75rem',
-                  color: '#fff',
+                  fontSize: '0.75rem',
                 }}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                formatter={(value: any) => [`${(value ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`, 'Value']}
+                formatter={(value) => {
+                  if (typeof value !== 'number') return ['-', 'Value'];
+                  return [
+                    `${value.toLocaleString(undefined, {
+                      maximumFractionDigits: 2,
+                    })}`,
+                    'Value',
+                  ];
+                }}
               />
+
               <Area
                 type="monotone"
                 dataKey="close"
                 stroke={isPositive ? '#22c55e' : '#ef4444'}
                 strokeWidth={2}
                 fill="url(#indexGradient)"
+                dot={false}
+                activeDot={{ r: 4 }}
               />
             </AreaChart>
           </ResponsiveContainer>

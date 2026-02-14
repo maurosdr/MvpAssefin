@@ -38,7 +38,7 @@ export default function BloombergNewsTicker() {
   useEffect(() => {
     const fetchNews = async () => {
       try {
-        const res = await fetch('/api/news/macro');
+        const res = await fetch('/api/news/macro', { cache: 'no-store' });
         const data = await res.json();
         if (data.articles && Array.isArray(data.articles)) {
           setArticles(data.articles);
@@ -51,15 +51,19 @@ export default function BloombergNewsTicker() {
       }
     };
 
-    fetchNews();
+    // Delay para não competir com outras chamadas
+    const timeout = setTimeout(fetchNews, 700);
     const interval = setInterval(fetchNews, 1_800_000); // 30 minutes
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
   }, []);
 
   return (
-    <div className="bg-gray-900/50 border border-gray-800 rounded-2xl overflow-hidden">
+    <div className="bg-[var(--surface)]/50 border border-[var(--border)] rounded-2xl overflow-hidden">
       {/* Header */}
-      <div className="px-5 py-3 border-b border-gray-800 flex items-center justify-between">
+      <div className="px-5 py-3 border-b border-[var(--border)] flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-amber-400 rounded-sm" />
@@ -72,7 +76,7 @@ export default function BloombergNewsTicker() {
           <span className="font-[family-name:var(--font-geist-mono)] text-xs text-gray-600">
             |
           </span>
-          <span className="font-[family-name:var(--font-geist-mono)] text-xs text-gray-500">
+          <span className="font-[family-name:var(--font-geist-mono)] text-xs text-[var(--text-muted)]">
             GLOBAL MACRO & POLITICS
           </span>
         </div>
@@ -84,7 +88,7 @@ export default function BloombergNewsTicker() {
           )}
           <div className="flex items-center gap-1.5">
             <span className="inline-block w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-            <span className="font-[family-name:var(--font-geist-mono)] text-[10px] text-gray-500">
+            <span className="font-[family-name:var(--font-geist-mono)] text-[10px] text-[var(--text-muted)]">
               LIVE 30m
             </span>
           </div>
@@ -127,7 +131,7 @@ export default function BloombergNewsTicker() {
                 <span className="font-[family-name:var(--font-geist-mono)] text-gray-700 shrink-0">|</span>
 
                 {/* Headline */}
-                <span className="font-[family-name:var(--font-geist-mono)] text-xs text-gray-300 group-hover:text-white transition-colors truncate flex-1">
+                <span className="font-[family-name:var(--font-geist-mono)] text-xs text-gray-300 group-hover:text-[var(--text)] transition-colors truncate flex-1">
                   {article.title}
                 </span>
 
@@ -150,7 +154,7 @@ export default function BloombergNewsTicker() {
       )}
 
       {/* Footer */}
-      <div className="px-5 py-2 border-t border-gray-800/60 flex items-center justify-between">
+      <div className="px-5 py-2 border-t border-[var(--border)]/60 flex items-center justify-between">
         <span className="font-[family-name:var(--font-geist-mono)] text-[10px] text-gray-700">
           Sources: Bloomberg, Politico, Reuters, NYT, InfoMoney, UOL
         </span>

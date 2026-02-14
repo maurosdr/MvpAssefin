@@ -8,7 +8,6 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  CartesianGrid,
   Legend,
 } from 'recharts';
 
@@ -78,18 +77,18 @@ export default function YieldCurveChart() {
   const iconColor = curveType === 'us' ? 'text-blue-400' : 'text-green-400';
 
   return (
-    <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
+    <div className="bg-[var(--surface)]/50 border border-[var(--border)] rounded-2xl p-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
           <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <h2 className="text-lg font-bold text-[var(--text)] flex items-center gap-2">
               <svg className={`w-5 h-5 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
               </svg>
               {titleText}
             </h2>
             {data?.currentDate && (
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-[var(--text-muted)] mt-1">
                 Current: {data.currentDate}
                 {data.comparisonDate && ` vs ${data.comparisonDate}`}
               </p>
@@ -101,7 +100,7 @@ export default function YieldCurveChart() {
           <select
             value={curveType}
             onChange={(e) => setCurveType(e.target.value as CurveType)}
-            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-yellow-500"
+            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-[var(--text)] text-sm focus:outline-none focus:border-[var(--accent)]"
           >
             <option value="us">US Treasury</option>
             <option value="brazil">Brazil DI (Pre)</option>
@@ -112,7 +111,7 @@ export default function YieldCurveChart() {
               {!showCompare ? (
                 <button
                   onClick={() => setShowCompare(true)}
-                  className="px-3 py-1.5 text-sm bg-gray-800 text-gray-400 hover:text-white border border-gray-700 rounded-lg transition-colors"
+                  className="px-3 py-1.5 text-sm bg-gray-800 text-gray-400 hover:text-[var(--text)] border border-gray-700 rounded-lg transition-colors"
                 >
                   + Compare Date
                 </button>
@@ -122,14 +121,14 @@ export default function YieldCurveChart() {
                     type="date"
                     value={compareDate}
                     onChange={(e) => setCompareDate(e.target.value)}
-                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-yellow-500"
+                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-[var(--text)] text-sm focus:outline-none focus:border-[var(--accent)]"
                   />
                   <button
                     onClick={() => {
                       setShowCompare(false);
                       setCompareDate('');
                     }}
-                    className="text-gray-500 hover:text-red-400 p-1"
+                    className="text-[var(--text-muted)] hover:text-red-400 p-1"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -150,31 +149,33 @@ export default function YieldCurveChart() {
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 5, right: 10, bottom: 5, left: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
               <XAxis
                 dataKey="label"
-                tick={{ fill: '#9ca3af', fontSize: 12 }}
-                axisLine={{ stroke: '#374151' }}
+                tick={{ fill: '#6b7280', fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
               />
               <YAxis
-                tick={{ fill: '#9ca3af', fontSize: 12 }}
-                axisLine={{ stroke: '#374151' }}
+                tick={{ fill: '#6b7280', fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
                 tickFormatter={(v) => `${v.toFixed(1)}%`}
                 domain={['auto', 'auto']}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: '#111827',
-                  border: '1px solid #374151',
+                  backgroundColor: '#0b0f19',
+                  border: '1px solid #1f2937',
                   borderRadius: '0.75rem',
-                  color: '#fff',
-                  fontSize: '12px',
+                  fontSize: '0.75rem',
                 }}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                formatter={(value: any, name: any) => [
-                  `${(value ?? 0).toFixed(2)}%${curveType === 'brazil' ? ' a.a.' : ''}`,
-                  name === 'current' ? `Today (${data?.currentDate || ''})` : `Compare (${data?.comparisonDate || ''})`,
-                ]}
+                formatter={(value, name) => {
+                  if (typeof value !== 'number') return ['-', 'Yield'];
+                  return [
+                    `${value.toFixed(2)}%${curveType === 'brazil' ? ' a.a.' : ''}`,
+                    name === 'current' ? `Today (${data?.currentDate || ''})` : `Compare (${data?.comparisonDate || ''})`,
+                  ];
+                }}
               />
               <Legend
                 formatter={(value) =>
@@ -185,8 +186,9 @@ export default function YieldCurveChart() {
                 type="monotone"
                 dataKey="current"
                 stroke={lineColor}
-                strokeWidth={2.5}
-                dot={{ r: 4, fill: lineColor }}
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4, fill: lineColor }}
                 name="current"
               />
               {data?.comparison && (
@@ -196,7 +198,8 @@ export default function YieldCurveChart() {
                   stroke="#f97316"
                   strokeWidth={2}
                   strokeDasharray="5 5"
-                  dot={{ r: 3, fill: '#f97316' }}
+                  dot={false}
+                  activeDot={{ r: 4, fill: '#f97316' }}
                   name="comparison"
                 />
               )}

@@ -94,7 +94,7 @@ function MarketCard({ market, config }: { market: Market; config: CategoryConfig
         )
       }
     >
-      <h4 className="text-white text-sm font-medium mb-3 line-clamp-2 min-h-[2.5rem]">
+      <h4 className="text-[var(--text)] text-sm font-medium mb-3 line-clamp-2 min-h-[2.5rem]">
         {market.title}
       </h4>
 
@@ -119,7 +119,7 @@ function MarketCard({ market, config }: { market: Market; config: CategoryConfig
         ))}
       </div>
 
-      <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-gray-700/50">
+      <div className="flex items-center justify-between text-xs text-[var(--text-muted)] pt-2 border-t border-gray-700/50">
         <span>Vol: {formatVolume(market.volume)}</span>
         <span className={config.accentColor}>View on Polymarket</span>
       </div>
@@ -129,14 +129,14 @@ function MarketCard({ market, config }: { market: Market; config: CategoryConfig
 
 function CategorySection({ config, markets, loading }: { config: CategoryConfig; markets: Market[]; loading: boolean }) {
   return (
-    <div className="bg-gray-900/50 border border-gray-800 rounded-2xl overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-800">
+    <div className="bg-[var(--surface)]/50 border border-[var(--border)] rounded-2xl overflow-hidden">
+      <div className="px-6 py-4 border-b border-[var(--border)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className={`${config.accentColor}`}>
               {config.icon}
             </div>
-            <h3 className="text-lg font-bold text-white">{config.title} Predictions</h3>
+            <h3 className="text-lg font-bold text-[var(--text)]">{config.title} Predictions</h3>
           </div>
           <span className={`text-xs ${config.bgColor} ${config.accentColor} px-2 py-1 rounded font-medium`}>
             {markets.length} markets
@@ -168,36 +168,42 @@ export default function PolymarketCards({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchMarkets = () => {
-      fetch('/api/polymarket')
-        .then((r) => r.json())
-        .then((result) => {
-          if (result.politics || result.crypto || result.economy) {
-            setData(result);
-          } else if (result.markets) {
-            setData(result.markets);
-          }
-        })
-        .catch(() => {})
-        .finally(() => setLoading(false));
+    const fetchMarkets = async () => {
+      try {
+        const res = await fetch('/api/polymarket', { cache: 'no-store' });
+        const result = await res.json();
+        if (result.politics || result.crypto || result.economy) {
+          setData(result);
+        } else if (result.markets) {
+          setData(result.markets);
+        }
+      } catch {
+        // Error handling
+      } finally {
+        setLoading(false);
+      }
     };
 
-    fetchMarkets();
+    // Delay para não competir com outras chamadas
+    const timeout = setTimeout(fetchMarkets, 800);
     const interval = setInterval(fetchMarkets, 30000);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
   }, []);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+          <h2 className="text-xl font-bold text-[var(--text)] flex items-center gap-2">
             <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
             Polymarket Predictions
           </h2>
-          <p className="text-gray-500 text-sm mt-1">
+          <p className="text-[var(--text-muted)] text-sm mt-1">
             Real-time prediction markets via{' '}
             <a
               href="https://polymarket.com"
@@ -210,7 +216,7 @@ export default function PolymarketCards({
           </p>
         </div>
         {data?.source === 'cache' && (
-          <span className="text-xs bg-gray-800 text-gray-500 px-2 py-1 rounded">Cached</span>
+          <span className="text-xs bg-gray-800 text-[var(--text-muted)] px-2 py-1 rounded">Cached</span>
         )}
       </div>
 

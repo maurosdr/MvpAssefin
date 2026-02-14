@@ -50,12 +50,12 @@ export default function StopLossTrackingCard({
         return (
           <div
             key={sl.id}
-            className={`bg-gray-900/50 border rounded-2xl p-6 ${
+            className={`bg-[var(--surface)]/50 border rounded-2xl p-6 ${
               isNearStop
                 ? 'border-red-500/50 shadow-lg shadow-red-500/10'
                 : isAboveTarget
                   ? 'border-green-500/50 shadow-lg shadow-green-500/10'
-                  : 'border-yellow-500/30'
+                  : 'border-[var(--accent)]/30'
             }`}
           >
             <div className="flex items-center justify-between mb-4">
@@ -63,14 +63,14 @@ export default function StopLossTrackingCard({
                 <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                 </svg>
-                <h2 className="text-lg font-bold text-white">Stop Loss Strategy</h2>
+                <h2 className="text-lg font-bold text-[var(--text)]">Stop Loss Strategy</h2>
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${getTypeColor(sl.type)}`}>
                   {getTypeLabel(sl.type)}
                 </span>
               </div>
               <button
                 onClick={() => removeStopLoss(sl.id)}
-                className="text-gray-500 hover:text-red-400 transition-colors p-1"
+                className="text-[var(--text-muted)] hover:text-red-400 transition-colors p-1"
                 title="Remove stop loss"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -82,28 +82,28 @@ export default function StopLossTrackingCard({
             {/* Price levels grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
               <div>
-                <p className="text-xs text-gray-500">Entry Price</p>
-                <p className="text-white font-mono text-sm font-bold">{formatPrice(sl.entryPrice)}</p>
+                <p className="text-xs text-[var(--text-muted)]">Entry Price</p>
+                <p className="text-[var(--text)] font-mono text-sm font-bold">{formatPrice(sl.entryPrice)}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-500">Current Price</p>
+                <p className="text-xs text-[var(--text-muted)]">Current Price</p>
                 <p className={`font-mono text-sm font-bold ${pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                   {formatPrice(price)}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-gray-500">Stop Loss</p>
+                <p className="text-xs text-[var(--text-muted)]">Stop Loss</p>
                 <p className="text-red-400 font-mono text-sm font-bold">{formatPrice(sl.stopLevel)}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-500">Target</p>
+                <p className="text-xs text-[var(--text-muted)]">Target</p>
                 <p className="text-green-400 font-mono text-sm font-bold">{formatPrice(sl.targetLevel)}</p>
               </div>
             </div>
 
             {/* Progress bar */}
             <div className="mb-3">
-              <div className="flex items-center justify-between text-[10px] text-gray-500 mb-1">
+              <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)] mb-1">
                 <span>Stop</span>
                 <span>Entry</span>
                 <span>Target</span>
@@ -154,7 +154,7 @@ export default function StopLossTrackingCard({
             </div>
 
             {/* Type-specific params */}
-            <div className="mt-3 pt-3 border-t border-gray-800 flex flex-wrap gap-3 text-xs text-gray-500">
+            <div className="mt-3 pt-3 border-t border-[var(--border)] flex flex-wrap gap-3 text-xs text-[var(--text-muted)]">
               {sl.type === 'atr' && (
                 <>
                   <span>ATR Period: {sl.atrPeriod || 14}</span>

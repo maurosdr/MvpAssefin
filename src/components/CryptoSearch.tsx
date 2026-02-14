@@ -58,10 +58,10 @@ export default function CryptoSearch({ cryptos }: { cryptos?: SearchableCrypto[]
   };
 
   return (
-    <div ref={ref} className="relative w-full max-w-lg">
+    <div ref={ref} className="relative w-full">
       <div className="relative">
         <svg
-          className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500"
+          className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--text-muted)] pointer-events-none"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -81,25 +81,25 @@ export default function CryptoSearch({ cryptos }: { cryptos?: SearchableCrypto[]
             setShowDropdown(true);
           }}
           onFocus={() => setShowDropdown(true)}
-          placeholder="Search crypto (BTC, Ethereum, SOL...)"
-          className="w-full bg-gray-800 border border-gray-700 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500/50 focus:ring-1 focus:ring-yellow-500/30"
+          placeholder="Buscar crypto (BTC, ETH, SOL...)"
+          className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-soft)] transition-all"
         />
       </div>
 
       {showDropdown && suggestions.length > 0 && (
-        <div className="absolute top-full mt-2 w-full bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden">
+        <div className="absolute top-full mt-2 w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-xl z-50 overflow-hidden backdrop-blur-xl">
           {suggestions.map((s) => (
             <button
               key={s.base}
               onClick={() => handleSelect(s.base)}
-              className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-800 text-left transition-colors"
+              className="w-full px-4 py-3 flex items-center justify-between hover:bg-[var(--surface-hover)] text-left transition-colors border-b border-[var(--border-subtle)] last:border-b-0"
             >
-              <div>
-                <span className="text-white font-medium">{s.base}</span>
-                <span className="text-gray-500 ml-2 text-sm">{getCryptoName(s.base)}</span>
+              <div className="flex flex-col">
+                <span className="text-[var(--text-primary)] font-semibold text-sm">{s.base}</span>
+                <span className="text-[var(--text-muted)] text-xs mt-0.5">{getCryptoName(s.base)}</span>
               </div>
               {s.price > 0 && (
-                <span className="text-gray-400 text-sm">
+                <span className="text-[var(--text-secondary)] text-sm font-medium">
                   ${s.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               )}
