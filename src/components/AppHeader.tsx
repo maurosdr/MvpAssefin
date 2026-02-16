@@ -30,6 +30,7 @@ export default function AppHeader({
 
   const navItems = [
     { label: 'Crypto', path: '/crypto', icon: '📊' },
+    { label: 'Ações', path: '/stocks', icon: '📈' },
     { label: 'News', path: '/news', icon: '📰' },
   ];
 
