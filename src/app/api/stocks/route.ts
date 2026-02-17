@@ -15,24 +15,26 @@ interface StockData {
   previousClose?: number;
 }
 
-// Cache simples (5 minutos)
-let cache: { data: StockData[]; timestamp: number } | null = null;
+// Cache por categoria (5 minutos)
+const cache = new Map<string, { data: StockData[]; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000;
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const symbols = searchParams.get('symbols') || MAIN_STOCKS.join(',');
-  const category = searchParams.get('category');
+  const category = searchParams.get('category') || 'all';
   
   // Se categoria especificada, usar ações da categoria
   let symbolsToFetch = symbols;
-  if (category && STOCKS_BY_CATEGORY[category as keyof typeof STOCKS_BY_CATEGORY]) {
+  if (category && category !== 'all' && STOCKS_BY_CATEGORY[category as keyof typeof STOCKS_BY_CATEGORY]) {
     symbolsToFetch = STOCKS_BY_CATEGORY[category as keyof typeof STOCKS_BY_CATEGORY].join(',');
   }
 
-  // Verificar cache
-  if (cache && cache.data && Date.now() - cache.timestamp < CACHE_TTL) {
-    return NextResponse.json(cache.data);
+  // Verificar cache para esta categoria específica
+  const cacheKey = category || 'all';
+  const cached = cache.get(cacheKey);
+  if (cached && cached.data && Date.now() - cached.timestamp < CACHE_TTL) {
+    return NextResponse.json(cached.data);
   }
 
   interface BRAPIStock {
@@ -83,7 +85,7 @@ export async function GET(request: NextRequest) {
           const res = await fetch(url, {
             headers: {
               'User-Agent': 'Mozilla/5.0',
-              'Authorization': 'Bearer kAohDLSrNNS3JNZijP4voJ',
+              'Authorization': `Bearer ${process.env.BRAPI_TOKEN}`,
             },
             next: { revalidate: 300 },
           });
@@ -110,12 +112,12 @@ export async function GET(request: NextRequest) {
       
       if (allStocks.length > 0) {
         allStocks.sort((a, b) => b.volume - a.volume);
-        cache = { data: allStocks, timestamp: Date.now() };
+        cache.set(cacheKey, { data: allStocks, timestamp: Date.now() });
         return NextResponse.json(allStocks);
       } else {
         // Se nenhum batch retornou dados, usar fallback
         console.warn('No stocks returned from batches, using fallback');
-        return NextResponse.json(getFallbackStocks());
+        return NextResponse.json(getFallbackStocks(category));
       }
     } else {
       // Código original para menos de 20 ações
@@ -125,7 +127,7 @@ export async function GET(request: NextRequest) {
       const res = await fetch(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0',
-          'Authorization': 'Bearer kAohDLSrNNS3JNZijP4voJ',
+          'Authorization': `Bearer ${process.env.BRAPI_TOKEN}`,
         },
         next: { revalidate: 300 },
       });
@@ -143,17 +145,17 @@ export async function GET(request: NextRequest) {
       const stocks: StockData[] = data.results.map(transformStock);
       stocks.sort((a, b) => b.volume - a.volume);
 
-      cache = { data: stocks, timestamp: Date.now() };
+      cache.set(cacheKey, { data: stocks, timestamp: Date.now() });
       return NextResponse.json(stocks);
     }
   } catch (error) {
     // Fallback com dados mockados
     console.error('BRAPI error:', error);
-    return NextResponse.json(getFallbackStocks());
+    return NextResponse.json(getFallbackStocks(category));
   }
 }
 
-function getFallbackStocks(): StockData[] {
+function getFallbackStocks(category?: string): StockData[] {
   const basePrices: Record<string, number> = {
     PETR4: 32.50,
     VALE3: 68.90,
@@ -230,8 +232,15 @@ function getFallbackStocks(): StockData[] {
     DISB34: 28.40,
   };
 
-  // Retornar 20 ações em vez de 8
-  return MAIN_STOCKS.slice(0, 20).map((symbol) => {
+  // Determinar quais símbolos usar baseado na categoria
+  let symbolsToUse: string[];
+  if (category && category !== 'all' && STOCKS_BY_CATEGORY[category as keyof typeof STOCKS_BY_CATEGORY]) {
+    symbolsToUse = STOCKS_BY_CATEGORY[category as keyof typeof STOCKS_BY_CATEGORY];
+  } else {
+    symbolsToUse = MAIN_STOCKS.slice(0, 20);
+  }
+
+  return symbolsToUse.map((symbol) => {
     const basePrice = basePrices[symbol] || 20 + Math.random() * 50;
     const changePercent = (Math.random() - 0.5) * 4; // -2% a +2%
     const change = basePrice * (changePercent / 100);

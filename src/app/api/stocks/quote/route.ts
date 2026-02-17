@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     const res = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0',
-        'Authorization': 'Bearer kAohDLSrNNS3JNZijP4voJ',
+        'Authorization': `Bearer ${process.env.BRAPI_TOKEN}`,
       },
       next: { revalidate: modules ? 300 : 60 },
     });
