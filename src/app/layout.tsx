@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { BinanceProvider } from "@/context/BinanceContext";
+import { StopLossProvider } from "@/context/StopLossContext";
+import { ThemeProvider } from "@/context/ThemeContext";
+import { ExchangeProvider } from "@/context/ExchangeContext";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -15,8 +18,8 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Crypto Dashboard",
-  description: "Live crypto prices, technical analysis, and portfolio tracking",
+  title: "Assefin - Global Markets & News",
+  description: "Global news, prediction markets, crypto prices, and portfolio tracking",
 };
 
 export default function RootLayout({
@@ -25,13 +28,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="pt-BR" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black min-h-screen`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[var(--bg)] min-h-screen`}
       >
-        <BinanceProvider>
-          {children}
-        </BinanceProvider>
+        <ThemeProvider>
+          <ExchangeProvider>
+            <BinanceProvider>
+              <StopLossProvider>
+                {children}
+              </StopLossProvider>
+            </BinanceProvider>
+          </ExchangeProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

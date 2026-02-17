@@ -8,7 +8,6 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  CartesianGrid,
   Cell,
   AreaChart,
   Area,
@@ -182,8 +181,8 @@ export default function CryptoInfoPanel({ symbol, stats }: CryptoInfoPanelProps)
 
   if (loading) {
     return (
-      <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-8 flex justify-center">
-        <div className="w-8 h-8 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+      <div className="bg-[var(--surface)]/50 border border-[var(--border)] rounded-2xl p-8 flex justify-center">
+        <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -191,8 +190,8 @@ export default function CryptoInfoPanel({ symbol, stats }: CryptoInfoPanelProps)
   return (
     <div className="space-y-6">
       {/* Market Info Cards */}
-      <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
-        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+      <div className="bg-[var(--surface)]/50 border border-[var(--border)] rounded-2xl p-6">
+        <h3 className="text-lg font-bold text-[var(--text)] mb-4 flex items-center gap-2">
           <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
@@ -234,42 +233,44 @@ export default function CryptoInfoPanel({ symbol, stats }: CryptoInfoPanelProps)
 
       {/* Money Flow Chart */}
       {moneyFlowData.length > 0 && (
-        <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
-          <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
+        <div className="bg-[var(--surface)]/50 border border-[var(--border)] rounded-2xl p-6">
+          <h3 className="text-lg font-bold text-[var(--text)] mb-1 flex items-center gap-2">
             <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             Money Flow Analysis
           </h3>
-          <p className="text-gray-500 text-sm mb-4">Inflows vs outflows by period (in millions USD)</p>
+          <p className="text-[var(--text-muted)] text-sm mb-4">Inflows vs outflows by period (in millions USD)</p>
 
           <div className="h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={moneyFlowData} barGap={2}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
                 <XAxis
                   dataKey="period"
-                  tick={{ fill: '#9ca3af', fontSize: 12 }}
-                  axisLine={{ stroke: '#374151' }}
+                  tick={{ fill: '#6b7280', fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
                 />
                 <YAxis
-                  tick={{ fill: '#9ca3af', fontSize: 11 }}
-                  axisLine={{ stroke: '#374151' }}
+                  tick={{ fill: '#6b7280', fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
                   tickFormatter={(v) => `$${v.toFixed(0)}M`}
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#111827',
-                    border: '1px solid #374151',
+                    backgroundColor: '#0b0f19',
+                    border: '1px solid #1f2937',
                     borderRadius: '0.75rem',
-                    color: '#fff',
-                    fontSize: '12px',
+                    fontSize: '0.75rem',
                   }}
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={(value: any, name: any) => [
-                    `$${(value ?? 0).toFixed(2)}M`,
-                    name === 'inflow' ? 'Inflow' : name === 'outflow' ? 'Outflow' : 'Net Flow',
-                  ]}
+                  formatter={(value, name) => {
+                    if (typeof value !== 'number') return ['-', 'Value'];
+                    return [
+                      `$${value.toFixed(2)}M`,
+                      name === 'inflow' ? 'Inflow' : name === 'outflow' ? 'Outflow' : 'Net Flow',
+                    ];
+                  }}
                 />
                 <Bar dataKey="inflow" fill="#22c55e" radius={[4, 4, 0, 0]} name="inflow" />
                 <Bar dataKey="outflow" fill="#ef4444" radius={[4, 4, 0, 0]} name="outflow" />
@@ -286,7 +287,7 @@ export default function CryptoInfoPanel({ symbol, stats }: CryptoInfoPanelProps)
                   key={flow.period}
                   className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50"
                 >
-                  <p className="text-xs text-gray-500 mb-1">Largest Flow ({flow.period})</p>
+                  <p className="text-xs text-[var(--text-muted)] mb-1">Largest Flow ({flow.period})</p>
                   <div className="flex items-center gap-3">
                     <div>
                       <p className="text-green-400 font-mono text-sm">
@@ -297,7 +298,7 @@ export default function CryptoInfoPanel({ symbol, stats }: CryptoInfoPanelProps)
                       </p>
                     </div>
                     <div className="ml-auto text-right">
-                      <p className="text-xs text-gray-500">Net</p>
+                      <p className="text-xs text-[var(--text-muted)]">Net</p>
                       <p
                         className={`font-mono font-bold ${
                           flow.net >= 0 ? 'text-green-400' : 'text-red-400'
@@ -315,44 +316,54 @@ export default function CryptoInfoPanel({ symbol, stats }: CryptoInfoPanelProps)
 
       {/* Margin Debt Growth */}
       {marginDebtData.length > 0 && (
-        <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
-          <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
+        <div className="bg-[var(--surface)]/50 border border-[var(--border)] rounded-2xl p-6">
+          <h3 className="text-lg font-bold text-[var(--text)] mb-1 flex items-center gap-2">
             <svg className="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
             Margin Debt Growth
           </h3>
-          <p className="text-gray-500 text-sm mb-4">Estimated margin debt trend (index basis)</p>
+          <p className="text-[var(--text-muted)] text-sm mb-4">Estimated margin debt trend (index basis)</p>
 
           <div className="h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={marginDebtData}>
                 <defs>
                   <linearGradient id="debtGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                    <stop
+                      offset="0%"
+                      stopColor="#f59e0b"
+                      stopOpacity={0.35}
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor="#f59e0b"
+                      stopOpacity={0}
+                    />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
                 <XAxis
                   dataKey="date"
-                  tick={{ fill: '#9ca3af', fontSize: 11 }}
-                  axisLine={{ stroke: '#374151' }}
+                  tick={{ fill: '#6b7280', fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
                 />
                 <YAxis
-                  tick={{ fill: '#9ca3af', fontSize: 11 }}
-                  axisLine={{ stroke: '#374151' }}
+                  tick={{ fill: '#6b7280', fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#111827',
-                    border: '1px solid #374151',
+                    backgroundColor: '#0b0f19',
+                    border: '1px solid #1f2937',
                     borderRadius: '0.75rem',
-                    color: '#fff',
-                    fontSize: '12px',
+                    fontSize: '0.75rem',
                   }}
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={(value: any) => [(value ?? 0).toFixed(0), 'Debt Index']}
+                  formatter={(value) => {
+                    if (typeof value !== 'number') return ['-', 'Debt Index'];
+                    return [`${value.toFixed(0)}`, 'Debt Index'];
+                  }}
                 />
                 <Area
                   type="monotone"
@@ -360,6 +371,8 @@ export default function CryptoInfoPanel({ symbol, stats }: CryptoInfoPanelProps)
                   stroke="#f59e0b"
                   strokeWidth={2}
                   fill="url(#debtGrad)"
+                  dot={false}
+                  activeDot={{ r: 4 }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -367,7 +380,7 @@ export default function CryptoInfoPanel({ symbol, stats }: CryptoInfoPanelProps)
 
           {/* Growth rate bars */}
           <div className="mt-4">
-            <p className="text-xs text-gray-500 mb-2">Period Growth Rate</p>
+            <p className="text-xs text-[var(--text-muted)] mb-2">Period Growth Rate</p>
             <div className="h-[100px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={marginDebtData}>
@@ -411,7 +424,7 @@ export default function CryptoInfoPanel({ symbol, stats }: CryptoInfoPanelProps)
 function InfoCard({
   label,
   value,
-  valueClass = 'text-white',
+  valueClass = 'text-[var(--text)]',
 }: {
   label: string;
   value: string;
@@ -419,7 +432,7 @@ function InfoCard({
 }) {
   return (
     <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
-      <p className="text-xs text-gray-500 mb-1">{label}</p>
+      <p className="text-xs text-[var(--text-muted)] mb-1">{label}</p>
       <p className={`text-lg font-bold font-mono ${valueClass}`}>{value}</p>
     </div>
   );
