@@ -6,6 +6,7 @@ import TradingViewChart from '@/components/TradingViewChart';
 import CryptoInfoPanel from '@/components/CryptoInfoPanel';
 import TradeIdeas from '@/components/TradeIdeas';
 import AppHeader from '@/components/AppHeader';
+import MarketTickerBar from '@/components/MarketTickerBar';
 import StopLossTrackingCard from '@/components/StopLossTrackingCard';
 import { useExchange } from '@/context/ExchangeContext';
 // BinanceLoginModal is now managed by AppHeader
@@ -124,6 +125,7 @@ export default function CryptoDetailPage() {
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
+      <MarketTickerBar />
       <AppHeader>
         <div className="flex items-center gap-4">
           <button
@@ -157,9 +159,9 @@ export default function CryptoDetailPage() {
         </div>
       </AppHeader>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-[140px] pb-6 space-y-6">
         {/* Top Tab Bar: Market / Trade Ideas */}
-        <div className="flex items-center gap-2 bg-[var(--surface)]/60 border border-[var(--border)] rounded-2xl p-1.5 overflow-x-auto sticky top-[73px] z-30 backdrop-blur-sm">
+        <div className="flex items-center gap-2 bg-[var(--surface)]/60 border border-[var(--border)] rounded-2xl p-1.5 overflow-x-auto sticky top-[120px] z-30 backdrop-blur-sm">
           <button
             onClick={() => setTopTab('market')}
             className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium text-sm transition-all whitespace-nowrap ${
