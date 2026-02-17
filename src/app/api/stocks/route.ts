@@ -79,10 +79,11 @@ export async function GET(request: NextRequest) {
       // Fazer requisições em lote (máximo 3 batches = 60 ações para não exceder rate limit)
       for (const batch of batches.slice(0, 3)) {
         try {
-          const url = `https://brapi.dev/api/quote/${batch.join(',')}?token=${process.env.BRAPI_TOKEN || ''}`;
+          const url = `https://brapi.dev/api/quote/${batch.join(',')}`;
           const res = await fetch(url, {
             headers: {
               'User-Agent': 'Mozilla/5.0',
+              'Authorization': 'Bearer kAohDLSrNNS3JNZijP4voJ',
             },
             next: { revalidate: 300 },
           });
@@ -119,11 +120,12 @@ export async function GET(request: NextRequest) {
     } else {
       // Código original para menos de 20 ações
       const limitedSymbols = symbolsArray.slice(0, 20).join(',');
-      const url = `https://brapi.dev/api/quote/${limitedSymbols}?token=${process.env.BRAPI_TOKEN || ''}`;
-      
+      const url = `https://brapi.dev/api/quote/${limitedSymbols}`;
+
       const res = await fetch(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0',
+          'Authorization': 'Bearer kAohDLSrNNS3JNZijP4voJ',
         },
         next: { revalidate: 300 },
       });

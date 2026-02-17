@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // BRAPI endpoint para histórico e dados fundamentais
-    let url = `https://brapi.dev/api/quote/${symbol}?range=${range}&interval=${interval}&token=${process.env.BRAPI_TOKEN || ''}`;
+    let url = `https://brapi.dev/api/quote/${symbol}?range=${range}&interval=${interval}`;
     if (modules) {
       url += `&modules=${modules}`;
     }
@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
     const res = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0',
+        'Authorization': 'Bearer kAohDLSrNNS3JNZijP4voJ',
       },
       next: { revalidate: modules ? 300 : 60 },
     });
