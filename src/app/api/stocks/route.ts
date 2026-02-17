@@ -79,10 +79,11 @@ export async function GET(request: NextRequest) {
       // Fazer requisições em lote (máximo 3 batches = 60 ações para não exceder rate limit)
       for (const batch of batches.slice(0, 3)) {
         try {
-          const url = `https://brapi.dev/api/quote/${batch.join(',')}?token=${process.env.BRAPI_TOKEN || ''}`;
+          const url = `https://brapi.dev/api/quote/${batch.join(',')}`;
           const res = await fetch(url, {
             headers: {
               'User-Agent': 'Mozilla/5.0',
+              'Authorization': 'Bearer kAohDLSrNNS3JNZijP4voJ',
             },
             next: { revalidate: 300 },
           });
@@ -119,11 +120,12 @@ export async function GET(request: NextRequest) {
     } else {
       // Código original para menos de 20 ações
       const limitedSymbols = symbolsArray.slice(0, 20).join(',');
-      const url = `https://brapi.dev/api/quote/${limitedSymbols}?token=${process.env.BRAPI_TOKEN || ''}`;
-      
+      const url = `https://brapi.dev/api/quote/${limitedSymbols}`;
+
       const res = await fetch(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0',
+          'Authorization': 'Bearer kAohDLSrNNS3JNZijP4voJ',
         },
         next: { revalidate: 300 },
       });
@@ -215,6 +217,17 @@ function getFallbackStocks(): StockData[] {
     FESA4: 18.40,
     GMAT3: 22.80,
     ENEV3: 12.60,
+    // BDRs
+    ROXO34: 12.50,
+    M1TA34: 85.20,
+    AAPL34: 52.40,
+    AMZO34: 38.90,
+    GOGL34: 45.60,
+    MSFT34: 78.30,
+    TSLA34: 42.10,
+    NVDC34: 92.80,
+    NFLX34: 68.50,
+    DISB34: 28.40,
   };
 
   // Retornar 20 ações em vez de 8

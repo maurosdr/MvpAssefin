@@ -5,7 +5,6 @@ import AppHeader from '@/components/AppHeader';
 import MarketTickerBar from '@/components/MarketTickerBar';
 import StocksTable from '@/components/StocksTable';
 import StockChart from '@/components/StockChart';
-import MacroNewsCard from '@/components/MacroNewsCard';
 import { STOCKS_BY_CATEGORY } from '@/lib/stocks-data';
 
 const PolymarketBrazilTable = lazy(() => import('@/components/PolymarketBrazilTable'));
@@ -23,16 +22,6 @@ interface StockData {
   low?: number;
 }
 
-interface NewsArticle {
-  id: string;
-  title: string;
-  source: string;
-  url: string;
-  publishedAt: string;
-  category: 'politics' | 'economy' | 'crypto';
-  imageUrl?: string;
-}
-
 const SECTOR_LABELS: Record<string, string> = {
   blueChips: 'Blue Chips',
   banks: 'Financeiro',
@@ -41,15 +30,20 @@ const SECTOR_LABELS: Record<string, string> = {
   mining: 'Mineracao & Siderurgia',
   tech: 'Tecnologia',
   fiis: 'FIIs',
+  bdrs: 'BDRs',
 };
 
 const MAIN_ETFS = [
-  { symbol: 'BOVA11', name: 'Ibovespa ETF' },
-  { symbol: 'SMAL11', name: 'Small Cap ETF' },
-  { symbol: 'IVVB11', name: 'S&P 500 BRL ETF' },
-  { symbol: 'HASH11', name: 'Crypto ETF' },
-  { symbol: 'DIVO11', name: 'Dividendos ETF' },
-  { symbol: 'FIND11', name: 'Financeiro ETF' },
+  { symbol: 'BOVA11', name: 'iShares Ibovespa' },
+  { symbol: 'IVVB11', name: 'iShares S&P 500' },
+  { symbol: 'HASH11', name: 'Hashdex Nasdaq Crypto Index' },
+  { symbol: 'SMAL11', name: 'iShares Small Cap' },
+  { symbol: 'LFTS11', name: 'Investo Teva Tesouro Selic' },
+  { symbol: 'IMAB11', name: 'It Now IMAB' },
+  { symbol: 'DIVO11', name: 'It Now IDIV' },
+  { symbol: 'B5P211', name: 'It Now IMA-B 5+' },
+  { symbol: 'GOLD11', name: 'It Now Gold' },
+  { symbol: 'NASD11', name: 'Trend Nasdaq 100' },
 ];
 
 export default function StocksPage() {
@@ -57,8 +51,6 @@ export default function StocksPage() {
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [economyNews, setEconomyNews] = useState<NewsArticle[]>([]);
-  const [politicsNews, setPoliticsNews] = useState<NewsArticle[]>([]);
   const [etfData, setEtfData] = useState<Array<{
     symbol: string;
     name: string;
@@ -92,35 +84,6 @@ export default function StocksPage() {
     const interval = setInterval(fetchStocks, 60000);
     return () => clearInterval(interval);
   }, [selectedCategory]);
-
-  useEffect(() => {
-    const fetchNews = async () => {
-      try {
-        const res = await fetch('/api/news', { cache: 'no-store' });
-        const data = await res.json();
-        if (data.economy && Array.isArray(data.economy)) {
-          setEconomyNews(
-            data.economy.map((item: NewsArticle & { thumbnail?: string }) => ({
-              ...item,
-              imageUrl: item.imageUrl || item.thumbnail || undefined,
-            }))
-          );
-        }
-        if (data.politics && Array.isArray(data.politics)) {
-          setPoliticsNews(
-            data.politics.map((item: NewsArticle & { thumbnail?: string }) => ({
-              ...item,
-              imageUrl: item.imageUrl || item.thumbnail || undefined,
-            }))
-          );
-        }
-      } catch {
-        // Error handling
-      }
-    };
-    const timeout = setTimeout(fetchNews, 500);
-    return () => clearTimeout(timeout);
-  }, []);
 
   useEffect(() => {
     const fetchETFs = async () => {
@@ -165,6 +128,7 @@ export default function StocksPage() {
         stockCount: sectorStocks.length,
         totalVolume,
         symbols: sectorStocks.map((s) => s.symbol),
+        allSymbols: symbols,
       };
     })
     .sort((a, b) => b.avgChangePercent - a.avgChangePercent);
@@ -205,7 +169,7 @@ export default function StocksPage() {
           {/* Category Filter */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs text-[var(--text-muted)] font-semibold uppercase tracking-wider">Filtrar:</span>
-            {['all', 'blueChips', 'banks', 'retail', 'fiis', 'energy', 'mining', 'tech'].map((cat) => (
+            {['all', 'blueChips', 'banks', 'retail', 'fiis', 'energy', 'mining', 'tech', 'bdrs'].map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
@@ -215,11 +179,41 @@ export default function StocksPage() {
                     : 'bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
                 }`}
               >
-                {cat === 'all' ? 'Todas' : cat === 'blueChips' ? 'Blue Chips' : cat === 'fiis' ? 'FIIs' : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                {cat === 'all' ? 'Todas' : cat === 'blueChips' ? 'Blue Chips' : cat === 'fiis' ? 'FIIs' : cat === 'bdrs' ? 'BDRs' : cat.charAt(0).toUpperCase() + cat.slice(1)}
               </button>
             ))}
           </div>
         </div>
+
+        {/* ETFs Card - Top */}
+        {etfData.length > 0 && (
+          <div className="modern-card">
+            <div className="flex items-center gap-2 mb-4 pb-4 border-b border-[var(--border)]">
+              <div className="w-1 h-6 bg-[var(--accent)] rounded-full" />
+              <h3 className="section-title">ETFs Brasileiros</h3>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+              {etfData.map((etf) => (
+                <div key={etf.symbol} className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3 hover:border-[var(--accent)]/30 transition-colors">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold text-[var(--text-primary)] font-mono">{etf.symbol}</span>
+                    <span
+                      className={`data-value text-[10px] font-semibold ${
+                        etf.changePercent >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'
+                      }`}
+                    >
+                      {etf.changePercent >= 0 ? '+' : ''}{etf.changePercent.toFixed(2)}%
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-[var(--text-muted)] mb-1 truncate">{etf.name}</div>
+                  <div className="data-value text-sm font-bold text-[var(--text-primary)]">
+                    {etf.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
@@ -272,42 +266,6 @@ export default function StocksPage() {
                   </div>
                 </div>
 
-                {/* ETFs Card */}
-                {etfData.length > 0 && (
-                  <div className="modern-card mt-6">
-                    <div className="flex items-center gap-2 mb-4 pb-4 border-b border-[var(--border)]">
-                      <div className="w-1 h-6 bg-[var(--accent)] rounded-full" />
-                      <h3 className="section-title">ETFs Brasileiros</h3>
-                    </div>
-                    <div className="space-y-3">
-                      {etfData.map((etf) => (
-                        <div key={etf.symbol} className="flex items-center justify-between">
-                          <div>
-                            <span className="text-xs font-bold text-[var(--text-primary)] font-mono">
-                              {etf.symbol}
-                            </span>
-                            <span className="text-[10px] text-[var(--text-muted)] ml-2">
-                              {etf.name}
-                            </span>
-                          </div>
-                          <div className="text-right">
-                            <span className="data-value text-xs font-bold text-[var(--text-primary)]">
-                              {etf.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                            </span>
-                            <span
-                              className={`data-value text-[10px] font-semibold ml-2 ${
-                                etf.changePercent >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'
-                              }`}
-                            >
-                              {etf.changePercent >= 0 ? '+' : ''}
-                              {etf.changePercent.toFixed(2)}%
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -361,9 +319,16 @@ export default function StocksPage() {
                             {sector.sector}
                           </td>
                           <td className="py-3 text-xs text-[var(--text-secondary)]">
-                            <div className="flex flex-wrap gap-1 max-w-[300px]">
-                              {sector.symbols.map((sym) => (
-                                <span key={sym} className="px-1.5 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-[10px] font-mono">
+                            <div className="flex flex-wrap gap-1 max-w-[400px]">
+                              {sector.allSymbols.map((sym) => (
+                                <span
+                                  key={sym}
+                                  className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
+                                    sector.symbols.includes(sym)
+                                      ? 'bg-[var(--accent-soft)] border border-[var(--accent)]/30 text-[var(--accent)]'
+                                      : 'bg-[var(--surface)] border border-[var(--border)] text-[var(--text-muted)]'
+                                  }`}
+                                >
                                   {sym}
                                 </span>
                               ))}
@@ -392,17 +357,6 @@ export default function StocksPage() {
                     </tbody>
                   </table>
                 </div>
-              </div>
-            )}
-
-            {/* Economy & Politics News */}
-            {(economyNews.length > 0 || politicsNews.length > 0) && (
-              <div>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-1 h-6 bg-[var(--accent)] rounded-full" />
-                  <h2 className="section-title">Economia & Politica</h2>
-                </div>
-                <MacroNewsCard articles={[...economyNews.slice(0, 3), ...politicsNews.slice(0, 3)]} />
               </div>
             )}
 
