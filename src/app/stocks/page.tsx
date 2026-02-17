@@ -9,6 +9,7 @@ import MacroNewsCard from '@/components/MacroNewsCard';
 import { STOCKS_BY_CATEGORY } from '@/lib/stocks-data';
 
 const PolymarketBrazilTable = lazy(() => import('@/components/PolymarketBrazilTable'));
+const ExchangeFlowChart = lazy(() => import('@/components/ExchangeFlowChart'));
 
 interface StockData {
   symbol: string;
@@ -239,6 +240,17 @@ export default function StocksPage() {
                 }))}
               />
             </div>
+
+            {/* Exchange Flow - BCB */}
+            <Suspense
+              fallback={
+                <div className="modern-card p-8 flex items-center justify-center">
+                  <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+                </div>
+              }
+            >
+              <ExchangeFlowChart />
+            </Suspense>
 
             {/* Sector Performance */}
             {stocks.length > 0 && (

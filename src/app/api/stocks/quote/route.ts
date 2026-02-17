@@ -101,7 +101,8 @@ export async function GET(request: NextRequest) {
       if (stock.defaultKeyStatistics) formattedData.defaultKeyStatistics = stock.defaultKeyStatistics;
       if (stock.incomeStatementHistory) formattedData.incomeStatementHistory = stock.incomeStatementHistory;
       if (stock.balanceSheetHistory) formattedData.balanceSheetHistory = stock.balanceSheetHistory;
-      if (stock.cashflowStatementHistory) formattedData.cashflowStatementHistory = stock.cashflowStatementHistory;
+      if (stock.cashflowStatementHistory) formattedData.cashflowHistory = stock.cashflowStatementHistory;
+      if (stock.cashflowHistory) formattedData.cashflowHistory = stock.cashflowHistory;
       if (stock.calendarEvents) formattedData.calendarEvents = stock.calendarEvents;
       if (stock.recommendationTrend) formattedData.recommendationTrend = stock.recommendationTrend;
       if (stock.majorHolders) formattedData.majorHolders = stock.majorHolders;

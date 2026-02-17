@@ -14,6 +14,7 @@ import {
   Bar,
   ComposedChart,
 } from 'recharts';
+import * as XLSX from 'xlsx';
 
 type StockTab = 'sumario' | 'contabil' | 'multiplos' | 'historico';
 
@@ -57,6 +58,7 @@ interface StockDetail {
   incomeStatementHistory?: FundamentalData;
   balanceSheetHistory?: FundamentalData;
   cashflowStatementHistory?: FundamentalData;
+  cashflowHistory?: FundamentalData;
   calendarEvents?: FundamentalData;
   recommendationTrend?: FundamentalData;
   majorHolders?: FundamentalData;
@@ -87,7 +89,7 @@ export default function StockDetailPage() {
         };
         const range = rangeMap[timeWindow] || '1mo';
         const interval = intervalMap[timeWindow] || '1d';
-        const modules = 'summaryProfile,financialData,defaultKeyStatistics,incomeStatementHistory,balanceSheetHistory,cashflowStatementHistory,calendarEvents,recommendationTrend,majorHolders';
+        const modules = 'summaryProfile,financialData,defaultKeyStatistics,incomeStatementHistory,balanceSheetHistory,cashflowStatementHistory,cashflowHistory,calendarEvents,recommendationTrend,majorHolders';
 
         const res = await fetch(
           `/api/stocks/quote?symbol=${symbol}&range=${range}&interval=${interval}&modules=${modules}`,
@@ -459,11 +461,16 @@ function SumarioTab({ stock }: { stock: StockDetail }) {
 /* ─── CONTABIL TAB ─── */
 
 function ContabilTab({ stock }: { stock: StockDetail }) {
-  const incomeHistory = stock.incomeStatementHistory?.incomeStatementHistory || [];
-  const balanceHistory = stock.balanceSheetHistory?.balanceSheetHistory || [];
-  const cashflowHistory = stock.cashflowStatementHistory?.cashflowStatements || [];
+  const incomeHistory = stock.incomeStatementHistory?.incomeStatementHistory
+    || (Array.isArray(stock.incomeStatementHistory) ? stock.incomeStatementHistory : []);
+  const balanceHistory = stock.balanceSheetHistory?.balanceSheetHistory
+    || (Array.isArray(stock.balanceSheetHistory) ? stock.balanceSheetHistory : []);
+  const cashflowData = stock.cashflowHistory?.cashflowHistory
+    || stock.cashflowHistory?.cashflowStatements
+    || stock.cashflowStatementHistory?.cashflowStatements
+    || (Array.isArray(stock.cashflowHistory) ? stock.cashflowHistory : []);
 
-  const hasData = incomeHistory.length > 0 || balanceHistory.length > 0 || cashflowHistory.length > 0;
+  const hasData = incomeHistory.length > 0 || balanceHistory.length > 0 || cashflowData.length > 0;
 
   if (!hasData) {
     return (
@@ -526,22 +533,25 @@ function ContabilTab({ stock }: { stock: StockDetail }) {
       )}
 
       {/* Cash Flow */}
-      {cashflowHistory.length > 0 && (
+      {cashflowData.length > 0 && (
         <div className="modern-card">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[var(--border)]">
             <div className="w-1 h-5 bg-[var(--success)] rounded-full" />
             <h3 className="section-title text-xs">Fluxo de Caixa</h3>
           </div>
           <FinancialTable
-            data={cashflowHistory}
+            data={cashflowData}
             fields={[
-              { key: 'totalCashFromOperatingActivities', label: 'FCO - Operacional' },
+              { key: 'operatingCashFlow', label: 'FCO - Operacional' },
+              { key: 'totalCashFromOperatingActivities', label: 'FCO - Operacional (alt)' },
               { key: 'capitalExpenditures', label: 'CAPEX' },
               { key: 'totalCashflowsFromInvestingActivities', label: 'FCO - Investimentos' },
               { key: 'totalCashFromFinancingActivities', label: 'FCO - Financiamento' },
               { key: 'changeInCash', label: 'Variacao de Caixa' },
               { key: 'netIncome', label: 'Lucro Liquido' },
+              { key: 'netIncomeBeforeTaxes', label: 'Lucro antes IR' },
               { key: 'depreciation', label: 'Depreciacao' },
+              { key: 'adjustmentsToProfitOrLoss', label: 'Ajustes ao Lucro' },
             ]}
           />
         </div>
@@ -571,7 +581,9 @@ function FinancialTable({
           </tr>
         </thead>
         <tbody className="divide-y divide-[var(--border-subtle)]">
-          {fields.map((field) => (
+          {fields
+            .filter((field) => data.some((item) => item[field.key] != null))
+            .map((field) => (
             <tr key={field.key} className="hover:bg-[var(--surface-hover)] transition-colors">
               <td className="py-2 text-xs font-semibold text-[var(--text-secondary)]">{field.label}</td>
               {data.map((item: FundamentalData, i: number) => (
@@ -773,6 +785,31 @@ function HistoricoTab({
   ) || 0;
   const dividendYield = stock.currentPrice > 0 ? (totalDividends / stock.currentPrice) * 100 : 0;
 
+  const downloadExcel = () => {
+    const reversed = [...stock.data].reverse();
+    const rows = reversed.map((item, idx) => {
+      const prevClose = idx < reversed.length - 1 ? reversed[idx + 1]?.close : item.open;
+      const change = item.close - (prevClose || item.open);
+      const changePct = prevClose && prevClose > 0 ? (change / prevClose) * 100 : 0;
+      return {
+        'Data': item.fullDate || item.date,
+        'Adj Close': item.adjustedClose || item.close,
+        'Variacao': Number(change.toFixed(2)),
+        '% Variacao': Number(changePct.toFixed(2)),
+        'Abertura': item.open,
+        'Minima': item.low,
+        'Maxima': item.high,
+        'Fechamento': item.close,
+        'Volume': item.volume,
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Historico');
+    XLSX.writeFile(wb, `${stock.symbol}_historico.xlsx`);
+  };
+
   return (
     <div className="space-y-6">
       {/* Price Stats */}
@@ -877,9 +914,20 @@ function HistoricoTab({
       {/* Historical Daily Table */}
       {stock.data.length > 0 && (
         <div className="modern-card">
-          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[var(--border)]">
-            <div className="w-1 h-6 bg-[var(--accent)] rounded-full" />
-            <h2 className="section-title">Historico Diario</h2>
+          <div className="flex items-center justify-between mb-6 pb-4 border-b border-[var(--border)]">
+            <div className="flex items-center gap-3">
+              <div className="w-1 h-6 bg-[var(--accent)] rounded-full" />
+              <h2 className="section-title">Historico Diario</h2>
+            </div>
+            <button
+              onClick={downloadExcel}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--accent)]/30 hover:bg-[var(--accent)] hover:text-[var(--text-inverse)] transition-all active:scale-95"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Baixar Excel
+            </button>
           </div>
           <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
             <table className="w-full">
