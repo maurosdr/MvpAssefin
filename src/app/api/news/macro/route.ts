@@ -11,16 +11,13 @@ interface NewsArticle {
 }
 
 const RSS_FEEDS = [
-  // US Politics & Economy
-  { url: 'https://rss.politico.com/politics-news.xml', source: 'Politico', category: 'politics' as const },
-  { url: 'https://feeds.bloomberg.com/markets/news.rss', source: 'Bloomberg', category: 'economy' as const },
-  { url: 'https://feeds.reuters.com/reuters/businessNews', source: 'Reuters', category: 'economy' as const },
-  { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Economy.xml', source: 'NYT', category: 'economy' as const },
-  { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Politics.xml', source: 'NYT', category: 'politics' as const },
   // Brazilian sources
   { url: 'https://www.infomoney.com.br/feed/', source: 'InfoMoney', category: 'economy' as const },
   { url: 'https://rss.uol.com.br/feed/economia.xml', source: 'UOL Economia', category: 'economy' as const },
   { url: 'https://rss.uol.com.br/feed/politica.xml', source: 'UOL Politica', category: 'politics' as const },
+  { url: 'https://valor.globo.com/rss/', source: 'Valor Economico', category: 'economy' as const },
+  { url: 'https://feeds.folha.uol.com.br/mercado/rss091.xml', source: 'Folha Mercado', category: 'economy' as const },
+  { url: 'https://g1.globo.com/rss/g1/economia/', source: 'G1 Economia', category: 'economy' as const },
 ];
 
 async function fetchRSSFeed(url: string): Promise<string | null> {
@@ -152,15 +149,15 @@ function getFallbackNews(): NewsArticle[] {
   const hoursAgo = (h: number) => new Date(now.getTime() - h * 60 * 60 * 1000).toISOString();
 
   return [
-    { id: 'macro-1', title: 'Federal Reserve Signals Potential Rate Cut in Coming Months', source: 'Bloomberg', url: 'https://bloomberg.com', publishedAt: hoursAgo(1), category: 'economy' },
-    { id: 'macro-2', title: 'Congress Debates New Infrastructure Bill Worth $1.2 Trillion', source: 'Politico', url: 'https://politico.com', publishedAt: hoursAgo(2), category: 'politics' },
-    { id: 'macro-3', title: 'Banco Central do Brasil mantém Selic em 13,75% ao ano', source: 'InfoMoney', url: 'https://infomoney.com.br', publishedAt: hoursAgo(3), category: 'economy' },
-    { id: 'macro-4', title: 'Senate Committee Approves Tech Regulation Framework', source: 'Reuters', url: 'https://reuters.com', publishedAt: hoursAgo(4), category: 'politics' },
-    { id: 'macro-5', title: 'US Jobs Report Shows Stronger Than Expected Growth', source: 'NYT', url: 'https://nytimes.com', publishedAt: hoursAgo(5), category: 'economy' },
-    { id: 'macro-6', title: 'Governo anuncia novo programa de investimentos em infraestrutura', source: 'UOL Politica', url: 'https://uol.com.br', publishedAt: hoursAgo(6), category: 'politics' },
-    { id: 'macro-7', title: 'S&P 500 Hits All-Time High Amid Tech Rally', source: 'Bloomberg', url: 'https://bloomberg.com', publishedAt: hoursAgo(7), category: 'economy' },
-    { id: 'macro-8', title: 'White House Announces New Trade Policy with EU Partners', source: 'Politico', url: 'https://politico.com', publishedAt: hoursAgo(8), category: 'politics' },
-    { id: 'macro-9', title: 'Ibovespa renova máxima com fluxo estrangeiro recorde', source: 'InfoMoney', url: 'https://infomoney.com.br', publishedAt: hoursAgo(9), category: 'economy' },
-    { id: 'macro-10', title: 'Treasury Yields Fall as Investors Anticipate Policy Shift', source: 'Reuters', url: 'https://reuters.com', publishedAt: hoursAgo(10), category: 'economy' },
+    { id: 'macro-1', title: 'Banco Central do Brasil mantém Selic em 13,75% ao ano', source: 'InfoMoney', url: 'https://infomoney.com.br', publishedAt: hoursAgo(1), category: 'economy' },
+    { id: 'macro-2', title: 'Governo anuncia novo programa de investimentos em infraestrutura', source: 'UOL Politica', url: 'https://uol.com.br', publishedAt: hoursAgo(2), category: 'politics' },
+    { id: 'macro-3', title: 'Ibovespa renova maxima com fluxo estrangeiro recorde', source: 'InfoMoney', url: 'https://infomoney.com.br', publishedAt: hoursAgo(3), category: 'economy' },
+    { id: 'macro-4', title: 'Camara aprova novo marco regulatorio do mercado de capitais', source: 'Valor Economico', url: 'https://valor.globo.com', publishedAt: hoursAgo(4), category: 'politics' },
+    { id: 'macro-5', title: 'Dolar recua com melhora no cenario fiscal brasileiro', source: 'Folha Mercado', url: 'https://folha.uol.com.br', publishedAt: hoursAgo(5), category: 'economy' },
+    { id: 'macro-6', title: 'Reforma tributaria: Senado debate aliquota do IVA', source: 'G1 Economia', url: 'https://g1.globo.com', publishedAt: hoursAgo(6), category: 'politics' },
+    { id: 'macro-7', title: 'PIB brasileiro cresce acima do esperado no trimestre', source: 'UOL Economia', url: 'https://uol.com.br', publishedAt: hoursAgo(7), category: 'economy' },
+    { id: 'macro-8', title: 'BNDES amplia linhas de credito para pequenas empresas', source: 'InfoMoney', url: 'https://infomoney.com.br', publishedAt: hoursAgo(8), category: 'economy' },
+    { id: 'macro-9', title: 'Petrobras anuncia reajuste de precos de combustiveis', source: 'Valor Economico', url: 'https://valor.globo.com', publishedAt: hoursAgo(9), category: 'economy' },
+    { id: 'macro-10', title: 'Lula se reune com governadores para discutir pacto federativo', source: 'UOL Politica', url: 'https://uol.com.br', publishedAt: hoursAgo(10), category: 'politics' },
   ];
 }

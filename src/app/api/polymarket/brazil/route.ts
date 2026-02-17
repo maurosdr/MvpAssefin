@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 
-const BRAZIL_KEYWORDS = ['brazil', 'lula', 'bolsonaro'];
+const EVENT_SLUGS = [
+  'brazil-presidential-election',
+  'next-brazil-senate-election-most-seats-won',
+];
 
 interface PolymarketMarket {
   id: string;
@@ -25,9 +28,9 @@ interface PolymarketEvent {
 
 export async function GET() {
   try {
-    const searches = BRAZIL_KEYWORDS.map((keyword) =>
+    const fetches = EVENT_SLUGS.map((slug) =>
       fetch(
-        `https://gamma-api.polymarket.com/events?limit=20&active=true&closed=false&order=volume&ascending=false&title=${encodeURIComponent(keyword)}`,
+        `https://gamma-api.polymarket.com/events?slug=${encodeURIComponent(slug)}`,
         {
           headers: { Accept: 'application/json' },
           next: { revalidate: 60 },
@@ -37,29 +40,24 @@ export async function GET() {
         .catch(() => [])
     );
 
-    const results = await Promise.all(searches);
+    const results = await Promise.all(fetches);
 
-    const seen = new Set<string>();
     const allEvents: PolymarketEvent[] = [];
-    for (const eventList of results) {
-      if (Array.isArray(eventList)) {
-        for (const event of eventList) {
-          if (!seen.has(event.id) && event.active && !event.closed && event.markets?.length > 0) {
-            seen.add(event.id);
-            allEvents.push(event);
-          }
+    for (const result of results) {
+      // API may return a single object or an array
+      const eventList = Array.isArray(result) ? result : [result];
+      for (const event of eventList) {
+        if (event && event.markets?.length > 0) {
+          allEvents.push(event);
         }
       }
     }
 
     const markets = allEvents
       .map((event) => {
-        // Some events have multiple markets (multi-outcome)
-        // Combine all markets' outcomes for multi-candidate events
         let candidates: { name: string; odds: number }[] = [];
 
         if (event.markets.length > 1) {
-          // Multi-market event: each market is one candidate
           candidates = event.markets.map((m) => {
             try {
               const prices = JSON.parse(m.outcomePrices || '[]');
@@ -75,7 +73,6 @@ export async function GET() {
             }
           });
         } else {
-          // Single market event
           const mainMarket = event.markets[0];
           try {
             const prices = JSON.parse(mainMarket.outcomePrices || '[]');
@@ -118,9 +115,9 @@ export async function GET() {
 function getFallbackBrazilData() {
   return [
     {
-      id: 'br1',
-      title: 'Brazil Presidential Election 2026 Winner',
-      slug: '',
+      id: 'br-presidential',
+      title: 'Brazil Presidential Election 2026',
+      slug: 'brazil-presidential-election',
       volume: 1200000,
       endDate: '2026-10-30',
       candidates: [
@@ -132,36 +129,17 @@ function getFallbackBrazilData() {
       ],
     },
     {
-      id: 'br2',
-      title: 'Lula reeleito em 2026?',
-      slug: '',
-      volume: 850000,
+      id: 'br-senate',
+      title: 'Next Brazil Senate Election - Most Seats Won',
+      slug: 'next-brazil-senate-election-most-seats-won',
+      volume: 600000,
       endDate: '2026-10-30',
       candidates: [
-        { name: 'Sim', odds: 0.35 },
-        { name: 'Não', odds: 0.65 },
-      ],
-    },
-    {
-      id: 'br3',
-      title: 'Bolsonaro elegível para concorrer em 2026?',
-      slug: '',
-      volume: 620000,
-      endDate: '2026-06-30',
-      candidates: [
-        { name: 'Sim', odds: 0.12 },
-        { name: 'Não', odds: 0.88 },
-      ],
-    },
-    {
-      id: 'br4',
-      title: 'Tarcísio de Freitas candidato à presidência em 2026?',
-      slug: '',
-      volume: 480000,
-      endDate: '2026-05-01',
-      candidates: [
-        { name: 'Sim', odds: 0.72 },
-        { name: 'Não', odds: 0.28 },
+        { name: 'PT', odds: 0.30 },
+        { name: 'PL', odds: 0.25 },
+        { name: 'MDB', odds: 0.20 },
+        { name: 'PSD', odds: 0.15 },
+        { name: 'Outros', odds: 0.10 },
       ],
     },
   ];

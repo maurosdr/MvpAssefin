@@ -110,6 +110,10 @@ export default function StockChart({ availableStocks }: StockChartProps) {
     volume: item.volume,
   }));
 
+  const chartPrices = chartData.map((d) => d.price).filter((p) => p > 0);
+  const priceMin = chartPrices.length > 0 ? Math.min(...chartPrices) * 0.98 : 0;
+  const priceMax = chartPrices.length > 0 ? Math.max(...chartPrices) * 1.02 : 0;
+
   return (
     <div className="modern-card">
       {/* Header */}
@@ -195,6 +199,7 @@ export default function StockChart({ availableStocks }: StockChartProps) {
               tickLine={false}
             />
             <YAxis
+              domain={[priceMin, priceMax]}
               tick={{ fill: '#6b7280', fontSize: 11 }}
               axisLine={false}
               tickLine={false}

@@ -74,8 +74,8 @@ export default function StockIndicesChart() {
   const closes = data.map((d) => d.close).filter((c) => c > 0);
   const dataMin = closes.length > 0 ? Math.min(...closes) : 0;
   const dataMax = closes.length > 0 ? Math.max(...closes) : 0;
-  const yMin = Math.floor(dataMin * 0.95);
-  const yMax = Math.ceil(dataMax * 1.10);
+  const yMin = dataMin * 0.98;
+  const yMax = dataMax * 1.02;
 
   return (
     <div className="bg-[var(--surface)]/50 border border-[var(--border)] rounded-2xl p-6">

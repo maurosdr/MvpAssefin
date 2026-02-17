@@ -21,15 +21,8 @@ export default function PolymarketBrazilTable() {
       .then((r) => r.json())
       .then((data) => {
         const allMarkets: BrazilMarket[] = data.markets || [];
-        // Filter to presidential election race only
-        const presidentialKeywords = ['president', 'eleição', 'eleicao', 'election', 'winner'];
-        const presidential = allMarkets.filter((m) =>
-          presidentialKeywords.some((kw) => m.title.toLowerCase().includes(kw))
-        );
-        // Use presidential markets if found, otherwise take the first (highest volume)
-        const filtered = presidential.length > 0 ? presidential.slice(0, 1) : allMarkets.slice(0, 1);
-        // Limit candidates to top 6
-        setMarkets(filtered.map((m) => ({ ...m, candidates: m.candidates.slice(0, 6) })));
+        // Show all markets (presidential + senate), limit to top 5 candidates each
+        setMarkets(allMarkets.map((m) => ({ ...m, candidates: m.candidates.slice(0, 5) })));
         setSource(data.source || '');
       })
       .catch(() => {})

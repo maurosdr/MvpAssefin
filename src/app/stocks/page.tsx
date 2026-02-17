@@ -43,6 +43,15 @@ const SECTOR_LABELS: Record<string, string> = {
   fiis: 'FIIs',
 };
 
+const MAIN_ETFS = [
+  { symbol: 'BOVA11', name: 'Ibovespa ETF' },
+  { symbol: 'SMAL11', name: 'Small Cap ETF' },
+  { symbol: 'IVVB11', name: 'S&P 500 BRL ETF' },
+  { symbol: 'HASH11', name: 'Crypto ETF' },
+  { symbol: 'DIVO11', name: 'Dividendos ETF' },
+  { symbol: 'FIND11', name: 'Financeiro ETF' },
+];
+
 export default function StocksPage() {
   const [stocks, setStocks] = useState<StockData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +59,12 @@ export default function StocksPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [economyNews, setEconomyNews] = useState<NewsArticle[]>([]);
   const [politicsNews, setPoliticsNews] = useState<NewsArticle[]>([]);
+  const [etfData, setEtfData] = useState<Array<{
+    symbol: string;
+    name: string;
+    price: number;
+    changePercent: number;
+  }>>([]);
 
   useEffect(() => {
     const fetchStocks = async () => {
@@ -107,6 +122,33 @@ export default function StocksPage() {
     return () => clearTimeout(timeout);
   }, []);
 
+  useEffect(() => {
+    const fetchETFs = async () => {
+      try {
+        const results = await Promise.all(
+          MAIN_ETFS.map(async (etf) => {
+            const res = await fetch(`/api/stocks/quote?symbol=${etf.symbol}&range=1d&interval=1d`, {
+              cache: 'no-store',
+            });
+            const data = await res.json();
+            return {
+              symbol: etf.symbol,
+              name: etf.name,
+              price: data.currentPrice || 0,
+              changePercent: data.changePercent || 0,
+            };
+          })
+        );
+        setEtfData(results.filter((r) => r.price > 0));
+      } catch {
+        // Error handling
+      }
+    };
+    fetchETFs();
+    const interval = setInterval(fetchETFs, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Compute sector performance from loaded stocks
   const sectorPerformance = Object.entries(STOCKS_BY_CATEGORY)
     .map(([key, symbols]) => {
@@ -122,6 +164,7 @@ export default function StocksPage() {
         avgChangePercent: avgChange,
         stockCount: sectorStocks.length,
         totalVolume,
+        symbols: sectorStocks.map((s) => s.symbol),
       };
     })
     .sort((a, b) => b.avgChangePercent - a.avgChangePercent);
@@ -228,6 +271,43 @@ export default function StocksPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* ETFs Card */}
+                {etfData.length > 0 && (
+                  <div className="modern-card mt-6">
+                    <div className="flex items-center gap-2 mb-4 pb-4 border-b border-[var(--border)]">
+                      <div className="w-1 h-6 bg-[var(--accent)] rounded-full" />
+                      <h3 className="section-title">ETFs Brasileiros</h3>
+                    </div>
+                    <div className="space-y-3">
+                      {etfData.map((etf) => (
+                        <div key={etf.symbol} className="flex items-center justify-between">
+                          <div>
+                            <span className="text-xs font-bold text-[var(--text-primary)] font-mono">
+                              {etf.symbol}
+                            </span>
+                            <span className="text-[10px] text-[var(--text-muted)] ml-2">
+                              {etf.name}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="data-value text-xs font-bold text-[var(--text-primary)]">
+                              {etf.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            </span>
+                            <span
+                              className={`data-value text-[10px] font-semibold ml-2 ${
+                                etf.changePercent >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'
+                              }`}
+                            >
+                              {etf.changePercent >= 0 ? '+' : ''}
+                              {etf.changePercent.toFixed(2)}%
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -264,6 +344,7 @@ export default function StocksPage() {
                     <thead>
                       <tr className="text-[10px] font-black uppercase tracking-[0.15em] text-[var(--text-muted)] border-b-2 border-[var(--border)]">
                         <th className="pb-3 text-left">SETOR</th>
+                        <th className="pb-3 text-left">TICKERS</th>
                         <th className="pb-3 text-right">VAR MEDIA %</th>
                         <th className="pb-3 text-right">ACOES</th>
                         <th className="pb-3 text-right">VOLUME TOTAL</th>
@@ -278,6 +359,15 @@ export default function StocksPage() {
                         >
                           <td className="py-3 text-sm font-semibold text-[var(--text-primary)]">
                             {sector.sector}
+                          </td>
+                          <td className="py-3 text-xs text-[var(--text-secondary)]">
+                            <div className="flex flex-wrap gap-1 max-w-[300px]">
+                              {sector.symbols.map((sym) => (
+                                <span key={sym} className="px-1.5 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-[10px] font-mono">
+                                  {sym}
+                                </span>
+                              ))}
+                            </div>
                           </td>
                           <td
                             className={`py-3 text-right data-value font-bold ${

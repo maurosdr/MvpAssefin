@@ -766,6 +766,11 @@ function HistoricoTab({
     adjustedClose: item.adjustedClose || item.close,
   }));
 
+  // Compute Y-axis bounds (98% of min, 102% of max)
+  const chartPrices = chartData.map((d) => d.price).filter((p) => p > 0);
+  const priceMin = chartPrices.length > 0 ? Math.min(...chartPrices) * 0.98 : 0;
+  const priceMax = chartPrices.length > 0 ? Math.max(...chartPrices) * 1.02 : 0;
+
   // Compute stats
   const closes = stock.data.map((d) => d.close).filter((c) => c > 0);
   const upDays = stock.data.filter((d, i) => i > 0 && d.close > stock.data[i - 1].close).length;
@@ -782,32 +787,6 @@ function HistoricoTab({
     0
   ) || 0;
   const dividendYield = stock.currentPrice > 0 ? (totalDividends / stock.currentPrice) * 100 : 0;
-
-  const downloadExcel = async () => {
-    const XLSX = await import('xlsx');
-    const reversed = [...stock.data].reverse();
-    const rows = reversed.map((item, idx) => {
-      const prevClose = idx < reversed.length - 1 ? reversed[idx + 1]?.close : item.open;
-      const change = item.close - (prevClose || item.open);
-      const changePct = prevClose && prevClose > 0 ? (change / prevClose) * 100 : 0;
-      return {
-        'Data': item.fullDate || item.date,
-        'Adj Close': item.adjustedClose || item.close,
-        'Variacao': Number(change.toFixed(2)),
-        '% Variacao': Number(changePct.toFixed(2)),
-        'Abertura': item.open,
-        'Minima': item.low,
-        'Maxima': item.high,
-        'Fechamento': item.close,
-        'Volume': item.volume,
-      };
-    });
-
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Historico');
-    XLSX.writeFile(wb, `${stock.symbol}_historico.xlsx`);
-  };
 
   return (
     <div className="space-y-6">
@@ -868,6 +847,7 @@ function HistoricoTab({
               <XAxis dataKey="date" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis
                 yAxisId="price"
+                domain={[priceMin, priceMax]}
                 tick={{ fill: '#6b7280', fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
@@ -913,20 +893,9 @@ function HistoricoTab({
       {/* Historical Daily Table */}
       {stock.data.length > 0 && (
         <div className="modern-card">
-          <div className="flex items-center justify-between mb-6 pb-4 border-b border-[var(--border)]">
-            <div className="flex items-center gap-3">
-              <div className="w-1 h-6 bg-[var(--accent)] rounded-full" />
-              <h2 className="section-title">Historico Diario</h2>
-            </div>
-            <button
-              onClick={downloadExcel}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--accent)]/30 hover:bg-[var(--accent)] hover:text-[var(--text-inverse)] transition-all active:scale-95"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Baixar Excel
-            </button>
+          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[var(--border)]">
+            <div className="w-1 h-6 bg-[var(--accent)] rounded-full" />
+            <h2 className="section-title">Historico Diario</h2>
           </div>
           <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
             <table className="w-full">
