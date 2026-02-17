@@ -14,8 +14,6 @@ import {
   Bar,
   ComposedChart,
 } from 'recharts';
-import * as XLSX from 'xlsx';
-
 type StockTab = 'sumario' | 'contabil' | 'multiplos' | 'historico';
 
 interface HistoryItem {
@@ -785,7 +783,8 @@ function HistoricoTab({
   ) || 0;
   const dividendYield = stock.currentPrice > 0 ? (totalDividends / stock.currentPrice) * 100 : 0;
 
-  const downloadExcel = () => {
+  const downloadExcel = async () => {
+    const XLSX = await import('xlsx');
     const reversed = [...stock.data].reverse();
     const rows = reversed.map((item, idx) => {
       const prevClose = idx < reversed.length - 1 ? reversed[idx + 1]?.close : item.open;
