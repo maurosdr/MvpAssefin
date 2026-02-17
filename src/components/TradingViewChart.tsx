@@ -67,7 +67,7 @@ function TradingViewChartInner({ symbol }: TradingViewChartProps) {
   }, [symbol]);
 
   return (
-    <div className="bg-gray-900/50 border border-gray-800 rounded-2xl overflow-hidden">
+    <div className="bg-[var(--surface)]/50 border border-[var(--border)] rounded-2xl overflow-hidden">
       <div
         ref={containerRef}
         style={{ height: '550px', width: '100%' }}

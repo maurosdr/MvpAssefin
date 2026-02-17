@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useExchange } from '@/context/ExchangeContext';
 
 const EXCHANGE_COLORS: Record<string, string> = {
-  binance: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+  binance: 'bg-yellow-500/20 text-[var(--accent)] border-[var(--accent)]/30',
   coinbase: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
 };
 
@@ -34,13 +34,13 @@ export default function BinancePortfolio() {
   if (connectedExchanges.length === 0) return null;
 
   return (
-    <div className="bg-gray-900/50 border border-gray-800 rounded-2xl overflow-hidden">
+    <div className="bg-[var(--surface)]/50 border border-[var(--border)] rounded-2xl overflow-hidden">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-800">
+      <div className="px-6 py-4 border-b border-[var(--border)]">
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-3">
-              <h2 className="text-lg font-bold text-white">Consolidated Book</h2>
+              <h2 className="text-lg font-bold text-[var(--text)]">Consolidated Book</h2>
               <div className="flex items-center gap-1.5">
                 {connectedExchanges.map((name) => (
                   <span
@@ -52,8 +52,8 @@ export default function BinancePortfolio() {
                 ))}
               </div>
             </div>
-            <p className="text-gray-500 text-sm mt-1">
-              Total Value: <span className="text-white font-mono font-bold">
+            <p className="text-[var(--text-muted)] text-sm mt-1">
+              Total Value: <span className="text-[var(--text)] font-mono font-bold">
                 ${allTotalValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
               </span>
               {connectedExchanges.length > 1 && (
@@ -66,7 +66,7 @@ export default function BinancePortfolio() {
           <button
             onClick={refreshAllPortfolios}
             disabled={anyLoading}
-            className="text-gray-400 hover:text-white disabled:opacity-50 p-2 hover:bg-gray-800 rounded-lg transition-colors"
+            className="text-gray-400 hover:text-[var(--text)] disabled:opacity-50 p-2 hover:bg-gray-800 rounded-lg transition-colors"
           >
             <svg className={`w-5 h-5 ${anyLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -81,7 +81,7 @@ export default function BinancePortfolio() {
               <div key={name} className="flex items-center gap-2 bg-gray-800/50 rounded-lg px-3 py-1.5 border border-gray-700/50">
                 <span className={`w-2 h-2 rounded-full ${name === 'binance' ? 'bg-yellow-500' : 'bg-blue-500'}`} />
                 <span className="text-xs text-gray-400">{EXCHANGE_LABELS[name]}</span>
-                <span className="text-xs text-white font-mono">
+                <span className="text-xs text-[var(--text)] font-mono">
                   ${exchanges[name].totalValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                 </span>
               </div>
@@ -93,7 +93,7 @@ export default function BinancePortfolio() {
       {/* Loading state */}
       {anyLoading && book.length === 0 ? (
         <div className="p-8 flex justify-center">
-          <div className="w-6 h-6 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -116,7 +116,7 @@ export default function BinancePortfolio() {
                   <React.Fragment key={entry.asset}>
                     {/* Main consolidated row */}
                     <tr
-                      className={`border-t border-gray-800/50 transition-colors ${
+                      className={`border-t border-[var(--border)]/50 transition-colors ${
                         hasMultiple ? 'cursor-pointer hover:bg-gray-800/30' : 'hover:bg-gray-800/30'
                       } ${isExpanded ? 'bg-gray-800/20' : ''}`}
                       onClick={() => {
@@ -125,10 +125,10 @@ export default function BinancePortfolio() {
                     >
                       <td className="px-6 py-3">
                         <div className="flex items-center gap-2">
-                          <span className="text-white font-medium">{entry.asset}</span>
+                          <span className="text-[var(--text)] font-medium">{entry.asset}</span>
                           {hasMultiple && (
                             <svg
-                              className={`w-3.5 h-3.5 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                              className={`w-3.5 h-3.5 text-[var(--text-muted)] transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
@@ -141,7 +141,7 @@ export default function BinancePortfolio() {
                       <td className="px-6 py-3 text-right text-gray-300 font-mono">
                         {entry.totalAmount.toLocaleString(undefined, { maximumFractionDigits: 6 })}
                       </td>
-                      <td className="px-6 py-3 text-right text-white font-mono">
+                      <td className="px-6 py-3 text-right text-[var(--text)] font-mono">
                         ${entry.totalUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                       </td>
                       <td className="px-6 py-3 text-right">
@@ -173,7 +173,7 @@ export default function BinancePortfolio() {
 
                     {/* Expanded per-exchange breakdown */}
                     {isExpanded && entry.exchanges.map((ex) => (
-                      <tr key={`${entry.asset}-${ex.exchange}`} className="bg-gray-900/80 border-t border-gray-800/30">
+                      <tr key={`${entry.asset}-${ex.exchange}`} className="bg-[var(--surface)]/80 border-t border-[var(--border)]/30">
                         <td className="px-6 py-2 pl-12">
                           <div className="flex items-center gap-2">
                             <span className={`w-1.5 h-1.5 rounded-full ${ex.exchange === 'binance' ? 'bg-yellow-500' : 'bg-blue-500'}`} />
@@ -192,7 +192,7 @@ export default function BinancePortfolio() {
                           ${ex.usdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                         </td>
                         <td className="px-6 py-2 text-right">
-                          <span className="text-gray-500 text-xs font-mono">
+                          <span className="text-[var(--text-muted)] text-xs font-mono">
                             {entry.totalUsdValue ? ((ex.usdValue / entry.totalUsdValue) * 100).toFixed(0) : 0}% of {entry.asset}
                           </span>
                         </td>

@@ -139,12 +139,12 @@ export default function TechnicalChart({ symbol }: { symbol: string }) {
   const showMacd = activeIndicators.includes('macd');
 
   return (
-    <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
+    <div className="bg-[var(--surface)]/50 border border-[var(--border)] rounded-2xl p-6">
       {/* Controls */}
       <div className="flex flex-col gap-4 mb-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <h2 className="text-lg font-bold text-white">{symbol}/USDT</h2>
+            <h2 className="text-lg font-bold text-[var(--text)]">{symbol}/USDT</h2>
             {chartData.length > 0 && (
               <span
                 className={`text-sm font-medium px-2 py-0.5 rounded ${
@@ -164,7 +164,7 @@ export default function TechnicalChart({ symbol }: { symbol: string }) {
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                   window === w.value
                     ? 'bg-yellow-500 text-black'
-                    : 'text-gray-400 hover:text-white'
+                    : 'text-gray-400 hover:text-[var(--text)]'
                 }`}
               >
                 {w.label}
@@ -182,7 +182,7 @@ export default function TechnicalChart({ symbol }: { symbol: string }) {
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
                 activeIndicators.includes(ind.value)
                   ? 'border-opacity-100 bg-opacity-20'
-                  : 'border-gray-700 text-gray-500 hover:text-gray-300'
+                  : 'border-gray-700 text-[var(--text-muted)] hover:text-gray-300'
               }`}
               style={
                 activeIndicators.includes(ind.value)
@@ -200,7 +200,7 @@ export default function TechnicalChart({ symbol }: { symbol: string }) {
       <div className={showMacd ? 'h-[350px]' : 'h-[450px]'}>
         {loading ? (
           <div className="h-full flex items-center justify-center">
-            <div className="w-8 h-8 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
@@ -293,8 +293,8 @@ export default function TechnicalChart({ symbol }: { symbol: string }) {
 
       {/* MACD Sub-chart */}
       {showMacd && chartData.length > 0 && (
-        <div className="mt-4 border-t border-gray-800 pt-4">
-          <p className="text-xs text-gray-500 mb-2 font-medium">MACD (12, 26, 9)</p>
+        <div className="mt-4 border-t border-[var(--border)] pt-4">
+          <p className="text-xs text-[var(--text-muted)] mb-2 font-medium">MACD (12, 26, 9)</p>
           <div className="h-[120px]">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={chartData}>

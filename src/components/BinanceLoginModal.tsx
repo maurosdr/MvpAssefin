@@ -56,12 +56,12 @@ export default function ExchangeLoginModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-md mx-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--bg)]/70 backdrop-blur-sm">
+      <div className="bg-[var(--surface)] border border-gray-700 rounded-xl p-6 w-full max-w-md mx-4">
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-white">Connect Exchanges</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl leading-none">
+          <h2 className="text-xl font-bold text-[var(--text)]">Connect Exchanges</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-[var(--text)] text-2xl leading-none">
             &times;
           </button>
         </div>
@@ -76,7 +76,7 @@ export default function ExchangeLoginModal({
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium ${
                   isConn
                     ? 'bg-green-900/30 border-green-700/50 text-green-400'
-                    : 'bg-gray-800/50 border-gray-700/50 text-gray-500'
+                    : 'bg-gray-800/50 border-gray-700/50 text-[var(--text-muted)]'
                 }`}
               >
                 <span className={`w-2 h-2 rounded-full ${isConn ? 'bg-green-500' : 'bg-gray-600'}`} />
@@ -110,8 +110,8 @@ export default function ExchangeLoginModal({
                 selectedExchange === ex.id
                   ? ex.color === 'yellow'
                     ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20'
-                    : 'bg-blue-500 text-white shadow-lg shadow-blue-500/20'
-                  : 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700'
+                    : 'bg-blue-500 text-[var(--text)] shadow-lg shadow-blue-500/20'
+                  : 'bg-gray-800 text-gray-400 hover:text-[var(--text)] hover:bg-gray-700'
               }`}
             >
               {ex.label}
@@ -133,7 +133,7 @@ export default function ExchangeLoginModal({
             </div>
             <button
               onClick={handleDisconnect}
-              className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+              className="w-full py-3 bg-red-600 hover:bg-red-700 text-[var(--text)] rounded-lg font-medium transition-colors"
             >
               Disconnect {selectedExchange.charAt(0).toUpperCase() + selectedExchange.slice(1)}
             </button>
@@ -146,7 +146,7 @@ export default function ExchangeLoginModal({
                 type="text"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500"
+                className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-[var(--text)] placeholder-gray-500 focus:outline-none focus:border-[var(--accent)]"
                 placeholder={`Enter your ${selectedExchange} API Key`}
                 required
               />
@@ -157,13 +157,13 @@ export default function ExchangeLoginModal({
                 type="password"
                 value={secret}
                 onChange={(e) => setSecret(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500"
+                className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-[var(--text)] placeholder-gray-500 focus:outline-none focus:border-[var(--accent)]"
                 placeholder={`Enter your ${selectedExchange} Secret Key`}
                 required
               />
             </div>
             {error && <p className="text-red-400 text-sm">{error}</p>}
-            <p className="text-gray-500 text-xs">
+            <p className="text-[var(--text-muted)] text-xs">
               Keys are stored in httpOnly cookies. Use read-only API keys for safety.
             </p>
             <button
@@ -171,7 +171,7 @@ export default function ExchangeLoginModal({
               disabled={saving}
               className={`w-full py-3 font-bold rounded-lg transition-colors disabled:opacity-50 ${
                 selectedExchange === 'coinbase'
-                  ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                  ? 'bg-blue-500 hover:bg-blue-600 text-[var(--text)]'
                   : 'bg-yellow-500 hover:bg-yellow-600 text-black'
               }`}
             >

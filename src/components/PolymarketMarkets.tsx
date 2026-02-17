@@ -42,17 +42,17 @@ export default function PolymarketMarkets() {
   };
 
   return (
-    <div className="bg-gray-900/50 border border-gray-800 rounded-2xl overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-800">
+    <div className="bg-[var(--surface)]/50 border border-[var(--border)] rounded-2xl overflow-hidden">
+      <div className="px-6 py-4 border-b border-[var(--border)]">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <h2 className="text-lg font-bold text-[var(--text)] flex items-center gap-2">
               <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
               Top Polymarket Markets
             </h2>
-            <p className="text-gray-500 text-sm mt-1">
+            <p className="text-[var(--text-muted)] text-sm mt-1">
               Top 5 markets by volume via{' '}
               <a
                 href="https://polymarket.com"
@@ -66,7 +66,7 @@ export default function PolymarketMarkets() {
           </div>
           <div className="flex items-center gap-2">
             {source === 'cache' && (
-              <span className="text-xs bg-gray-800 text-gray-500 px-2 py-1 rounded">Cached</span>
+              <span className="text-xs bg-gray-800 text-[var(--text-muted)] px-2 py-1 rounded">Cached</span>
             )}
             <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded font-medium">
               PREDICTION
@@ -96,7 +96,7 @@ export default function PolymarketMarkets() {
               {markets.map((market, i) => (
                 <tr
                   key={market.id}
-                  className="border-t border-gray-800/50 hover:bg-gray-800/30 transition-colors cursor-pointer"
+                  className="border-t border-[var(--border)]/50 hover:bg-gray-800/30 transition-colors cursor-pointer"
                   onClick={() =>
                     window.open(
                       market.slug
@@ -106,9 +106,9 @@ export default function PolymarketMarkets() {
                     )
                   }
                 >
-                  <td className="px-6 py-3 text-gray-500 text-sm">{i + 1}</td>
+                  <td className="px-6 py-3 text-[var(--text-muted)] text-sm">{i + 1}</td>
                   <td className="px-6 py-3">
-                    <span className="text-white text-sm font-medium">{market.title}</span>
+                    <span className="text-[var(--text)] text-sm font-medium">{market.title}</span>
                   </td>
                   <td className="px-6 py-3 text-right">
                     <span className="text-green-400 font-mono font-medium text-sm">
@@ -123,7 +123,7 @@ export default function PolymarketMarkets() {
                   <td className="px-6 py-3 text-right text-gray-300 font-mono text-sm">
                     {formatVolume(market.volume)}
                   </td>
-                  <td className="px-6 py-3 text-right text-gray-500 font-mono text-sm">
+                  <td className="px-6 py-3 text-right text-[var(--text-muted)] font-mono text-sm">
                     {formatVolume(market.liquidity)}
                   </td>
                 </tr>

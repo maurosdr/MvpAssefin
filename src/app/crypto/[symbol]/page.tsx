@@ -5,8 +5,11 @@ import { useParams, useRouter } from 'next/navigation';
 import TradingViewChart from '@/components/TradingViewChart';
 import CryptoInfoPanel from '@/components/CryptoInfoPanel';
 import TradeIdeas from '@/components/TradeIdeas';
-import BinanceLoginModal from '@/components/BinanceLoginModal';
+import AppHeader from '@/components/AppHeader';
+import MarketTickerBar from '@/components/MarketTickerBar';
+import StopLossTrackingCard from '@/components/StopLossTrackingCard';
 import { useExchange } from '@/context/ExchangeContext';
+// BinanceLoginModal is now managed by AppHeader
 import { getCryptoName } from '@/lib/crypto-names';
 import { calculateRSI, calculateSMA, calculateVolatility } from '@/lib/indicators';
 import { OHLCV } from '@/types/crypto';
@@ -34,7 +37,6 @@ export default function CryptoDetailPage() {
   const connected = connectedExchanges.length > 0;
   const [stats, setStats] = useState<CryptoStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showBinanceModal, setShowBinanceModal] = useState(false);
   const [topTab, setTopTab] = useState<TopTab>('market');
   const [activeTab, setActiveTab] = useState<ActiveTab>('chart');
 
@@ -112,7 +114,7 @@ export default function CryptoDetailPage() {
   const getRsiColor = (rsi: number) => {
     if (rsi >= 70) return 'text-red-400';
     if (rsi <= 30) return 'text-green-400';
-    return 'text-yellow-400';
+    return 'text-[var(--accent)]';
   };
 
   const getRsiLabel = (rsi: number) => {
@@ -122,70 +124,50 @@ export default function CryptoDetailPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black">
-      {/* Header */}
-      <header className="border-b border-gray-800 bg-black/80 backdrop-blur-sm sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => router.push('/')}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-              </button>
-              <div>
-                <h1 className="text-xl font-bold text-white">
-                  {getCryptoName(symbol)} <span className="text-gray-500 font-normal">({symbol})</span>
-                </h1>
-                {stats && (
-                  <div className="flex items-center gap-3 mt-0.5">
-                    <span className="text-2xl font-bold text-white">{formatPrice(stats.price)}</span>
-                    <span
-                      className={`text-sm font-medium px-2 py-0.5 rounded ${
-                        stats.changePercent24h >= 0
-                          ? 'bg-green-500/20 text-green-400'
-                          : 'bg-red-500/20 text-red-400'
-                      }`}
-                    >
-                      {stats.changePercent24h >= 0 ? '+' : ''}
-                      {stats.changePercent24h.toFixed(2)}%
-                    </span>
-                  </div>
-                )}
+    <div className="min-h-screen bg-[var(--bg)]">
+      <MarketTickerBar />
+      <AppHeader>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => router.push('/crypto')}
+            className="text-gray-400 hover:text-[var(--text)] transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+          </button>
+          <div>
+            <h1 className="text-lg font-bold text-[var(--text)]">
+              {getCryptoName(symbol)} <span className="text-[var(--text-muted)] font-normal text-sm">({symbol})</span>
+            </h1>
+            {stats && (
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-xl font-bold text-[var(--text)]">{formatPrice(stats.price)}</span>
+                <span
+                  className={`text-xs font-medium px-2 py-0.5 rounded ${
+                    stats.changePercent24h >= 0
+                      ? 'bg-green-500/20 text-green-400'
+                      : 'bg-red-500/20 text-red-400'
+                  }`}
+                >
+                  {stats.changePercent24h >= 0 ? '+' : ''}
+                  {stats.changePercent24h.toFixed(2)}%
+                </span>
               </div>
-            </div>
-
-            <button
-              onClick={() => setShowBinanceModal(true)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-sm transition-colors ${
-                connected
-                  ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                  : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-              }`}
-            >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2L6.5 7.5 12 13l5.5-5.5L12 2zm0 22l5.5-5.5L12 13l-5.5 5.5L12 24zm-10-10l5.5 5.5L13 12 7.5 6.5 2 12zm20 0l-5.5-5.5L11 12l5.5 5.5L22 12z" />
-              </svg>
-              {connected
-                ? `${connectedExchanges.length}/2`
-                : 'Connect'}
-            </button>
+            )}
           </div>
         </div>
-      </header>
+      </AppHeader>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-[140px] pb-6 space-y-6">
         {/* Top Tab Bar: Market / Trade Ideas */}
-        <div className="flex items-center gap-2 bg-gray-900/60 border border-gray-800 rounded-2xl p-1.5 overflow-x-auto sticky top-[73px] z-30 backdrop-blur-sm">
+        <div className="flex items-center gap-2 bg-[var(--surface)]/60 border border-[var(--border)] rounded-2xl p-1.5 overflow-x-auto sticky top-[120px] z-30 backdrop-blur-sm">
           <button
             onClick={() => setTopTab('market')}
             className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium text-sm transition-all whitespace-nowrap ${
               topTab === 'market'
                 ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                : 'text-gray-400 hover:text-[var(--text)] hover:bg-gray-800/50'
             }`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -198,7 +180,7 @@ export default function CryptoDetailPage() {
             className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium text-sm transition-all whitespace-nowrap ${
               topTab === 'trade-ideas'
                 ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                : 'text-gray-400 hover:text-[var(--text)] hover:bg-gray-800/50'
             }`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -210,7 +192,7 @@ export default function CryptoDetailPage() {
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="w-12 h-12 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-12 h-12 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
           <>
@@ -226,7 +208,7 @@ export default function CryptoDetailPage() {
                     <StatCard
                       label="Volatility (30d)"
                       value={`${stats.volatility30d.toFixed(1)}%`}
-                      valueClass={stats.volatility30d > 80 ? 'text-red-400' : stats.volatility30d > 40 ? 'text-yellow-400' : 'text-green-400'}
+                      valueClass={stats.volatility30d > 80 ? 'text-red-400' : stats.volatility30d > 40 ? 'text-[var(--accent)]' : 'text-green-400'}
                     />
                     <StatCard
                       label="RSI (14)"
@@ -238,14 +220,14 @@ export default function CryptoDetailPage() {
                       label="MVRV"
                       value="—"
                       subLabel="On-chain data"
-                      valueClass="text-gray-500"
+                      valueClass="text-[var(--text-muted)]"
                     />
                   </div>
                 )}
 
                 {/* 24h Range */}
                 {stats && (
-                  <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
+                  <div className="bg-[var(--surface)]/50 border border-[var(--border)] rounded-2xl p-6">
                     <h3 className="text-sm text-gray-400 mb-3">24h Range</h3>
                     <div className="flex items-center gap-4">
                       <span className="text-sm text-red-400 font-mono">{formatPrice(stats.low24h)}</span>
@@ -265,13 +247,13 @@ export default function CryptoDetailPage() {
                 )}
 
                 {/* Tab Toggle: Chart / Information */}
-                <div className="flex items-center gap-2 bg-gray-900/50 border border-gray-800 rounded-2xl p-2">
+                <div className="flex items-center gap-2 bg-[var(--surface)]/50 border border-[var(--border)] rounded-2xl p-2">
                   <button
                     onClick={() => setActiveTab('chart')}
                     className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium text-sm transition-all ${
                       activeTab === 'chart'
                         ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20'
-                        : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                        : 'text-gray-400 hover:text-[var(--text)] hover:bg-gray-800/50'
                     }`}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -284,7 +266,7 @@ export default function CryptoDetailPage() {
                     className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium text-sm transition-all ${
                       activeTab === 'info'
                         ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20'
-                        : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                        : 'text-gray-400 hover:text-[var(--text)] hover:bg-gray-800/50'
                     }`}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -301,10 +283,13 @@ export default function CryptoDetailPage() {
                   <CryptoInfoPanel symbol={symbol} stats={stats} />
                 )}
 
+                {/* Stop Loss Tracking */}
+                <StopLossTrackingCard symbol={symbol} currentPrice={stats?.price} />
+
                 {/* Multi-exchange Position */}
                 {connected && bookEntry && (
-                  <div className="bg-gray-900/50 border border-yellow-500/30 rounded-2xl p-6">
-                    <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                  <div className="bg-[var(--surface)]/50 border border-[var(--accent)]/30 rounded-2xl p-6">
+                    <h2 className="text-lg font-bold text-[var(--text)] mb-4 flex items-center gap-2">
                       <svg className="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                       </svg>
@@ -314,11 +299,11 @@ export default function CryptoDetailPage() {
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
                       <div>
                         <p className="text-sm text-gray-400">Total Amount</p>
-                        <p className="text-white font-mono text-lg">{bookEntry.totalAmount.toLocaleString(undefined, { maximumFractionDigits: 8 })}</p>
+                        <p className="text-[var(--text)] font-mono text-lg">{bookEntry.totalAmount.toLocaleString(undefined, { maximumFractionDigits: 8 })}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-400">USD Value</p>
-                        <p className="text-yellow-400 font-mono text-lg font-bold">
+                        <p className="text-[var(--accent)] font-mono text-lg font-bold">
                           ${bookEntry.totalUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                         </p>
                       </div>
@@ -330,7 +315,7 @@ export default function CryptoDetailPage() {
                               key={ex.exchange}
                               className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
                                 ex.exchange === 'binance'
-                                  ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                                  ? 'bg-yellow-500/20 text-[var(--accent)] border-[var(--accent)]/30'
                                   : 'bg-blue-500/20 text-blue-400 border-blue-500/30'
                               }`}
                             >
@@ -342,7 +327,7 @@ export default function CryptoDetailPage() {
                     </div>
                     {/* Per-exchange breakdown */}
                     {bookEntry.exchanges.length > 1 && (
-                      <div className="border-t border-gray-800 pt-3 space-y-2">
+                      <div className="border-t border-[var(--border)] pt-3 space-y-2">
                         {bookEntry.exchanges.map((ex) => (
                           <div key={ex.exchange} className="flex items-center justify-between bg-gray-800/40 rounded-lg px-4 py-2">
                             <div className="flex items-center gap-2">
@@ -353,7 +338,7 @@ export default function CryptoDetailPage() {
                               <span className="text-sm text-gray-400 font-mono">
                                 {ex.total.toLocaleString(undefined, { maximumFractionDigits: 8 })}
                               </span>
-                              <span className="text-sm text-white font-mono">
+                              <span className="text-sm text-[var(--text)] font-mono">
                                 ${ex.usdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                               </span>
                             </div>
@@ -365,8 +350,8 @@ export default function CryptoDetailPage() {
                 )}
 
                 {connected && !bookEntry && (
-                  <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-6 text-center">
-                    <p className="text-gray-500">No {symbol} position found across your connected exchanges.</p>
+                  <div className="bg-[var(--surface)]/50 border border-[var(--border)] rounded-2xl p-6 text-center">
+                    <p className="text-[var(--text-muted)]">No {symbol} position found across your connected exchanges.</p>
                   </div>
                 )}
               </div>
@@ -380,7 +365,6 @@ export default function CryptoDetailPage() {
         )}
       </main>
 
-      <BinanceLoginModal open={showBinanceModal} onClose={() => setShowBinanceModal(false)} />
     </div>
   );
 }
@@ -389,7 +373,7 @@ function StatCard({
   label,
   value,
   subLabel,
-  valueClass = 'text-white',
+  valueClass = 'text-[var(--text)]',
 }: {
   label: string;
   value: string;
@@ -397,8 +381,8 @@ function StatCard({
   valueClass?: string;
 }) {
   return (
-    <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-4">
-      <p className="text-xs text-gray-500 mb-1">{label}</p>
+    <div className="bg-[var(--surface)]/50 border border-[var(--border)] rounded-xl p-4">
+      <p className="text-xs text-[var(--text-muted)] mb-1">{label}</p>
       <p className={`text-lg font-bold font-mono ${valueClass}`}>{value}</p>
       {subLabel && <p className="text-xs text-gray-600 mt-0.5">{subLabel}</p>}
     </div>
