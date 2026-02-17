@@ -215,6 +215,17 @@ function getFallbackStocks(): StockData[] {
     FESA4: 18.40,
     GMAT3: 22.80,
     ENEV3: 12.60,
+    // BDRs
+    ROXO34: 12.50,
+    M1TA34: 85.20,
+    AAPL34: 52.40,
+    AMZO34: 38.90,
+    GOGL34: 45.60,
+    MSFT34: 78.30,
+    TSLA34: 42.10,
+    NVDC34: 92.80,
+    NFLX34: 68.50,
+    DISB34: 28.40,
   };
 
   // Retornar 20 ações em vez de 8

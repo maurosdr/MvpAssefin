@@ -1,18 +1,22 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import AppHeader from '@/components/AppHeader';
 import MarketTickerBar from '@/components/MarketTickerBar';
 import { getStockLogoUrl, getStockInitials } from '@/lib/stock-logos';
+import { MAIN_STOCKS, STOCK_NAMES } from '@/lib/stocks-data';
+import { calculateSMA, calculateEMA } from '@/lib/indicators';
 import {
   Area,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
   Bar,
   ComposedChart,
+  LineChart,
 } from 'recharts';
 type StockTab = 'sumario' | 'contabil' | 'multiplos' | 'historico';
 
@@ -755,28 +759,122 @@ function HistoricoTab({
   setTimeWindow: (w: string) => void;
 }) {
   const isPositive = stock.changePercent >= 0;
-  const chartData = stock.data.map((item) => ({
-    date: item.date,
-    fullDate: item.fullDate,
-    price: item.close,
-    volume: item.volume,
-    high: item.high,
-    low: item.low,
-    open: item.open,
-    adjustedClose: item.adjustedClose || item.close,
-  }));
+
+  // Indicator state
+  const [showSMA, setShowSMA] = useState(false);
+  const [smaWindow, setSmaWindow] = useState(20);
+  const [showEMA, setShowEMA] = useState(false);
+  const [emaWindow, setEmaWindow] = useState(20);
+
+  // Comparison state
+  const [comparisonSymbol, setComparisonSymbol] = useState<string>('');
+  const [comparisonSearch, setComparisonSearch] = useState('');
+  const [comparisonData, setComparisonData] = useState<HistoryItem[] | null>(null);
+  const [comparisonLoading, setComparisonLoading] = useState(false);
+  const [showCompDropdown, setShowCompDropdown] = useState(false);
+  const compRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (compRef.current && !compRef.current.contains(e.target as Node)) {
+        setShowCompDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  // Fetch comparison data
+  useEffect(() => {
+    if (!comparisonSymbol) {
+      setComparisonData(null);
+      return;
+    }
+    const fetchComparison = async () => {
+      setComparisonLoading(true);
+      try {
+        const rangeMap: Record<string, string> = {
+          '1d': '1d', '5d': '5d', '1mo': '1mo', '3mo': '3mo',
+          '6mo': '6mo', '1y': '1y', '5y': '5y', 'max': 'max',
+        };
+        const intervalMap: Record<string, string> = {
+          '1d': '5m', '5d': '1h', '1mo': '1d', '3mo': '1d',
+          '6mo': '1d', '1y': '1wk', '5y': '1mo', 'max': '1mo',
+        };
+        const range = rangeMap[timeWindow] || '1mo';
+        const interval = intervalMap[timeWindow] || '1d';
+        const res = await fetch(
+          `/api/stocks/quote?symbol=${comparisonSymbol}&range=${range}&interval=${interval}`,
+          { cache: 'no-store' }
+        );
+        const data = await res.json();
+        if (data.data && Array.isArray(data.data)) {
+          setComparisonData(data.data);
+        }
+      } catch {
+        setComparisonData(null);
+      } finally {
+        setComparisonLoading(false);
+      }
+    };
+    fetchComparison();
+  }, [comparisonSymbol, timeWindow]);
+
+  // Search results for comparison
+  const compSearchResults = useMemo(() => {
+    if (comparisonSearch.length < 2) return [];
+    const q = comparisonSearch.toUpperCase();
+    return MAIN_STOCKS
+      .filter((s) => s !== stock.symbol && (s.includes(q) || (STOCK_NAMES[s] || '').toUpperCase().includes(q)))
+      .slice(0, 8);
+  }, [comparisonSearch, stock.symbol]);
+
+  const isComparing = comparisonData && comparisonData.length > 0;
+
+  // Chart data with indicators
+  const closePrices = stock.data.map((d) => d.close);
+  const smaValues = showSMA ? calculateSMA(closePrices, smaWindow) : null;
+  const emaValues = showEMA ? calculateEMA(closePrices, emaWindow) : null;
+
+  const chartData = useMemo(() => {
+    if (isComparing) {
+      // Normalized comparison mode
+      const basePrice = stock.data[0]?.close || 1;
+      const compBasePrice = comparisonData![0]?.close || 1;
+      return stock.data.map((item, idx) => ({
+        date: item.date,
+        [stock.symbol]: item.close > 0 ? item.close / basePrice : undefined,
+        [comparisonSymbol]: comparisonData![idx]?.close > 0 ? comparisonData![idx].close / compBasePrice : undefined,
+      }));
+    }
+
+    return stock.data.map((item, idx) => ({
+      date: item.date,
+      fullDate: item.fullDate,
+      price: item.close,
+      volume: item.volume,
+      high: item.high,
+      low: item.low,
+      open: item.open,
+      adjustedClose: item.adjustedClose || item.close,
+      sma: smaValues?.[idx] ?? undefined,
+      ema: emaValues?.[idx] ?? undefined,
+    }));
+  }, [stock.data, smaValues, emaValues, isComparing, comparisonData, comparisonSymbol, stock.symbol]);
 
   // Compute Y-axis bounds (98% of min, 102% of max)
-  const chartPrices = chartData.map((d) => d.price).filter((p) => p > 0);
+  const chartPrices = !isComparing ? chartData.map((d) => (d as { price: number }).price).filter((p) => p > 0) : [];
   const priceMin = chartPrices.length > 0 ? Math.min(...chartPrices) * 0.98 : 0;
   const priceMax = chartPrices.length > 0 ? Math.max(...chartPrices) * 1.02 : 0;
 
-  // Compute stats
-  const closes = stock.data.map((d) => d.close).filter((c) => c > 0);
-  const upDays = stock.data.filter((d, i) => i > 0 && d.close > stock.data[i - 1].close).length;
-  const downDays = stock.data.filter((d, i) => i > 0 && d.close < stock.data[i - 1].close).length;
+  // Compute stats (filter out invalid entries with close <= 0)
+  const validData = stock.data.filter((d) => d.close > 0);
+  const closes = validData.map((d) => d.close);
+  const upDays = validData.filter((d, i) => i > 0 && d.close > validData[i - 1].close).length;
+  const downDays = validData.filter((d, i) => i > 0 && d.close < validData[i - 1].close).length;
 
-  // Compute 12M appreciation
+  // Compute appreciation
   const firstClose = closes.length > 0 ? closes[0] : 0;
   const lastClose = closes.length > 0 ? closes[closes.length - 1] : 0;
   const appreciation = firstClose > 0 ? ((lastClose - firstClose) / firstClose) * 100 : 0;
@@ -814,7 +912,7 @@ function HistoricoTab({
 
       {/* Price Chart */}
       <div className="modern-card">
-        <div className="flex items-center justify-between mb-6 pb-4 border-b border-[var(--border)]">
+        <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--border)]">
           <div className="flex items-center gap-3">
             <div className="w-1 h-6 bg-[var(--accent)] rounded-full" />
             <h2 className="section-title">Grafico de Precos</h2>
@@ -835,57 +933,205 @@ function HistoricoTab({
             ))}
           </div>
         </div>
+
+        {/* Indicators & Comparison Controls */}
+        <div className="flex items-center gap-4 mb-4 flex-wrap">
+          {/* SMA Toggle */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowSMA(!showSMA)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                showSMA
+                  ? 'bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/40'
+                  : 'bg-[var(--surface)] text-[var(--text-secondary)] border border-[var(--border)]'
+              }`}
+            >
+              SMA
+            </button>
+            {showSMA && (
+              <input
+                type="number"
+                value={smaWindow}
+                onChange={(e) => setSmaWindow(Math.max(2, Math.min(200, Number(e.target.value) || 20)))}
+                className="w-16 px-2 py-1.5 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-xs text-[var(--text-primary)] text-center"
+                min={2}
+                max={200}
+              />
+            )}
+          </div>
+          {/* EMA Toggle */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowEMA(!showEMA)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                showEMA
+                  ? 'bg-[#8b5cf6]/20 text-[#8b5cf6] border border-[#8b5cf6]/40'
+                  : 'bg-[var(--surface)] text-[var(--text-secondary)] border border-[var(--border)]'
+              }`}
+            >
+              EWMA
+            </button>
+            {showEMA && (
+              <input
+                type="number"
+                value={emaWindow}
+                onChange={(e) => setEmaWindow(Math.max(2, Math.min(200, Number(e.target.value) || 20)))}
+                className="w-16 px-2 py-1.5 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-xs text-[var(--text-primary)] text-center"
+                min={2}
+                max={200}
+              />
+            )}
+          </div>
+          {/* Comparison */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-[var(--text-muted)]">Comparar:</span>
+            {comparisonSymbol ? (
+              <span className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-[#3b82f6]/20 text-[#3b82f6] border border-[#3b82f6]/40">
+                {comparisonSymbol}
+                <button onClick={() => { setComparisonSymbol(''); setComparisonSearch(''); }} className="ml-1 hover:opacity-70">&times;</button>
+              </span>
+            ) : (
+              <div className="relative" ref={compRef}>
+                <input
+                  type="text"
+                  value={comparisonSearch}
+                  onChange={(e) => {
+                    setComparisonSearch(e.target.value.toUpperCase());
+                    setShowCompDropdown(true);
+                  }}
+                  onFocus={() => setShowCompDropdown(true)}
+                  placeholder="TICKER..."
+                  className="w-28 px-2 py-1.5 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-xs text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                />
+                {showCompDropdown && compSearchResults.length > 0 && (
+                  <div className="absolute top-full mt-1 left-0 w-48 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto">
+                    {compSearchResults.map((sym) => (
+                      <button
+                        key={sym}
+                        onClick={() => { setComparisonSymbol(sym); setComparisonSearch(''); setShowCompDropdown(false); }}
+                        className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--surface-hover)] transition-colors"
+                      >
+                        <span className="font-mono font-bold">{sym}</span>
+                        <span className="text-[var(--text-muted)] ml-2">{STOCK_NAMES[sym] || ''}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {comparisonLoading && (
+              <div className="w-4 h-4 border-2 border-[#3b82f6] border-t-transparent rounded-full animate-spin" />
+            )}
+          </div>
+          {isComparing && (
+            <span className="text-[10px] text-[var(--text-muted)]">Retorno normalizado (base 1.0)</span>
+          )}
+        </div>
+
         <div className="h-[400px] -mx-2">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={chartData}>
-              <defs>
-                <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={isPositive ? '#22c55e' : '#f85149'} stopOpacity={0.35} />
-                  <stop offset="100%" stopColor={isPositive ? '#22c55e' : '#f85149'} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="date" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis
-                yAxisId="price"
-                domain={[priceMin, priceMax]}
-                tick={{ fill: '#6b7280', fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v) => `R$ ${v.toFixed(2)}`}
-              />
-              <YAxis
-                yAxisId="volume"
-                orientation="right"
-                tick={{ fill: '#6b7280', fontSize: 10 }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v) => (v > 1e6 ? `${(v / 1e6).toFixed(0)}M` : `${(v / 1e3).toFixed(0)}K`)}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#0b0f19',
-                  border: '1px solid #1f2937',
-                  borderRadius: '0.75rem',
-                  fontSize: '0.75rem',
-                }}
-                formatter={(value, name) => {
-                  const v = Number(value) || 0;
-                  if (name === 'volume') return [v.toLocaleString('pt-BR'), 'Volume'];
-                  return [formatBRL(v), 'Preco'];
-                }}
-              />
-              <Bar yAxisId="volume" dataKey="volume" fill="var(--accent)" opacity={0.15} radius={[2, 2, 0, 0]} />
-              <Area
-                yAxisId="price"
-                type="monotone"
-                dataKey="price"
-                stroke={isPositive ? '#22c55e' : '#f85149'}
-                strokeWidth={2}
-                fill="url(#priceGrad)"
-                dot={false}
-                activeDot={{ r: 4 }}
-              />
-            </ComposedChart>
+            {isComparing ? (
+              <LineChart data={chartData}>
+                <XAxis dataKey="date" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis
+                  domain={['auto', 'auto']}
+                  tick={{ fill: '#6b7280', fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v) => v.toFixed(2)}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#0b0f19',
+                    border: '1px solid #1f2937',
+                    borderRadius: '0.75rem',
+                    fontSize: '0.75rem',
+                  }}
+                  formatter={(value, name) => {
+                    const v = Number(value) || 0;
+                    return [`${((v - 1) * 100).toFixed(2)}%`, name];
+                  }}
+                />
+                <Line type="monotone" dataKey={stock.symbol} stroke="#22c55e" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                <Line type="monotone" dataKey={comparisonSymbol} stroke="#3b82f6" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+              </LineChart>
+            ) : (
+              <ComposedChart data={chartData}>
+                <defs>
+                  <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={isPositive ? '#22c55e' : '#f85149'} stopOpacity={0.35} />
+                    <stop offset="100%" stopColor={isPositive ? '#22c55e' : '#f85149'} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis
+                  yAxisId="price"
+                  domain={[priceMin, priceMax]}
+                  tick={{ fill: '#6b7280', fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v) => `R$ ${v.toFixed(2)}`}
+                />
+                <YAxis
+                  yAxisId="volume"
+                  orientation="right"
+                  tick={{ fill: '#6b7280', fontSize: 10 }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v) => (v > 1e6 ? `${(v / 1e6).toFixed(0)}M` : `${(v / 1e3).toFixed(0)}K`)}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#0b0f19',
+                    border: '1px solid #1f2937',
+                    borderRadius: '0.75rem',
+                    fontSize: '0.75rem',
+                  }}
+                  formatter={(value, name) => {
+                    const v = Number(value) || 0;
+                    if (name === 'volume') return [v.toLocaleString('pt-BR'), 'Volume'];
+                    if (name === 'sma') return [formatBRL(v), `SMA(${smaWindow})`];
+                    if (name === 'ema') return [formatBRL(v), `EWMA(${emaWindow})`];
+                    return [formatBRL(v), 'Preco'];
+                  }}
+                />
+                <Bar yAxisId="volume" dataKey="volume" fill="var(--accent)" opacity={0.15} radius={[2, 2, 0, 0]} />
+                <Area
+                  yAxisId="price"
+                  type="monotone"
+                  dataKey="price"
+                  stroke={isPositive ? '#22c55e' : '#f85149'}
+                  strokeWidth={2}
+                  fill="url(#priceGrad)"
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                />
+                {showSMA && (
+                  <Line
+                    yAxisId="price"
+                    type="monotone"
+                    dataKey="sma"
+                    stroke="#f59e0b"
+                    strokeWidth={2}
+                    dot={false}
+                    name="sma"
+                    connectNulls={false}
+                  />
+                )}
+                {showEMA && (
+                  <Line
+                    yAxisId="price"
+                    type="monotone"
+                    dataKey="ema"
+                    stroke="#8b5cf6"
+                    strokeWidth={2}
+                    dot={false}
+                    name="ema"
+                    connectNulls={false}
+                  />
+                )}
+              </ComposedChart>
+            )}
           </ResponsiveContainer>
         </div>
       </div>
