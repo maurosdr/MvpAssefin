@@ -8,6 +8,9 @@ interface CurrencyData {
   price: number;
   change1d: number;
   change1w: number;
+  high?: number;
+  low?: number;
+  updatedAt?: string;
 }
 
 export default function CurrencyTable() {
@@ -24,49 +27,84 @@ export default function CurrencyTable() {
       .finally(() => setLoading(false));
   }, []);
 
+  const formatPrice = (price: number) => {
+    if (price >= 1000) return price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (price >= 1) return price.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+    return price.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 6 });
+  };
+
   return (
-    <div className="bg-[var(--surface)]/50 border border-[var(--border)] rounded-2xl overflow-hidden">
-      <div className="px-6 py-4 border-b border-[var(--border)]">
-        <h2 className="text-lg font-bold text-[var(--text)] flex items-center gap-2">
-          <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Major Currencies
-        </h2>
+    <div className="modern-card">
+      <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--border)]">
+        <div className="flex items-center gap-3">
+          <div className="w-1 h-6 bg-[var(--accent)] rounded-full" />
+          <div>
+            <h3 className="section-title">Principais Moedas</h3>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5">Cotações via Brapi</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="inline-block w-2 h-2 bg-[var(--success)] rounded-full animate-pulse" />
+          <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">Live</span>
+        </div>
       </div>
 
       {loading ? (
-        <div className="p-6 flex justify-center">
-          <div className="w-6 h-6 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+        <div className="py-8 flex justify-center">
+          <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="text-xs text-[var(--text-muted)] border-b border-[var(--border)]">
-                <th className="text-left px-6 py-3 font-medium">Pair</th>
-                <th className="text-right px-6 py-3 font-medium">Price</th>
-                <th className="text-right px-6 py-3 font-medium">1D %</th>
-                <th className="text-right px-6 py-3 font-medium">1W %</th>
+              <tr className="text-[10px] font-black uppercase tracking-[0.15em] text-[var(--text-muted)] border-b-2 border-[var(--border)]">
+                <th className="text-left pb-3">Par</th>
+                <th className="text-right pb-3">Cotação</th>
+                <th className="text-right pb-3">Var %</th>
+                <th className="text-right pb-3 hidden sm:table-cell">Máx</th>
+                <th className="text-right pb-3 hidden sm:table-cell">Mín</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-[var(--border-subtle)]">
               {currencies.map((c) => (
-                <tr key={c.pair} className="border-b border-[var(--border)]/50 hover:bg-gray-800/30 transition-colors">
-                  <td className="px-6 py-3">
-                    <div>
-                      <span className="text-[var(--text)] font-medium text-sm">{c.pair}</span>
-                      <span className="text-[var(--text-muted)] text-xs ml-2">{c.name}</span>
+                <tr key={c.pair} className="hover:bg-[var(--surface-hover)] transition-colors">
+                  <td className="py-3 pr-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-[var(--accent-soft)] flex items-center justify-center flex-shrink-0">
+                        <span className="text-xs font-bold text-[var(--accent)]">
+                          {c.pair.split('/')[0].slice(0, 3)}
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-sm font-bold text-[var(--text-primary)] block">{c.pair}</span>
+                        <span className="text-[10px] text-[var(--text-muted)] block truncate">{c.name}</span>
+                      </div>
                     </div>
                   </td>
-                  <td className="text-right px-6 py-3 text-[var(--text)] font-mono text-sm">
-                    {c.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                  <td className="text-right py-3 px-1">
+                    <span className="text-sm font-bold text-[var(--text-primary)] data-value">
+                      R$ {formatPrice(c.price)}
+                    </span>
                   </td>
-                  <td className={`text-right px-6 py-3 font-mono text-sm ${c.change1d >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {c.change1d >= 0 ? '+' : ''}{c.change1d.toFixed(2)}%
+                  <td className="text-right py-3 px-1">
+                    <span
+                      className={`inline-flex items-center gap-0.5 text-xs font-bold data-value ${
+                        c.change1d >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'
+                      }`}
+                    >
+                      {c.change1d >= 0 ? '▲' : '▼'}
+                      {c.change1d >= 0 ? '+' : ''}{c.change1d.toFixed(2)}%
+                    </span>
                   </td>
-                  <td className={`text-right px-6 py-3 font-mono text-sm ${c.change1w >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {c.change1w >= 0 ? '+' : ''}{c.change1w.toFixed(2)}%
+                  <td className="text-right py-3 px-1 hidden sm:table-cell">
+                    <span className="text-xs text-[var(--text-secondary)] data-value">
+                      {c.high ? formatPrice(c.high) : '-'}
+                    </span>
+                  </td>
+                  <td className="text-right py-3 px-1 hidden sm:table-cell">
+                    <span className="text-xs text-[var(--text-secondary)] data-value">
+                      {c.low ? formatPrice(c.low) : '-'}
+                    </span>
                   </td>
                 </tr>
               ))}

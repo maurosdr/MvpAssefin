@@ -6,59 +6,41 @@ interface CurrencyData {
   price: number;
   change1d: number;
   change1w: number;
+  high?: number;
+  low?: number;
+  updatedAt?: string;
 }
 
-const CURRENCY_PAIRS: { yahoo: string; pair: string; name: string }[] = [
-  { yahoo: 'DX-Y.NYB', pair: 'DXY', name: 'US Dollar Index' },
-  { yahoo: 'EURUSD=X', pair: 'EUR/USD', name: 'Euro / Dollar' },
-  { yahoo: 'GBPUSD=X', pair: 'GBP/USD', name: 'Pound / Dollar' },
-  { yahoo: 'USDJPY=X', pair: 'USD/JPY', name: 'Dollar / Yen' },
-  { yahoo: 'USDCHF=X', pair: 'USD/CHF', name: 'Dollar / Franc' },
-  { yahoo: 'AUDUSD=X', pair: 'AUD/USD', name: 'Aussie / Dollar' },
-  { yahoo: 'NZDUSD=X', pair: 'NZD/USD', name: 'Kiwi / Dollar' },
-  { yahoo: 'USDCAD=X', pair: 'USD/CAD', name: 'Dollar / Loonie' },
-  { yahoo: 'USDMXN=X', pair: 'USD/MXN', name: 'Dollar / Peso' },
-  { yahoo: 'USDBRL=X', pair: 'USD/BRL', name: 'Dollar / Real' },
+// Brapi currency pairs (format: FROM-TO)
+const BRAPI_PAIRS: { brapi: string; pair: string; name: string }[] = [
+  { brapi: 'USD-BRL', pair: 'USD/BRL', name: 'Dólar / Real' },
+  { brapi: 'EUR-BRL', pair: 'EUR/BRL', name: 'Euro / Real' },
+  { brapi: 'GBP-BRL', pair: 'GBP/BRL', name: 'Libra / Real' },
+  { brapi: 'JPY-BRL', pair: 'JPY/BRL', name: 'Iene / Real' },
+  { brapi: 'CHF-BRL', pair: 'CHF/BRL', name: 'Franco Suíço / Real' },
+  { brapi: 'AUD-BRL', pair: 'AUD/BRL', name: 'Dólar Australiano / Real' },
+  { brapi: 'CAD-BRL', pair: 'CAD/BRL', name: 'Dólar Canadense / Real' },
+  { brapi: 'ARS-BRL', pair: 'ARS/BRL', name: 'Peso Argentino / Real' },
+  { brapi: 'CNY-BRL', pair: 'CNY/BRL', name: 'Yuan / Real' },
+  { brapi: 'BTC-BRL', pair: 'BTC/BRL', name: 'Bitcoin / Real' },
 ];
+
+interface BrapiCurrency {
+  fromCurrency: string;
+  toCurrency: string;
+  name: string;
+  high: string;
+  low: string;
+  bidVariation: string;
+  percentageChange: string;
+  bidPrice: string;
+  askPrice: string;
+  updatedAtTimestamp: string;
+  updatedAtDate: string;
+}
 
 let cache: { data: CurrencyData[]; timestamp: number } | null = null;
 const CACHE_TTL = 5 * 60 * 1000;
-
-async function fetchCurrencyData(yahoo: string, pair: string, name: string): Promise<CurrencyData | null> {
-  try {
-    // Fetch 2 weeks of data to calculate 1d and 1w changes
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahoo)}?range=5d&interval=1d`;
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MarketDashboard/1.0)' },
-    });
-
-    if (!res.ok) return null;
-    const json = await res.json();
-    const result = json?.chart?.result?.[0];
-    if (!result) return null;
-
-    const closes = result.indicators?.quote?.[0]?.close || [];
-    const meta = result.meta || {};
-    const validCloses = closes.filter((c: number | null) => c !== null && c !== undefined) as number[];
-
-    const currentPrice = meta.regularMarketPrice || (validCloses.length > 0 ? validCloses[validCloses.length - 1] : 0);
-    const previousClose = meta.chartPreviousClose || (validCloses.length > 1 ? validCloses[validCloses.length - 2] : currentPrice);
-    const weekAgo = validCloses.length > 0 ? validCloses[0] : currentPrice;
-
-    const change1d = previousClose > 0 ? ((currentPrice - previousClose) / previousClose) * 100 : 0;
-    const change1w = weekAgo > 0 ? ((currentPrice - weekAgo) / weekAgo) * 100 : 0;
-
-    return {
-      pair,
-      name,
-      price: Math.round(currentPrice * 10000) / 10000,
-      change1d: Math.round(change1d * 100) / 100,
-      change1w: Math.round(change1w * 100) / 100,
-    };
-  } catch {
-    return null;
-  }
-}
 
 export async function GET() {
   if (cache && Date.now() - cache.timestamp < CACHE_TTL) {
@@ -66,9 +48,50 @@ export async function GET() {
   }
 
   try {
-    const promises = CURRENCY_PAIRS.map((c) => fetchCurrencyData(c.yahoo, c.pair, c.name));
-    const results = await Promise.all(promises);
-    const currencies = results.filter((r): r is CurrencyData => r !== null);
+    const brapiCodes = BRAPI_PAIRS.map((p) => p.brapi).join(',');
+    const token = process.env.BRAPI_TOKEN || '';
+    const url = `https://brapi.dev/api/v2/currency?currency=${brapiCodes}&token=${token}`;
+
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      next: { revalidate: 300 },
+    });
+
+    if (!res.ok) {
+      console.warn(`Brapi currencies failed: ${res.status}`);
+      return NextResponse.json(getFallbackCurrencies());
+    }
+
+    const json = await res.json();
+    const brapiResults: BrapiCurrency[] = json?.currency || [];
+
+    if (brapiResults.length === 0) {
+      return NextResponse.json(getFallbackCurrencies());
+    }
+
+    const currencies = brapiResults
+      .map((item) => {
+        const pairKey = `${item.fromCurrency}-${item.toCurrency}`;
+        const config = BRAPI_PAIRS.find((p) => p.brapi === pairKey);
+        if (!config) return null;
+
+        const price = parseFloat(item.bidPrice) || 0;
+        const change1d = parseFloat(item.percentageChange) || 0;
+        const high = parseFloat(item.high) || undefined;
+        const low = parseFloat(item.low) || undefined;
+
+        return {
+          pair: config.pair,
+          name: config.name,
+          price: Math.round(price * 10000) / 10000,
+          change1d: Math.round(change1d * 100) / 100,
+          change1w: 0, // Brapi doesn't provide weekly change directly
+          high,
+          low,
+          updatedAt: item.updatedAtDate || undefined,
+        };
+      })
+      .filter((c) => c !== null) as CurrencyData[];
 
     if (currencies.length > 0) {
       cache = { data: currencies, timestamp: Date.now() };
@@ -76,22 +99,23 @@ export async function GET() {
     }
 
     return NextResponse.json(getFallbackCurrencies());
-  } catch {
+  } catch (error) {
+    console.error('Brapi currencies error:', error);
     return NextResponse.json(getFallbackCurrencies());
   }
 }
 
 function getFallbackCurrencies(): CurrencyData[] {
   return [
-    { pair: 'DXY', name: 'US Dollar Index', price: 104.25, change1d: 0.12, change1w: -0.35 },
-    { pair: 'EUR/USD', name: 'Euro / Dollar', price: 1.0845, change1d: -0.08, change1w: 0.22 },
-    { pair: 'GBP/USD', name: 'Pound / Dollar', price: 1.2695, change1d: 0.15, change1w: 0.45 },
-    { pair: 'USD/JPY', name: 'Dollar / Yen', price: 149.85, change1d: 0.22, change1w: -0.18 },
-    { pair: 'USD/CHF', name: 'Dollar / Franc', price: 0.8812, change1d: -0.05, change1w: -0.32 },
-    { pair: 'AUD/USD', name: 'Aussie / Dollar', price: 0.6542, change1d: 0.18, change1w: 0.55 },
-    { pair: 'NZD/USD', name: 'Kiwi / Dollar', price: 0.6015, change1d: 0.10, change1w: 0.28 },
-    { pair: 'USD/CAD', name: 'Dollar / Loonie', price: 1.3548, change1d: -0.12, change1w: 0.15 },
-    { pair: 'USD/MXN', name: 'Dollar / Peso', price: 17.15, change1d: 0.25, change1w: -0.42 },
-    { pair: 'USD/BRL', name: 'Dollar / Real', price: 4.97, change1d: -0.35, change1w: 0.68 },
+    { pair: 'USD/BRL', name: 'Dólar / Real', price: 5.89, change1d: -0.35, change1w: 0.68 },
+    { pair: 'EUR/BRL', name: 'Euro / Real', price: 6.12, change1d: -0.08, change1w: 0.22 },
+    { pair: 'GBP/BRL', name: 'Libra / Real', price: 7.42, change1d: 0.15, change1w: 0.45 },
+    { pair: 'JPY/BRL', name: 'Iene / Real', price: 0.0388, change1d: 0.22, change1w: -0.18 },
+    { pair: 'CHF/BRL', name: 'Franco Suíço / Real', price: 6.58, change1d: -0.05, change1w: -0.32 },
+    { pair: 'AUD/BRL', name: 'Dólar Australiano / Real', price: 3.72, change1d: 0.18, change1w: 0.55 },
+    { pair: 'CAD/BRL', name: 'Dólar Canadense / Real', price: 4.18, change1d: -0.12, change1w: 0.15 },
+    { pair: 'ARS/BRL', name: 'Peso Argentino / Real', price: 0.0054, change1d: 0.25, change1w: -0.42 },
+    { pair: 'CNY/BRL', name: 'Yuan / Real', price: 0.81, change1d: 0.10, change1w: 0.28 },
+    { pair: 'BTC/BRL', name: 'Bitcoin / Real', price: 570250.00, change1d: 1.82, change1w: 3.45 },
   ];
 }
