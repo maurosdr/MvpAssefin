@@ -37,10 +37,10 @@ export default function YieldCurveChart() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (compareDate && curveType === 'us') params.set('compareDate', compareDate);
+      if (compareDate) params.set('compareDate', compareDate);
       const endpoint = curveType === 'us'
         ? `/api/market/yields?${params.toString()}`
-        : `/api/market/yields/brazil`;
+        : `/api/market/yields/brazil?${params.toString()}`;
       const res = await fetch(endpoint);
       const result = await res.json();
       setData(result);
@@ -55,13 +55,6 @@ export default function YieldCurveChart() {
     fetchData();
   }, [fetchData]);
 
-  // Reset comparison when switching curves
-  useEffect(() => {
-    if (curveType === 'brazil') {
-      setShowCompare(false);
-      setCompareDate('');
-    }
-  }, [curveType]);
 
   const chartData = data?.current.map((point) => {
     const compPoint = data.comparison?.find((c) => c.maturity === point.maturity);
@@ -106,8 +99,7 @@ export default function YieldCurveChart() {
             <option value="brazil">Brazil DI (Pre)</option>
           </select>
 
-          {curveType === 'us' && (
-            <>
+          <>
               {!showCompare ? (
                 <button
                   onClick={() => setShowCompare(true)}
@@ -137,7 +129,6 @@ export default function YieldCurveChart() {
                 </div>
               )}
             </>
-          )}
         </div>
       </div>
 
