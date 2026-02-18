@@ -13,6 +13,7 @@ import BloombergNewsTicker from '@/components/BloombergNewsTicker';
 // Lazy load componentes pesados
 const YieldCurveChart = lazy(() => import('@/components/YieldCurveChart'));
 const PolymarketCards = lazy(() => import('@/components/PolymarketCards'));
+const FocusCard = lazy(() => import('@/components/FocusCard'));
 
 interface NewsArticle {
   id: string;
@@ -132,14 +133,27 @@ export default function NewsPage() {
           </div>
         )}
 
-        {/* Row 5: US Yield Curve */}
-        <Suspense fallback={
-          <div className="modern-card p-8 flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+        {/* Row 7: Yield Curve + Focus (BCB) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2">
+            <Suspense fallback={
+              <div className="modern-card p-8 flex items-center justify-center">
+                <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+              </div>
+            }>
+              <YieldCurveChart />
+            </Suspense>
           </div>
-        }>
-          <YieldCurveChart />
-        </Suspense>
+          <div>
+            <Suspense fallback={
+              <div className="modern-card p-8 flex items-center justify-center">
+                <div className="w-6 h-6 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            }>
+              <FocusCard />
+            </Suspense>
+          </div>
+        </div>
       </main>
     </div>
   );
