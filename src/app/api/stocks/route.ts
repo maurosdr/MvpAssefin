@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { MAIN_STOCKS, STOCKS_BY_CATEGORY } from '@/lib/stocks-data';
+import { MAIN_STOCKS, STOCKS_BY_CATEGORY, getStockName } from '@/lib/stocks-data';
 
 interface StockData {
   symbol: string;
@@ -79,10 +79,11 @@ export async function GET(request: NextRequest) {
       // Fazer requisições em lote (máximo 3 batches = 60 ações para não exceder rate limit)
       for (const batch of batches.slice(0, 3)) {
         try {
-          const url = `https://brapi.dev/api/quote/${batch.join(',')}?token=${process.env.BRAPI_TOKEN || ''}`;
+          const url = `https://brapi.dev/api/quote/${batch.join(',')}`;
           const res = await fetch(url, {
             headers: {
               'User-Agent': 'Mozilla/5.0',
+              'Authorization': 'Bearer kAohDLSrNNS3JNZijP4voJ',
             },
             next: { revalidate: 300 },
           });
@@ -119,11 +120,12 @@ export async function GET(request: NextRequest) {
     } else {
       // Código original para menos de 20 ações
       const limitedSymbols = symbolsArray.slice(0, 20).join(',');
-      const url = `https://brapi.dev/api/quote/${limitedSymbols}?token=${process.env.BRAPI_TOKEN || ''}`;
-      
+      const url = `https://brapi.dev/api/quote/${limitedSymbols}`;
+
       const res = await fetch(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0',
+          'Authorization': 'Bearer kAohDLSrNNS3JNZijP4voJ',
         },
         next: { revalidate: 300 },
       });
@@ -215,6 +217,17 @@ function getFallbackStocks(): StockData[] {
     FESA4: 18.40,
     GMAT3: 22.80,
     ENEV3: 12.60,
+    // BDRs
+    ROXO34: 12.50,
+    M1TA34: 85.20,
+    AAPL34: 52.40,
+    AMZO34: 38.90,
+    GOGL34: 45.60,
+    MSFT34: 78.30,
+    TSLA34: 42.10,
+    NVDC34: 92.80,
+    NFLX34: 68.50,
+    DISB34: 28.40,
   };
 
   // Retornar 20 ações em vez de 8
@@ -239,71 +252,5 @@ function getFallbackStocks(): StockData[] {
   });
 }
 
-function getStockName(symbol: string): string {
-  const names: Record<string, string> = {
-    PETR4: 'Petrobras',
-    VALE3: 'Vale',
-    ITUB4: 'Itaú Unibanco',
-    BBDC4: 'Bradesco',
-    ABEV3: 'Ambev',
-    WEGE3: 'WEG',
-    RENT3: 'Localiza',
-    SUZB3: 'Suzano',
-    ELET3: 'Eletrobras',
-    BBAS3: 'Banco do Brasil',
-    RADL3: 'Raia Drogasil',
-    CMIG4: 'Cemig',
-    HAPV3: 'Hapvida',
-    VIVT3: 'Telefônica Brasil',
-    BRAP4: 'Bradespar',
-    KLBN11: 'Klabin',
-    UGPA3: 'Ultrapar',
-    TAEE11: 'Taesa',
-    CCRO3: 'CCR',
-    CYRE3: 'Cyrela',
-    MGLU3: 'Magazine Luiza',
-    VBBR3: 'Via',
-    LREN3: 'Lojas Renner',
-    ARZZ3: 'Arezzo',
-    CAML3: 'Camil',
-    GUAR3: 'Guararapes',
-    NTCO3: 'Natura',
-    SOMA3: 'Grupo Soma',
-    SANB11: 'Santander Brasil',
-    BPAN4: 'Banco Pan',
-    BRSR6: 'Banrisul',
-    CRFB3: 'Carrefour Brasil',
-    PINE4: 'Pine',
-    EQTL3: 'Equatorial Energia',
-    CPLE6: 'Copel',
-    ELET6: 'Eletrobras',
-    ENBR3: 'EDP Brasil',
-    EGIE3: 'Engie Brasil',
-    ENGI11: 'Energisa',
-    GGBR4: 'Gerdau',
-    USIM5: 'Usinas Siderúrgicas',
-    CSNA3: 'CSN',
-    GOAU4: 'Metalúrgica Gerdau',
-    CSAN3: 'Cosan',
-    HGLG11: 'CSHG Logística',
-    XPML11: 'XP Malls',
-    KNRI11: 'Kinea Renda Imobiliária',
-    HGRU11: 'Hedge Realty',
-    VISC11: 'Vinci Shopping Centers',
-    XPLG11: 'XP Log',
-    BTLG11: 'BTG Pactual Logística',
-    RBRF11: 'RBR Alpha',
-    TOTS3: 'TOTVS',
-    LWSA3: 'Locaweb',
-    CASH3: 'Méliuz',
-    STOC31: 'StoneCo',
-    PRIO3: 'PetroRio',
-    RDOR3: 'Rede D\'Or',
-    DXCO3: 'Dexco',
-    FESA4: 'Ferbasa',
-    GMAT3: 'Grupo Mateus',
-    ENEV3: 'Eneva',
-  };
-  return names[symbol] || symbol;
-}
+// getStockName is now imported from @/lib/stocks-data
 

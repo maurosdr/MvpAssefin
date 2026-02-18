@@ -74,6 +74,17 @@ export function getStockLogoUrl(symbol: string): string {
     FESA4: 'ferbasa.com.br',
     GMAT3: 'grupomateus.com.br',
     ENEV3: 'eneva.com.br',
+    // BDRs
+    ROXO34: 'nubank.com.br',
+    M1TA34: 'meta.com',
+    AAPL34: 'apple.com',
+    AMZO34: 'amazon.com',
+    GOGL34: 'google.com',
+    MSFT34: 'microsoft.com',
+    TSLA34: 'tesla.com',
+    NVDC34: 'nvidia.com',
+    NFLX34: 'netflix.com',
+    DISB34: 'disney.com',
   };
 
   const domain = logoMap[symbol];

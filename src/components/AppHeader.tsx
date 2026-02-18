@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
-import CryptoSearch from '@/components/CryptoSearch';
+import AssetSearch from '@/components/AssetSearch';
 import BinanceLoginModal from '@/components/BinanceLoginModal';
 import { useExchange } from '@/context/ExchangeContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -13,11 +13,19 @@ interface SearchableCrypto {
   price: number;
 }
 
+interface SearchableStock {
+  symbol: string;
+  name: string;
+  price: number;
+}
+
 export default function AppHeader({
   cryptos,
+  stocks,
   children,
 }: {
   cryptos?: SearchableCrypto[];
+  stocks?: SearchableStock[];
   children?: React.ReactNode;
 }) {
   const router = useRouter();
@@ -92,7 +100,7 @@ export default function AppHeader({
 
             {/* Center Section: Search */}
             <div className="hidden xl:block flex-1 max-w-xl mx-8">
-              <CryptoSearch cryptos={cryptos} />
+              <AssetSearch cryptos={cryptos} stocks={stocks} />
             </div>
 
             {/* Right Section: Actions */}
@@ -178,7 +186,7 @@ export default function AppHeader({
             <div className="lg:hidden border-t border-[var(--border)] py-4 space-y-3 animate-in slide-in-from-top">
               {/* Mobile Search */}
               <div className="px-2">
-                <CryptoSearch cryptos={cryptos} />
+                <AssetSearch cryptos={cryptos} stocks={stocks} />
               </div>
 
               {/* Mobile Navigation */}

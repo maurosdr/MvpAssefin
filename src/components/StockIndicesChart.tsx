@@ -71,6 +71,12 @@ export default function StockIndicesChart() {
     data.length >= 2 ? ((data[data.length - 1].close - data[0].close) / data[0].close) * 100 : 0;
   const isPositive = priceChange >= 0;
 
+  const closes = data.map((d) => d.close).filter((c) => c > 0);
+  const dataMin = closes.length > 0 ? Math.min(...closes) : 0;
+  const dataMax = closes.length > 0 ? Math.max(...closes) : 0;
+  const yMin = dataMin * 0.98;
+  const yMax = dataMax * 1.02;
+
   return (
     <div className="bg-[var(--surface)]/50 border border-[var(--border)] rounded-2xl p-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -150,6 +156,7 @@ export default function StockIndicesChart() {
               />
 
               <YAxis
+                domain={[yMin, yMax]}
                 tick={{ fill: '#6b7280', fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
