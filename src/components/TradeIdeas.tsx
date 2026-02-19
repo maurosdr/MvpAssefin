@@ -45,6 +45,15 @@ interface NVTDataPoint {
   zone: 'overbought' | 'oversold' | 'neutral';
 }
 
+interface PiCycleDataPoint {
+  date: string;
+  price: number;
+  ma111: number | null;
+  ma350x2: number | null;
+  ratio: number | null;
+  zone: 'top' | 'bottom' | 'neutral';
+}
+
 interface StopLossSimView {
   type: 'atr' | 'technical' | 'trailing' | 'ratio';
   label: string;
@@ -109,6 +118,7 @@ function MarketCycleSection({ symbol, currentPrice }: { symbol: string; currentP
     <div className="space-y-6">
       <HeatmapCard symbol={symbol} currentPrice={currentPrice} />
       <NVTSignalCard symbol={symbol} currentPrice={currentPrice} />
+      <PiCycleCard symbol={symbol} currentPrice={currentPrice} />
     </div>
   );
 }
@@ -602,6 +612,305 @@ function NVTSignalCard({ symbol, currentPrice }: { symbol: string; currentPrice?
           <DescriptionCard
             title="How To Read The Standard Deviation Bands"
             content={`The Advanced NVT Signal adds rolling Bollinger-style bands (±2 standard deviations from the 90-day mean of the NVT Signal itself).\n\nRed zone (above upper band): Bitcoin is historically overbought relative to its network transaction activity. This has historically coincided with local cycle tops and intra-cycle take-profit points.\n\nGreen zone (below lower band): Bitcoin is historically oversold. Network activity is high relative to price, suggesting strong fundamental demand and potential accumulation zones.\n\nThe indicator works best on medium time frames (weeks to months) rather than for short-term trading.`}
+            collapsed={!expanded}
+            onToggle={() => setExpanded(!expanded)}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Pi Cycle Top & Bottom Oscillator Card ────────────────────────
+function PiCycleCard({ symbol, currentPrice }: { symbol: string; currentPrice?: number }) {
+  const [expanded, setExpanded] = useState(false);
+  const [data, setData] = useState<PiCycleDataPoint[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const pair = `${symbol}/USDT`;
+      const res = await fetch(`/api/crypto/pi-cycle?symbol=${encodeURIComponent(pair)}`);
+      if (!res.ok) throw new Error('Failed to fetch Pi Cycle data');
+      const result: PiCycleDataPoint[] = await res.json();
+      if (Array.isArray(result) && result.length > 0) {
+        setData(result);
+        setError(null);
+      }
+      setLastUpdate(new Date());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  }, [symbol]);
+
+  useEffect(() => {
+    fetchData();
+    intervalRef.current = setInterval(fetchData, 5 * 60 * 1000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [fetchData]);
+
+  // Inject live price into the last data point
+  const displayData = data.length > 0 && currentPrice
+    ? data.map((d, i) => (i === data.length - 1 ? { ...d, price: currentPrice } : d))
+    : data;
+
+  const latest = displayData[displayData.length - 1];
+  const labelInterval = Math.max(1, Math.floor(displayData.length / 8));
+
+  const zoneColor = {
+    top: 'text-red-400',
+    bottom: 'text-green-400',
+    neutral: 'text-yellow-400',
+  };
+  const zoneBg = {
+    top: 'bg-red-500/10 border-red-500/30',
+    bottom: 'bg-green-500/10 border-green-500/30',
+    neutral: 'bg-yellow-500/10 border-yellow-500/30',
+  };
+  const zoneLabel = {
+    top: 'Cycle Top Zone — historically within days of peak',
+    bottom: 'Bear Market Bottom Zone — historically broad lows',
+    neutral: 'Mid-Cycle — momentum building',
+  };
+
+  return (
+    <div className="bg-[var(--surface)]/50 border border-[var(--border)] rounded-2xl overflow-hidden">
+      <div className="p-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-lg font-bold text-[var(--text)] flex items-center gap-2">
+            <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+            </svg>
+            Pi Cycle Top & Bottom Oscillator
+          </h3>
+          {lastUpdate && (
+            <span className="text-[10px] text-gray-600 flex items-center gap-1">
+              <span className="inline-block w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+              Live — daily data
+            </span>
+          )}
+        </div>
+        <p className="text-[var(--text-muted)] text-sm mb-1">
+          Compares the 111-Day MA with 2× the 350-Day MA. Ratio = 111DMA ÷ (2×350DMA).
+          Above 1.0 signals cycle top; below 0.75 signals bear-market bottom.
+        </p>
+        <p className="text-gray-600 text-xs mb-4">
+          350 ÷ 111 ≈ 3.153 (π) — an approximation of Pi. Source: Binance via CCXT
+        </p>
+
+        {/* Zone badge */}
+        {!loading && !error && latest && latest.zone && (
+          <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold mb-4 ${zoneBg[latest.zone]}`}>
+            <span className={`w-2 h-2 rounded-full ${latest.zone === 'top' ? 'bg-red-400' : latest.zone === 'bottom' ? 'bg-green-400' : 'bg-yellow-400'}`} />
+            <span className={zoneColor[latest.zone]}>{zoneLabel[latest.zone]}</span>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="h-[460px] flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-[var(--text-muted)] text-xs">Computing moving averages…</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="h-[460px] flex items-center justify-center">
+            <div className="text-center">
+              <p className="text-red-400 text-sm mb-2">{error}</p>
+              <p className="text-gray-600 text-xs">Requires at least 350 days of daily price data</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-4 mb-4">
+              {/* Price + MA chart */}
+              <div>
+                <p className="text-[10px] text-[var(--text-muted)] mb-1 font-medium uppercase tracking-wide">
+                  Price with 111-Day MA & 2×350-Day MA (log scale)
+                </p>
+                <div className="h-[220px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={displayData} margin={{ top: 5, right: 10, bottom: 5, left: 10 }}>
+                      <defs>
+                        <linearGradient id="piPriceGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#eab308" stopOpacity={0.2} />
+                          <stop offset="95%" stopColor="#eab308" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fill: '#9ca3af', fontSize: 9 }}
+                        axisLine={{ stroke: '#374151' }}
+                        interval={labelInterval}
+                        angle={-20}
+                        textAnchor="end"
+                        height={35}
+                      />
+                      <YAxis
+                        scale="log"
+                        domain={['auto', 'auto']}
+                        tick={{ fill: '#9ca3af', fontSize: 10 }}
+                        axisLine={{ stroke: '#374151' }}
+                        tickFormatter={(v) => v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${v}`}
+                        width={58}
+                      />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '0.75rem', color: '#fff', fontSize: '12px' }}
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        formatter={(value: any, name: any) => {
+                          const labels: Record<string, string> = {
+                            price: 'Price',
+                            ma111: '111-Day MA',
+                            ma350x2: '2×350-Day MA',
+                          };
+                          return [`$${Number(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}`, labels[name] ?? name];
+                        }}
+                        labelFormatter={(l) => `Date: ${l}`}
+                      />
+                      <Area type="monotone" dataKey="price" stroke="#eab308" strokeWidth={1.5} fill="url(#piPriceGrad)" dot={false} isAnimationActive={false} name="price" />
+                      <Line type="monotone" dataKey="ma111" stroke="#a855f7" strokeWidth={1.5} dot={false} isAnimationActive={false} name="ma111" connectNulls />
+                      <Line type="monotone" dataKey="ma350x2" stroke="#22c55e" strokeWidth={1.5} dot={false} strokeDasharray="5 3" isAnimationActive={false} name="ma350x2" connectNulls />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Oscillator chart: ratio = 111DMA / (2×350DMA) */}
+              <div>
+                <p className="text-[10px] text-[var(--text-muted)] mb-1 font-medium uppercase tracking-wide">
+                  Pi Cycle Oscillator — 111DMA ÷ (2×350DMA)
+                </p>
+                <div className="h-[180px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={displayData} margin={{ top: 5, right: 10, bottom: 5, left: 10 }}>
+                      <defs>
+                        <linearGradient id="piOscRedGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.15} />
+                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="piOscGreenGrad" x1="0" y1="1" x2="0" y2="0">
+                          <stop offset="5%" stopColor="#22c55e" stopOpacity={0.15} />
+                          <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fill: '#9ca3af', fontSize: 9 }}
+                        axisLine={{ stroke: '#374151' }}
+                        interval={labelInterval}
+                        angle={-20}
+                        textAnchor="end"
+                        height={35}
+                      />
+                      <YAxis
+                        tick={{ fill: '#9ca3af', fontSize: 10 }}
+                        axisLine={{ stroke: '#374151' }}
+                        tickFormatter={(v) => v.toFixed(2)}
+                        domain={[0.4, 1.2]}
+                        width={45}
+                      />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '0.75rem', color: '#fff', fontSize: '12px' }}
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        formatter={(value: any) => [Number(value).toFixed(4), 'Ratio (111DMA / 2×350DMA)']}
+                        labelFormatter={(l) => `Date: ${l}`}
+                      />
+                      {/* Top reference line at 1.0 */}
+                      <ReferenceLine y={1.0} stroke="#ef4444" strokeDasharray="4 3" strokeWidth={1.5}
+                        label={{ value: 'Cycle Top (1.0)', fill: '#ef4444', fontSize: 9, position: 'insideTopLeft' }} />
+                      {/* Bottom reference line at 0.75 */}
+                      <ReferenceLine y={0.75} stroke="#22c55e" strokeDasharray="4 3" strokeWidth={1.5}
+                        label={{ value: 'Bear Bottom (0.75)', fill: '#22c55e', fontSize: 9, position: 'insideBottomLeft' }} />
+                      {/* Oscillator line */}
+                      <Line
+                        type="monotone"
+                        dataKey="ratio"
+                        stroke="#a855f7"
+                        strokeWidth={2}
+                        dot={false}
+                        isAnimationActive={false}
+                        name="ratio"
+                        connectNulls
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+
+            {/* Legend */}
+            <div className="flex flex-wrap items-center gap-4 mb-4 text-xs">
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-0.5 bg-yellow-400 inline-block rounded" /> Price
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-0.5 bg-purple-500 inline-block rounded" /> 111-Day MA
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-0 border-t-2 border-dashed border-green-500 inline-block" /> 2×350-Day MA
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-0.5 bg-red-400 inline-block rounded" /> Top signal (≥ 1.0)
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-0.5 bg-green-400 inline-block rounded" /> Bottom zone (≤ 0.75)
+              </span>
+            </div>
+
+            {/* Live stats */}
+            {latest && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                <div className="bg-gray-800/50 rounded-lg p-2 border border-gray-700/50">
+                  <p className="text-[10px] text-[var(--text-muted)]">111-Day MA</p>
+                  <p className="text-sm font-bold font-mono text-purple-400">
+                    {latest.ma111 != null ? `$${latest.ma111.toLocaleString()}` : '—'}
+                  </p>
+                </div>
+                <div className="bg-gray-800/50 rounded-lg p-2 border border-gray-700/50">
+                  <p className="text-[10px] text-[var(--text-muted)]">2×350-Day MA</p>
+                  <p className="text-sm font-bold font-mono text-green-400">
+                    {latest.ma350x2 != null ? `$${latest.ma350x2.toLocaleString()}` : '—'}
+                  </p>
+                </div>
+                <div className="bg-gray-800/50 rounded-lg p-2 border border-gray-700/50">
+                  <p className="text-[10px] text-[var(--text-muted)]">Oscillator Ratio</p>
+                  <p className={`text-sm font-bold font-mono ${latest.ratio != null && latest.ratio >= 1 ? 'text-red-400' : latest.ratio != null && latest.ratio <= 0.75 ? 'text-green-400' : 'text-yellow-400'}`}>
+                    {latest.ratio != null ? latest.ratio.toFixed(4) : '—'}
+                  </p>
+                </div>
+                <div className="bg-gray-800/50 rounded-lg p-2 border border-gray-700/50">
+                  <p className="text-[10px] text-[var(--text-muted)]">Signal</p>
+                  <p className={`text-sm font-bold font-mono capitalize ${zoneColor[latest.zone]}`}>
+                    {latest.zone === 'top' ? 'Cycle Top' : latest.zone === 'bottom' ? 'Bear Bottom' : 'Mid-Cycle'}
+                  </p>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Description */}
+        <div className="space-y-3">
+          <DescriptionCard
+            title="How The Pi Cycle Oscillator Works"
+            content={`The Pi Cycle Top and Bottom Oscillator compares two key Bitcoin moving averages:\n\n• 111-Day Moving Average (mid-term momentum)\n• 2 × 350-Day Moving Average (long-term momentum)\n\nThe ratio 350 ÷ 111 ≈ 3.153, an approximation of the mathematical constant Pi (π), which is why the indicator carries the name.\n\nThe oscillator is calculated as: Ratio = 111-Day MA ÷ (2 × 350-Day MA)\n\nWhen the ratio reaches or exceeds 1.0, the mid-term momentum has caught up with the long-term trend — historically occurring within 3 days of each cycle peak.\n\nWhen the ratio falls to 0.75 or below (111-Day MA is at a 25% discount to 2×350-Day MA), it has historically highlighted broad bear market accumulation zones.`}
+          />
+          <DescriptionCard
+            title="Important Limitation"
+            content={`This indicator was designed during Bitcoin's early adoption phase (first ~15 years). With the launch of Bitcoin ETFs and Bitcoin's increased integration into the global financial system, the market structure is evolving and this indicator may become less reliable over time.\n\nAlways use it alongside other indicators and never in isolation for trading decisions.`}
             collapsed={!expanded}
             onToggle={() => setExpanded(!expanded)}
           />
