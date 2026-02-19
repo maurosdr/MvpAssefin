@@ -10,6 +10,7 @@ interface MacroCountryData {
   inflation: MacroMetric;
   unemployment: MacroMetric;
   interestRate: MacroMetric;
+  gdp: MacroMetric;
 }
 
 interface MacroIndicatorsResponse {
@@ -49,10 +50,11 @@ async function fetchBCBSeries(seriesId: number): Promise<{ value: number; date: 
 }
 
 async function fetchBrazilData(): Promise<MacroCountryData> {
-  const [ipca, unemployment, selic] = await Promise.all([
+  const [ipca, unemployment, selic, pib] = await Promise.all([
     fetchBCBSeries(13522),  // IPCA accumulated 12 months
     fetchBCBSeries(24369),  // Unemployment rate (PNAD Continua)
     fetchBCBSeries(432),    // Selic target rate
+    fetchBCBSeries(7326),   // PIB - volume, acumulado em 4 trimestres (% YoY)
   ]);
 
   return {
@@ -70,6 +72,11 @@ async function fetchBrazilData(): Promise<MacroCountryData> {
       value: selic?.value ?? 13.75,
       date: selic?.date ?? '',
       label: 'Selic',
+    },
+    gdp: {
+      value: pib?.value ?? 3.2,
+      date: pib?.date ?? '',
+      label: 'PIB 4T %',
     },
   };
 }
@@ -115,10 +122,11 @@ async function fetchFREDSeries(seriesId: string): Promise<{ value: number; date:
 
 async function fetchUSData(): Promise<MacroCountryData> {
   // Try FRED first if key is available
-  const [fredCPI, fredUnemployment, fredFedFunds] = await Promise.all([
-    fetchFREDSeries('CPIAUCSL'),    // CPI Urban Consumers
-    fetchFREDSeries('UNRATE'),      // Unemployment Rate
-    fetchFREDSeries('FEDFUNDS'),    // Federal Funds Rate
+  const [fredCPI, fredUnemployment, fredFedFunds, fredGDP] = await Promise.all([
+    fetchFREDSeries('CPIAUCSL'),          // CPI Urban Consumers
+    fetchFREDSeries('UNRATE'),            // Unemployment Rate
+    fetchFREDSeries('FEDFUNDS'),          // Federal Funds Rate
+    fetchFREDSeries('A191RL1Q225SBEA'),   // Real GDP growth rate, QoQ annualized (%)
   ]);
 
   // Calculate CPI YoY change (CPIAUCSL is an index, not a rate)
@@ -152,6 +160,11 @@ async function fetchUSData(): Promise<MacroCountryData> {
       date: fredFedFunds?.date ?? '',
       label: 'Fed Funds',
     },
+    gdp: {
+      value: fredGDP?.value ?? 2.3,
+      date: fredGDP?.date ?? '',
+      label: 'GDP QoQ %',
+    },
   };
 }
 
@@ -183,11 +196,13 @@ function getFallbackIndicators(): MacroIndicatorsResponse {
       inflation: { value: 3.0, date: '2025-12', label: 'CPI YoY' },
       unemployment: { value: 4.0, date: '2025-12', label: 'Unemployment' },
       interestRate: { value: 5.25, date: '2025-12', label: 'Fed Funds' },
+      gdp: { value: 2.3, date: '2025-12', label: 'GDP QoQ %' },
     },
     br: {
       inflation: { value: 4.50, date: '12/2025', label: 'IPCA 12m' },
       unemployment: { value: 7.8, date: '12/2025', label: 'Desemprego' },
       interestRate: { value: 13.75, date: '12/2025', label: 'Selic' },
+      gdp: { value: 3.2, date: '12/2025', label: 'PIB 4T %' },
     },
     lastUpdated: new Date().toISOString(),
   };
