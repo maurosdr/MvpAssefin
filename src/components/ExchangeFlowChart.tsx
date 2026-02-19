@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import {
   ComposedChart,
   Bar,
-  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -72,7 +71,7 @@ export default function ExchangeFlowChart() {
             <span className="text-[10px] text-[var(--text-muted)]">Financeiro</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-sm bg-[var(--info)]" />
+            <div className="w-3 h-3 rounded-sm bg-[#3b82f6]" />
             <span className="text-[10px] text-[var(--text-muted)]">Comercial</span>
           </div>
         </div>
@@ -139,14 +138,15 @@ export default function ExchangeFlowChart() {
                 />
               ))}
             </Bar>
-            <Line
-              type="monotone"
-              dataKey="comercial"
-              stroke="#3b82f6"
-              strokeWidth={2}
-              dot={{ r: 3, fill: '#3b82f6' }}
-              activeDot={{ r: 5 }}
-            />
+            <Bar dataKey="comercial" radius={[3, 3, 0, 0]} maxBarSize={24}>
+              {data.map((entry, idx) => (
+                <Cell
+                  key={idx}
+                  fill={entry.comercial >= 0 ? '#3b82f6' : '#8b5cf6'}
+                  fillOpacity={0.7}
+                />
+              ))}
+            </Bar>
           </ComposedChart>
         </ResponsiveContainer>
       </div>

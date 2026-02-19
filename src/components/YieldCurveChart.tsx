@@ -22,9 +22,21 @@ interface YieldData {
   currentDate: string;
   comparison: YieldPoint[] | null;
   comparisonDate: string | null;
+  // Brazil-specific: separate PRE and IPCA curves
+  pre?: { points: YieldPoint[]; date: string } | null;
+  ipca?: { points: YieldPoint[]; date: string } | null;
 }
 
-type CurveType = 'us' | 'brazil';
+type CurveType = 'us' | 'brazil-pre' | 'brazil-ipca';
+
+const CURVE_CONFIG: Record<
+  CurveType,
+  { label: string; color: string; iconColor: string; unit: string; title: string }
+> = {
+  'us':          { label: 'US Treasury',       color: '#3b82f6', iconColor: 'text-blue-400',  unit: '%',     title: 'US Treasury Yield Curve'   },
+  'brazil-pre':  { label: 'Brasil PRE (ETTJ)',  color: '#22c55e', iconColor: 'text-green-400', unit: '% a.a.', title: 'ETTJ Prefixado – BCB/ANBIMA' },
+  'brazil-ipca': { label: 'Brasil IPCA (ETTJ)', color: '#f97316', iconColor: 'text-orange-400',unit: '% a.a.', title: 'ETTJ IPCA – BCB/ANBIMA'         },
+};
 
 export default function YieldCurveChart() {
   const [data, setData] = useState<YieldData | null>(null);
@@ -36,13 +48,17 @@ export default function YieldCurveChart() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (compareDate && curveType === 'us') params.set('compareDate', compareDate);
-      const endpoint = curveType === 'us'
-        ? `/api/market/yields?${params.toString()}`
-        : `/api/market/yields/brazil`;
+      let endpoint: string;
+      if (curveType === 'us') {
+        const params = new URLSearchParams();
+        if (compareDate) params.set('compareDate', compareDate);
+        endpoint = `/api/market/yields?${params.toString()}`;
+      } else {
+        endpoint = '/api/market/yields/brazil';
+      }
+
       const res = await fetch(endpoint);
-      const result = await res.json();
+      const result: YieldData = await res.json();
       setData(result);
     } catch {
       setData(null);
@@ -55,26 +71,40 @@ export default function YieldCurveChart() {
     fetchData();
   }, [fetchData]);
 
-  // Reset comparison when switching curves
+  // Reset comparison when switching to Brazil curves
   useEffect(() => {
-    if (curveType === 'brazil') {
+    if (curveType !== 'us') {
       setShowCompare(false);
       setCompareDate('');
     }
   }, [curveType]);
 
-  const chartData = data?.current.map((point) => {
-    const compPoint = data.comparison?.find((c) => c.maturity === point.maturity);
+  // Resolve which points to display based on curve type
+  const currentPoints = (() => {
+    if (!data) return [];
+    if (curveType === 'brazil-pre')  return data.pre?.points  ?? data.current ?? [];
+    if (curveType === 'brazil-ipca') return data.ipca?.points ?? [];
+    return data.current ?? [];
+  })();
+
+  const currentDate = (() => {
+    if (!data) return '';
+    if (curveType === 'brazil-pre')  return data.pre?.date  ?? data.currentDate ?? '';
+    if (curveType === 'brazil-ipca') return data.ipca?.date ?? '';
+    return data.currentDate ?? '';
+  })();
+
+  const chartData = currentPoints.map((point) => {
+    const compPoint = data?.comparison?.find((c) => c.maturity === point.maturity);
     return {
       label: point.label,
       current: point.yield,
       ...(compPoint ? { comparison: compPoint.yield } : {}),
     };
-  }) || [];
+  });
 
-  const lineColor = curveType === 'us' ? '#3b82f6' : '#22c55e';
-  const titleText = curveType === 'us' ? 'US Treasury Yield Curve' : 'Brazil DI Yield Curve';
-  const iconColor = curveType === 'us' ? 'text-blue-400' : 'text-green-400';
+  const cfg = CURVE_CONFIG[curveType];
+  const hasIPCA = !!(data?.ipca?.points?.length);
 
   return (
     <div className="bg-[var(--surface)]/50 border border-[var(--border)] rounded-2xl p-6">
@@ -82,30 +112,36 @@ export default function YieldCurveChart() {
         <div className="flex items-center gap-3">
           <div>
             <h2 className="text-lg font-bold text-[var(--text)] flex items-center gap-2">
-              <svg className={`w-5 h-5 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+              <svg className={`w-5 h-5 ${cfg.iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
               </svg>
-              {titleText}
+              {cfg.title}
             </h2>
-            {data?.currentDate && (
+            {currentDate && (
               <p className="text-xs text-[var(--text-muted)] mt-1">
-                Current: {data.currentDate}
-                {data.comparisonDate && ` vs ${data.comparisonDate}`}
+                Referência: {currentDate}
+                {data?.comparisonDate && ` vs ${data.comparisonDate}`}
               </p>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Curve selector */}
           <select
             value={curveType}
             onChange={(e) => setCurveType(e.target.value as CurveType)}
             className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-[var(--text)] text-sm focus:outline-none focus:border-[var(--accent)]"
           >
             <option value="us">US Treasury</option>
-            <option value="brazil">Brazil DI (Pre)</option>
+            <option value="brazil-pre">Brasil PRE (ETTJ)</option>
+            <option value="brazil-ipca" disabled={!hasIPCA}>
+              Brasil IPCA (ETTJ){!hasIPCA ? ' – indisponível' : ''}
+            </option>
           </select>
 
+          {/* Compare date (US only) */}
           {curveType === 'us' && (
             <>
               {!showCompare ? (
@@ -113,7 +149,7 @@ export default function YieldCurveChart() {
                   onClick={() => setShowCompare(true)}
                   className="px-3 py-1.5 text-sm bg-gray-800 text-gray-400 hover:text-[var(--text)] border border-gray-700 rounded-lg transition-colors"
                 >
-                  + Compare Date
+                  + Comparar Data
                 </button>
               ) : (
                 <div className="flex items-center gap-2">
@@ -124,10 +160,7 @@ export default function YieldCurveChart() {
                     className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-[var(--text)] text-sm focus:outline-none focus:border-[var(--accent)]"
                   />
                   <button
-                    onClick={() => {
-                      setShowCompare(false);
-                      setCompareDate('');
-                    }}
+                    onClick={() => { setShowCompare(false); setCompareDate(''); }}
                     className="text-[var(--text-muted)] hover:text-red-400 p-1"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -141,10 +174,42 @@ export default function YieldCurveChart() {
         </div>
       </div>
 
+      {/* Source badge */}
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-[10px] text-[var(--text-muted)] bg-gray-800/60 px-2 py-0.5 rounded-full border border-gray-700">
+          {curveType === 'us'
+            ? 'Fonte: FRED (Federal Reserve) • Spline cúbico'
+            : 'Fonte: BCB SGS (ETTJ) • Spline cúbico'}
+        </span>
+        {curveType === 'brazil-pre' && hasIPCA && (
+          <button
+            onClick={() => setCurveType('brazil-ipca')}
+            className="text-[10px] text-orange-400 underline underline-offset-2"
+          >
+            Ver IPCA
+          </button>
+        )}
+        {curveType === 'brazil-ipca' && (
+          <button
+            onClick={() => setCurveType('brazil-pre')}
+            className="text-[10px] text-green-400 underline underline-offset-2"
+          >
+            Ver PRE
+          </button>
+        )}
+      </div>
+
       <div className="h-[300px]">
         {loading ? (
           <div className="h-full flex items-center justify-center">
-            <div className={`w-8 h-8 border-2 ${curveType === 'us' ? 'border-blue-500' : 'border-green-500'} border-t-transparent rounded-full animate-spin`} />
+            <div
+              className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin"
+              style={{ borderColor: cfg.color, borderTopColor: 'transparent' }}
+            />
+          </div>
+        ) : chartData.length === 0 ? (
+          <div className="h-full flex items-center justify-center text-[var(--text-muted)] text-sm">
+            Dados indisponíveis
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
@@ -170,28 +235,30 @@ export default function YieldCurveChart() {
                   fontSize: '0.75rem',
                 }}
                 formatter={(value, name) => {
-                  if (typeof value !== 'number') return ['-', 'Yield'];
+                  if (typeof value !== 'number') return ['-', ''];
                   return [
-                    `${value.toFixed(2)}%${curveType === 'brazil' ? ' a.a.' : ''}`,
-                    name === 'current' ? `Today (${data?.currentDate || ''})` : `Compare (${data?.comparisonDate || ''})`,
+                    `${value.toFixed(2)}${cfg.unit}`,
+                    name === 'current'
+                      ? `Hoje (${currentDate})`
+                      : `Comparação (${data?.comparisonDate ?? ''})`,
                   ];
                 }}
               />
               <Legend
                 formatter={(value) =>
-                  value === 'current' ? 'Today' : `${data?.comparisonDate || 'Compare'}`
+                  value === 'current' ? 'Atual' : `Comparação (${data?.comparisonDate ?? ''})`
                 }
               />
               <Line
                 type="monotone"
                 dataKey="current"
-                stroke={lineColor}
+                stroke={cfg.color}
                 strokeWidth={2}
                 dot={false}
-                activeDot={{ r: 4, fill: lineColor }}
+                activeDot={{ r: 4, fill: cfg.color }}
                 name="current"
               />
-              {data?.comparison && (
+              {data?.comparison && curveType === 'us' && (
                 <Line
                   type="monotone"
                   dataKey="comparison"
