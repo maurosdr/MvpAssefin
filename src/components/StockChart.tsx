@@ -37,7 +37,7 @@ interface StockChartProps {
 const COMPARISON_COLORS = ['#22c55e', '#3b82f6', '#f59e0b'];
 
 export default function StockChart({ availableStocks }: StockChartProps) {
-  const [selectedStocks, setSelectedStocks] = useState<string[]>([availableStocks[0]?.symbol || 'PETR4']);
+  const [selectedStocks, setSelectedStocks] = useState<string[]>(['PETR4']);
   const [timeWindow, setTimeWindow] = useState('1mo');
   const [stockDataMap, setStockDataMap] = useState<Record<string, StockData>>({});
   const [loading, setLoading] = useState(true);
