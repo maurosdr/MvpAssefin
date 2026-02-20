@@ -23,7 +23,7 @@ import {
   ReferenceLine,
   CartesianGrid,
 } from 'recharts';
-type StockTab = 'sumario' | 'contabil' | 'multiplos' | 'historico' | 'trade-idea';
+type StockTab = 'sumario' | 'contabil' | 'multiplos' | 'trade-idea';
 
 interface HistoryItem {
   date: string;
@@ -211,7 +211,6 @@ export default function StockDetailPage() {
             { key: 'sumario', label: 'Sumario', icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
             { key: 'contabil', label: 'Contabil', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
             { key: 'multiplos', label: 'Multiplos e Indices', icon: 'M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z' },
-            { key: 'historico', label: 'Historico', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
             { key: 'trade-idea', label: 'Trade Idea', icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6' },
           ] as { key: StockTab; label: string; icon: string }[]).map((tab) => (
             <button
@@ -235,11 +234,8 @@ export default function StockDetailPage() {
         {activeTab === 'sumario' && <SumarioTab stock={stock} />}
         {activeTab === 'contabil' && <ContabilTab stock={stock} />}
         {activeTab === 'multiplos' && <MultiplosTab stock={stock} />}
-        {activeTab === 'historico' && (
-          <HistoricoTab stock={stock} timeWindow={timeWindow} setTimeWindow={setTimeWindow} />
-        )}
         {activeTab === 'trade-idea' && (
-          <StockTradeIdeas symbol={stock.symbol} currentPrice={stock.currentPrice} />
+          <HistoricoTab stock={stock} timeWindow={timeWindow} setTimeWindow={setTimeWindow} />
         )}
       </main>
     </div>
@@ -1455,6 +1451,9 @@ function HistoricoTab({
           </div>
         </div>
       )}
+
+      {/* ── Trade Idea Charts ─────────────────────────────────────── */}
+      <StockTradeIdeas symbol={stock.symbol} currentPrice={stock.currentPrice} />
 
       {/* ── Historical Daily Table ─────────────────────────────────── */}
       {stock.data.length > 0 && (
