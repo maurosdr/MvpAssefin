@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import {
   ComposedChart,
   Bar,
-  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -72,7 +71,7 @@ export default function ExchangeFlowChart() {
             <span className="text-[10px] text-[var(--text-muted)]">Financeiro</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-sm bg-[var(--info)]" />
+            <div className="w-3 h-3 rounded-sm bg-[#3b82f6]" />
             <span className="text-[10px] text-[var(--text-muted)]">Comercial</span>
           </div>
         </div>

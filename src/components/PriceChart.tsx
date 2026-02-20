@@ -173,6 +173,10 @@ export default function PriceChart({
                 tickFormatter={(v) =>
                   v >= 1000 ? `$${(v / 1000).toFixed(1)}K` : `$${v.toFixed(2)}`
                 }
+                domain={[
+                  (dataMin: number) => dataMin * 0.98,
+                  (dataMax: number) => dataMax * 1.02,
+                ]}
               />
 
               <Tooltip

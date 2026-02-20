@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import AppHeader from '@/components/AppHeader';
 import MarketTickerBar from '@/components/MarketTickerBar';
@@ -9,14 +9,18 @@ import { MAIN_STOCKS, STOCK_NAMES } from '@/lib/stocks-data';
 import { calculateSMA, calculateEMA } from '@/lib/indicators';
 import {
   Area,
+  AreaChart,
   Line,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
   Bar,
+  BarChart,
   ComposedChart,
   LineChart,
+  ReferenceLine,
+  CartesianGrid,
 } from 'recharts';
 type StockTab = 'sumario' | 'contabil' | 'multiplos' | 'historico';
 
@@ -288,15 +292,97 @@ function SumarioTab({ stock }: { stock: StockDetail }) {
   const ks = stock.defaultKeyStatistics || {};
   const sp = stock.summaryProfile || {};
 
+  // ─── Beta calculation: 1-year daily returns vs BOVA11 (IBOV proxy) ─────
+  const [calcBeta, setCalcBeta] = useState<number | null>(null);
+  const [betaLoading, setBetaLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setBetaLoading(true);
+    (async () => {
+      try {
+        const [sRes, iRes] = await Promise.all([
+          fetch(`/api/stocks/quote?symbol=${stock.symbol}&range=1y&interval=1d`),
+          fetch(`/api/stocks/quote?symbol=BOVA11&range=1y&interval=1d`),
+        ]);
+        const [sJson, iJson] = await Promise.all([sRes.json(), iRes.json()]);
+        if (cancelled) return;
+
+        const sC: number[] = (sJson.data ?? []).map((d: HistoryItem) => d.close).filter((c: number) => c > 0);
+        const iC: number[] = (iJson.data ?? []).map((d: HistoryItem) => d.close).filter((c: number) => c > 0);
+        const len = Math.min(sC.length, iC.length);
+        if (len < 20) return;
+
+        const sRet: number[] = [], iRet: number[] = [];
+        for (let i = 1; i < len; i++) {
+          sRet.push((sC[i] - sC[i - 1]) / sC[i - 1]);
+          iRet.push((iC[i] - iC[i - 1]) / iC[i - 1]);
+        }
+        const n = sRet.length;
+        const sMean = sRet.reduce((a, b) => a + b, 0) / n;
+        const iMean = iRet.reduce((a, b) => a + b, 0) / n;
+        let cov = 0, varI = 0;
+        for (let i = 0; i < n; i++) {
+          cov += (sRet[i] - sMean) * (iRet[i] - iMean);
+          varI += (iRet[i] - iMean) ** 2;
+        }
+        cov /= n; varI /= n;
+        if (varI > 0) setCalcBeta(cov / varI);
+      } catch { /* noop */ } finally {
+        if (!cancelled) setBetaLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [stock.symbol]);
+
+  // ─── P/L and P/S manually ───────────────────────────────────────────
+  const incomeHistory: FundamentalData[] =
+    stock.incomeStatementHistory?.incomeStatementHistory
+    ?? (Array.isArray(stock.incomeStatementHistory) ? stock.incomeStatementHistory : []);
+  const lastNetIncome: number | null = incomeHistory[0]?.netIncome ?? null;
+  const totalRevenue: number | null = fd.totalRevenue ?? null;
+
+  const plCalc = stock.marketCap && lastNetIncome && lastNetIncome > 0
+    ? stock.marketCap / lastNetIncome : null;
+  const psCalc = stock.marketCap && totalRevenue && totalRevenue > 0
+    ? stock.marketCap / totalRevenue : null;
+
+  // ─── Calendar events ────────────────────────────────────────────────
+  const calEarnings: string[] = stock.calendarEvents?.earnings?.earningsDate ?? [];
+  const exDivDate: string | null = stock.calendarEvents?.exDividendDate ?? null;
+  const divDate: string | null = stock.calendarEvents?.dividendDate ?? null;
+  const allEvents: { label: string; date: string; type: 'earnings' | 'dividend' | 'ex-div' }[] = [
+    ...calEarnings.map((d) => ({ label: 'Resultados (Earnings)', date: d, type: 'earnings' as const })),
+    ...(exDivDate ? [{ label: 'Data Ex-Dividendo', date: exDivDate, type: 'ex-div' as const }] : []),
+    ...(divDate ? [{ label: 'Pagamento de Dividendo', date: divDate, type: 'dividend' as const }] : []),
+  ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  const betaDisplay = betaLoading
+    ? '...'
+    : calcBeta !== null
+      ? calcBeta.toFixed(2)
+      : formatNumber(ks.beta);
+
   return (
     <div className="space-y-6">
       {/* Key Stats Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         <InfoCard label="Market Cap" value={formatLargeNumber(stock.marketCap)} />
         <InfoCard label="Volume Medio (10d)" value={formatLargeNumber(stock.averageDailyVolume10Day)} />
-        <InfoCard label="Beta" value={formatNumber(ks.beta)} />
-        <InfoCard label="Setor" value={sp.sector || '-'} />
-        <InfoCard label="Industria" value={sp.industry || '-'} />
+        <InfoCard
+          label="Beta (12M vs IBOV)"
+          value={betaDisplay}
+          valueClass={calcBeta !== null && calcBeta > 1.2 ? 'text-[var(--danger)]' : calcBeta !== null && calcBeta < 0.8 ? 'text-[var(--success)]' : undefined}
+        />
+        <InfoCard
+          label="P/L (MktCap / LL)"
+          value={plCalc !== null ? plCalc.toFixed(1) : formatNumber(ks.trailingPE)}
+          valueClass={plCalc !== null && plCalc > 25 ? 'text-[var(--danger)]' : plCalc !== null && plCalc < 12 ? 'text-[var(--success)]' : undefined}
+        />
+        <InfoCard
+          label="P/S (MktCap / RB)"
+          value={psCalc !== null ? psCalc.toFixed(2) : formatNumber(ks.priceToSalesTrailing12Months)}
+        />
         <InfoCard label="52 Sem. Min/Max" value={`${formatBRL(stock.fiftyTwoWeekLow)} / ${formatBRL(stock.fiftyTwoWeekHigh)}`} />
       </div>
 
@@ -308,10 +394,11 @@ function SumarioTab({ stock }: { stock: StockDetail }) {
             <h3 className="section-title text-xs">Dados Financeiros</h3>
           </div>
           <div className="space-y-1">
-            <MetricRow label="Receita Total" value={formatLargeNumber(fd.totalRevenue)} />
+            <MetricRow label="Receita Total (Receita Bruta)" value={formatLargeNumber(fd.totalRevenue)} />
             <MetricRow label="Crescimento Receita" value={formatPercent(fd.revenueGrowth)} />
             <MetricRow label="Lucro Bruto" value={formatLargeNumber(fd.grossProfits)} />
             <MetricRow label="EBITDA" value={formatLargeNumber(fd.ebitda)} />
+            <MetricRow label="Lucro Liquido" value={formatLargeNumber(lastNetIncome)} />
             <MetricRow label="Caixa Total" value={formatLargeNumber(fd.totalCash)} />
             <MetricRow label="Divida Total" value={formatLargeNumber(fd.totalDebt)} />
             <MetricRow label="Free Cash Flow" value={formatLargeNumber(fd.freeCashflow)} />
@@ -383,29 +470,57 @@ function SumarioTab({ stock }: { stock: StockDetail }) {
         </div>
       )}
 
-      {/* Calendar Events */}
-      {stock.calendarEvents && (
-        <div className="modern-card">
-          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[var(--border)]">
-            <div className="w-1 h-5 bg-[var(--accent)] rounded-full" />
-            <h3 className="section-title text-xs">Calendario de Eventos</h3>
-          </div>
-          {stock.calendarEvents.earnings ? (
-            <div className="space-y-2">
-              {stock.calendarEvents.earnings.earningsDate?.map((d: string, idx: number) => (
-                <div key={idx} className="flex items-center justify-between py-2 border-b border-[var(--border-subtle)] last:border-b-0">
-                  <span className="text-sm text-[var(--text-secondary)]">Earnings</span>
-                  <span className="text-sm font-bold data-value text-[var(--text-primary)]">
-                    {new Date(d).toLocaleDateString('pt-BR')}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-[var(--text-muted)]">Nenhum evento agendado</p>
-          )}
+      {/* Corporate Events Calendar */}
+      <div className="modern-card">
+        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[var(--border)]">
+          <div className="w-1 h-5 bg-[var(--warning)] rounded-full" />
+          <h3 className="section-title text-xs">Calendario de Eventos Corporativos</h3>
         </div>
-      )}
+        {allEvents.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="text-[10px] font-black uppercase tracking-[0.15em] text-[var(--text-muted)] border-b-2 border-[var(--border)]">
+                  <th className="pb-2 text-left">EVENTO</th>
+                  <th className="pb-2 text-center">TIPO</th>
+                  <th className="pb-2 text-right">DATA</th>
+                  <th className="pb-2 text-right">DIAS RESTANTES</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border-subtle)]">
+                {allEvents.map((ev, idx) => {
+                  const evDate = new Date(ev.date);
+                  const daysLeft = Math.ceil((evDate.getTime() - Date.now()) / 86_400_000);
+                  const isPast = daysLeft < 0;
+                  const typeColors = {
+                    earnings: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+                    dividend: 'bg-green-500/15 text-green-400 border-green-500/30',
+                    'ex-div': 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
+                  };
+                  return (
+                    <tr key={idx} className={`hover:bg-[var(--surface-hover)] transition-colors ${isPast ? 'opacity-50' : ''}`}>
+                      <td className="py-2.5 text-sm text-[var(--text-secondary)]">{ev.label}</td>
+                      <td className="py-2.5 text-center">
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold border ${typeColors[ev.type]}`}>
+                          {ev.type === 'earnings' ? 'Resultados' : ev.type === 'dividend' ? 'Dividendo' : 'Ex-Div'}
+                        </span>
+                      </td>
+                      <td className="py-2.5 text-right text-sm font-bold data-value text-[var(--text-primary)]">
+                        {evDate.toLocaleDateString('pt-BR')}
+                      </td>
+                      <td className={`py-2.5 text-right text-sm font-bold data-value ${isPast ? 'text-[var(--text-muted)]' : 'text-[var(--accent)]'}`}>
+                        {isPast ? `${Math.abs(daysLeft)}d atrás` : `${daysLeft}d`}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm text-[var(--text-muted)]">Nenhum evento corporativo agendado.</p>
+        )}
+      </div>
 
       {/* Dividends */}
       {stock.dividendsData?.cashDividends && stock.dividendsData.cashDividends.length > 0 && (
@@ -750,6 +865,23 @@ function getZScoreColor(zStr: string): string {
 
 /* ─── HISTORICO TAB ─── */
 
+// Format a date string for the X-axis based on the time window
+function formatDateLabel(dateStr: string, window: string): string {
+  if (!dateStr) return dateStr;
+  try {
+    const d = new Date(dateStr + 'T12:00:00');
+    if (['1y', '5y', 'max'].includes(window)) {
+      const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+      return `${months[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`;
+    }
+    if (window === '6mo' || window === '3mo') {
+      const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+      return `${months[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`;
+    }
+  } catch { /* noop */ }
+  return dateStr;
+}
+
 function HistoricoTab({
   stock,
   timeWindow,
@@ -761,13 +893,37 @@ function HistoricoTab({
 }) {
   const isPositive = stock.changePercent >= 0;
 
-  // Indicator state
+  // ─── Indicator state ────────────────────────────────────────────
   const [showSMA, setShowSMA] = useState(false);
   const [smaWindow, setSmaWindow] = useState(20);
   const [showEMA, setShowEMA] = useState(false);
   const [emaWindow, setEmaWindow] = useState(20);
 
-  // Comparison state
+  // ─── Full history for SMA/EMA warmup ───────────────────────────
+  const [fullHistory, setFullHistory] = useState<HistoryItem[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/stocks/quote?symbol=${stock.symbol}&range=max&interval=1d`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled && d.data) setFullHistory(d.data); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [stock.symbol]);
+
+  // ─── BOVA11 benchmark for alpha ─────────────────────────────────
+  const [ibovHistory, setIbovHistory] = useState<HistoryItem[]>([]);
+  const fetchIbov = useCallback(async () => {
+    const rangeMap: Record<string, string> = { '1d': '1d', '5d': '5d', '1mo': '1mo', '3mo': '3mo', '6mo': '6mo', '1y': '1y', '5y': '5y', 'max': 'max' };
+    const intervalMap: Record<string, string> = { '1d': '5m', '5d': '1h', '1mo': '1d', '3mo': '1d', '6mo': '1d', '1y': '1wk', '5y': '1mo', 'max': '1mo' };
+    try {
+      const res = await fetch(`/api/stocks/quote?symbol=BOVA11&range=${rangeMap[timeWindow] || '1y'}&interval=${intervalMap[timeWindow] || '1d'}`);
+      const d = await res.json();
+      if (d.data) setIbovHistory(d.data);
+    } catch { /* noop */ }
+  }, [timeWindow]);
+  useEffect(() => { fetchIbov(); }, [fetchIbov]);
+
+  // ─── Comparison state ───────────────────────────────────────────
   const [comparisonSymbol, setComparisonSymbol] = useState<string>('');
   const [comparisonSearch, setComparisonSearch] = useState('');
   const [comparisonData, setComparisonData] = useState<HistoryItem[] | null>(null);
@@ -775,83 +931,71 @@ function HistoricoTab({
   const [showCompDropdown, setShowCompDropdown] = useState(false);
   const compRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (compRef.current && !compRef.current.contains(e.target as Node)) {
-        setShowCompDropdown(false);
-      }
+      if (compRef.current && !compRef.current.contains(e.target as Node)) setShowCompDropdown(false);
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  // Fetch comparison data
   useEffect(() => {
-    if (!comparisonSymbol) {
-      setComparisonData(null);
-      return;
-    }
-    const fetchComparison = async () => {
-      setComparisonLoading(true);
-      try {
-        const rangeMap: Record<string, string> = {
-          '1d': '1d', '5d': '5d', '1mo': '1mo', '3mo': '3mo',
-          '6mo': '6mo', '1y': '1y', '5y': '5y', 'max': 'max',
-        };
-        const intervalMap: Record<string, string> = {
-          '1d': '5m', '5d': '1h', '1mo': '1d', '3mo': '1d',
-          '6mo': '1d', '1y': '1wk', '5y': '1mo', 'max': '1mo',
-        };
-        const range = rangeMap[timeWindow] || '1mo';
-        const interval = intervalMap[timeWindow] || '1d';
-        const res = await fetch(
-          `/api/stocks/quote?symbol=${comparisonSymbol}&range=${range}&interval=${interval}`,
-          { cache: 'no-store' }
-        );
-        const data = await res.json();
-        if (data.data && Array.isArray(data.data)) {
-          setComparisonData(data.data);
-        }
-      } catch {
-        setComparisonData(null);
-      } finally {
-        setComparisonLoading(false);
-      }
-    };
-    fetchComparison();
+    if (!comparisonSymbol) { setComparisonData(null); return; }
+    const rangeMap: Record<string, string> = { '1d': '1d', '5d': '5d', '1mo': '1mo', '3mo': '3mo', '6mo': '6mo', '1y': '1y', '5y': '5y', 'max': 'max' };
+    const intervalMap: Record<string, string> = { '1d': '5m', '5d': '1h', '1mo': '1d', '3mo': '1d', '6mo': '1d', '1y': '1wk', '5y': '1mo', 'max': '1mo' };
+    setComparisonLoading(true);
+    fetch(`/api/stocks/quote?symbol=${comparisonSymbol}&range=${rangeMap[timeWindow] || '1mo'}&interval=${intervalMap[timeWindow] || '1d'}`)
+      .then(r => r.json())
+      .then(d => { if (d.data) setComparisonData(d.data); })
+      .catch(() => setComparisonData(null))
+      .finally(() => setComparisonLoading(false));
   }, [comparisonSymbol, timeWindow]);
 
-  // Search results for comparison
   const compSearchResults = useMemo(() => {
     if (comparisonSearch.length < 2) return [];
     const q = comparisonSearch.toUpperCase();
-    return MAIN_STOCKS
-      .filter((s) => s !== stock.symbol && (s.includes(q) || (STOCK_NAMES[s] || '').toUpperCase().includes(q)))
-      .slice(0, 8);
+    return MAIN_STOCKS.filter(s => s !== stock.symbol && (s.includes(q) || (STOCK_NAMES[s] || '').toUpperCase().includes(q))).slice(0, 8);
   }, [comparisonSearch, stock.symbol]);
 
-  const isComparing = comparisonData && comparisonData.length > 0;
+  const isComparing = !!(comparisonData && comparisonData.length > 0);
 
-  // Chart data with indicators
-  const closePrices = stock.data.map((d) => d.close);
-  const smaValues = showSMA ? calculateSMA(closePrices, smaWindow) : null;
-  const emaValues = showEMA ? calculateEMA(closePrices, emaWindow) : null;
+  // ─── SMA/EMA on FULL history, sliced to display window ─────────
+  const fullClosePrices = useMemo(() => fullHistory.map(d => d.close), [fullHistory]);
+  const displayLen = stock.data.length;
 
+  const fullSMA = useMemo(() => {
+    if (!showSMA || fullClosePrices.length === 0) return null;
+    return calculateSMA(fullClosePrices, smaWindow);
+  }, [showSMA, fullClosePrices, smaWindow]);
+
+  const fullEMA = useMemo(() => {
+    if (!showEMA || fullClosePrices.length === 0) return null;
+    return calculateEMA(fullClosePrices, emaWindow);
+  }, [showEMA, fullClosePrices, emaWindow]);
+
+  const smaValues = useMemo(() => {
+    if (!fullSMA) return null;
+    return fullSMA.slice(Math.max(0, fullSMA.length - displayLen));
+  }, [fullSMA, displayLen]);
+
+  const emaValues = useMemo(() => {
+    if (!fullEMA) return null;
+    return fullEMA.slice(Math.max(0, fullEMA.length - displayLen));
+  }, [fullEMA, displayLen]);
+
+  // ─── Chart data ─────────────────────────────────────────────────
   const chartData = useMemo(() => {
     if (isComparing) {
-      // Normalized comparison mode
       const basePrice = stock.data[0]?.close || 1;
       const compBasePrice = comparisonData![0]?.close || 1;
       return stock.data.map((item, idx) => ({
-        date: item.date,
+        date: formatDateLabel(item.date, timeWindow),
         [stock.symbol]: item.close > 0 ? item.close / basePrice : undefined,
         [comparisonSymbol]: comparisonData![idx]?.close > 0 ? comparisonData![idx].close / compBasePrice : undefined,
       }));
     }
-
     return stock.data.map((item, idx) => ({
-      date: item.date,
+      date: formatDateLabel(item.date, timeWindow),
       fullDate: item.fullDate,
       price: item.close,
       volume: item.volume,
@@ -862,44 +1006,120 @@ function HistoricoTab({
       sma: smaValues?.[idx] ?? undefined,
       ema: emaValues?.[idx] ?? undefined,
     }));
-  }, [stock.data, smaValues, emaValues, isComparing, comparisonData, comparisonSymbol, stock.symbol]);
+  }, [stock.data, smaValues, emaValues, isComparing, comparisonData, comparisonSymbol, stock.symbol, timeWindow]);
 
-  // Compute Y-axis bounds (98% of min, 102% of max)
-  const chartPrices = !isComparing ? chartData.map((d) => (d as { price: number }).price).filter((p) => p > 0) : [];
+  // Y-axis bounds
+  const chartPrices = !isComparing ? chartData.map(d => (d as { price: number }).price).filter(p => p > 0) : [];
   const priceMin = chartPrices.length > 0 ? Math.min(...chartPrices) * 0.98 : 0;
   const priceMax = chartPrices.length > 0 ? Math.max(...chartPrices) * 1.02 : 0;
 
-  // Compute stats (filter out invalid entries with close <= 0)
-  const validData = stock.data.filter((d) => d.close > 0);
-  const closes = validData.map((d) => d.close);
+  // ─── Stats ────────────────────────────────────────────────────────
+  const validData = stock.data.filter(d => d.close > 0);
+  const closes = validData.map(d => d.close);
+  const n = closes.length;
+
+  const dailyReturns = useMemo(() => {
+    const r: number[] = [];
+    for (let i = 1; i < closes.length; i++) r.push((closes[i] - closes[i - 1]) / closes[i - 1]);
+    return r;
+  }, [closes]);
+
+  const firstClose = closes.length > 0 ? closes[0] : 0;
+  const lastClose = closes.length > 0 ? closes[closes.length - 1] : 0;
+  const totalReturn = firstClose > 0 ? (lastClose - firstClose) / firstClose * 100 : 0;
+  const tradingDays = dailyReturns.length;
+  const annualizedReturn = tradingDays > 5 ? (Math.pow(1 + totalReturn / 100, 252 / tradingDays) - 1) * 100 : totalReturn;
+
+  const retMean = dailyReturns.length > 0 ? dailyReturns.reduce((a, b) => a + b, 0) / dailyReturns.length : 0;
+  const retVar = dailyReturns.length > 1
+    ? dailyReturns.reduce((s, r) => s + (r - retMean) ** 2, 0) / (dailyReturns.length - 1)
+    : 0;
+  const realizedVol = Math.sqrt(retVar) * Math.sqrt(252) * 100;
+  const RISK_FREE = 0.105; // Selic ~10.5% p.a.
+  const sharpe = realizedVol > 0 ? (annualizedReturn / 100 - RISK_FREE) / (realizedVol / 100) : 0;
+
+  const ibovCloses = ibovHistory.filter(d => d.close > 0).map(d => d.close);
+  const ibovReturn = ibovCloses.length > 1 ? (ibovCloses[ibovCloses.length - 1] - ibovCloses[0]) / ibovCloses[0] * 100 : null;
+  const alpha = ibovReturn !== null ? totalReturn - ibovReturn : null;
+
   const upDays = validData.filter((d, i) => i > 0 && d.close > validData[i - 1].close).length;
   const downDays = validData.filter((d, i) => i > 0 && d.close < validData[i - 1].close).length;
 
-  // Compute appreciation
-  const firstClose = closes.length > 0 ? closes[0] : 0;
-  const lastClose = closes.length > 0 ? closes[closes.length - 1] : 0;
+  const totalDividends = stock.dividendsData?.cashDividends?.reduce((sum: number, d: { rate: number }) => sum + (d.rate || 0), 0) || 0;
+  const dividendYield = stock.currentPrice > 0 ? (totalDividends / stock.currentPrice) * 100 : 0;
   const appreciation = firstClose > 0 ? ((lastClose - firstClose) / firstClose) * 100 : 0;
 
-  // Dividends info
-  const totalDividends = stock.dividendsData?.cashDividends?.reduce(
-    (sum: number, d: { rate: number }) => sum + (d.rate || 0),
-    0
-  ) || 0;
-  const dividendYield = stock.currentPrice > 0 ? (totalDividends / stock.currentPrice) * 100 : 0;
+  // ─── Drawdown chart data ─────────────────────────────────────────
+  const drawdownData = useMemo(() => {
+    let runMax = closes[0] || 1;
+    return stock.data.map((item) => {
+      if (item.close > 0 && item.close > runMax) runMax = item.close;
+      const dd = runMax > 0 && item.close > 0 ? ((item.close - runMax) / runMax) * 100 : 0;
+      return { date: formatDateLabel(item.date, timeWindow), drawdown: parseFloat(dd.toFixed(2)) };
+    });
+  }, [stock.data, closes, timeWindow]);
+
+  const maxDrawdown = drawdownData.length > 0 ? Math.min(...drawdownData.map(d => d.drawdown)) : 0;
+
+  // ─── Monthly volatility chart data ─────────────────────────────
+  const monthlyVolData = useMemo(() => {
+    if (!['1mo', '3mo', '6mo', '1y', '5y', 'max'].includes(timeWindow)) return [];
+    const monthMap: Record<string, number[]> = {};
+    for (let i = 1; i < validData.length; i++) {
+      const ret = (validData[i].close - validData[i - 1].close) / validData[i - 1].close;
+      const key = validData[i].date.substring(0, 7);
+      if (!monthMap[key]) monthMap[key] = [];
+      monthMap[key].push(ret);
+    }
+    return Object.entries(monthMap)
+      .filter(([, rets]) => rets.length >= 5)
+      .map(([month, rets]) => {
+        const mean = rets.reduce((a, b) => a + b, 0) / rets.length;
+        const variance = rets.length > 1 ? rets.reduce((s, r) => s + (r - mean) ** 2, 0) / (rets.length - 1) : 0;
+        const vol = Math.sqrt(variance) * Math.sqrt(21) * 100;
+        const [year, m] = month.split('-');
+        const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+        return { month: `${months[parseInt(m) - 1]}/${year.slice(2)}`, vol: parseFloat(vol.toFixed(2)) };
+      });
+  }, [validData, timeWindow]);
+
+  // ─── Annual volatility chart data ────────────────────────────────
+  const annualVolData = useMemo(() => {
+    if (!['1y', '5y', 'max'].includes(timeWindow)) return [];
+    const yearMap: Record<string, number[]> = {};
+    for (let i = 1; i < validData.length; i++) {
+      const ret = (validData[i].close - validData[i - 1].close) / validData[i - 1].close;
+      const year = validData[i].date.substring(0, 4);
+      if (!yearMap[year]) yearMap[year] = [];
+      yearMap[year].push(ret);
+    }
+    return Object.entries(yearMap)
+      .filter(([, rets]) => rets.length >= 20)
+      .map(([year, rets]) => {
+        const mean = rets.reduce((a, b) => a + b, 0) / rets.length;
+        const variance = rets.length > 1 ? rets.reduce((s, r) => s + (r - mean) ** 2, 0) / (rets.length - 1) : 0;
+        const vol = Math.sqrt(variance) * Math.sqrt(252) * 100;
+        return { year, vol: parseFloat(vol.toFixed(2)) };
+      });
+  }, [validData, timeWindow]);
 
   return (
     <div className="space-y-6">
-      {/* Price Stats */}
+      {/* ── Price Stats ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         <InfoCard label="Preco Atual" value={formatBRL(stock.currentPrice)} />
         <InfoCard label="Min 52 Semanas" value={formatBRL(stock.fiftyTwoWeekLow)} valueClass="text-[var(--danger)]" />
         <InfoCard label="Max 52 Semanas" value={formatBRL(stock.fiftyTwoWeekHigh)} valueClass="text-[var(--success)]" />
         <InfoCard label="Dividendos (12M)" value={formatBRL(totalDividends)} valueClass="text-[var(--success)]" />
         <InfoCard label="D.Y. (12M)" value={`${dividendYield.toFixed(2)}%`} />
-        <InfoCard label={`Valorização (${timeWindow.toUpperCase()})`} value={`${appreciation >= 0 ? '+' : ''}${appreciation.toFixed(2)}%`} valueClass={appreciation >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'} />
+        <InfoCard
+          label={`Valorização (${timeWindow.toUpperCase()})`}
+          value={`${appreciation >= 0 ? '+' : ''}${appreciation.toFixed(2)}%`}
+          valueClass={appreciation >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}
+        />
       </div>
 
-      {/* Up/Down Days */}
+      {/* ── Up/Down Days ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-4">
         <div className="modern-card p-4 flex items-center justify-between">
           <span className="text-sm text-[var(--text-secondary)]">Dias em Alta</span>
@@ -911,7 +1131,7 @@ function HistoricoTab({
         </div>
       </div>
 
-      {/* Price Chart */}
+      {/* ── Price Chart ──────────────────────────────────────────────── */}
       <div className="modern-card">
         <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--border)]">
           <div className="flex items-center gap-3">
@@ -935,55 +1155,40 @@ function HistoricoTab({
           </div>
         </div>
 
-        {/* Indicators & Comparison Controls */}
+        {/* Indicator & Comparison Controls */}
         <div className="flex items-center gap-4 mb-4 flex-wrap">
-          {/* SMA Toggle */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowSMA(!showSMA)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                showSMA
-                  ? 'bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/40'
-                  : 'bg-[var(--surface)] text-[var(--text-secondary)] border border-[var(--border)]'
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${showSMA ? 'bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/40' : 'bg-[var(--surface)] text-[var(--text-secondary)] border border-[var(--border)]'}`}
             >
               SMA
             </button>
             {showSMA && (
               <input
-                type="number"
-                value={smaWindow}
-                onChange={(e) => setSmaWindow(Math.max(2, Math.min(200, Number(e.target.value) || 20)))}
+                type="number" value={smaWindow}
+                onChange={(e) => setSmaWindow(Math.max(2, Math.min(500, Number(e.target.value) || 20)))}
                 className="w-16 px-2 py-1.5 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-xs text-[var(--text-primary)] text-center"
-                min={2}
-                max={200}
+                min={2} max={500}
               />
             )}
           </div>
-          {/* EMA Toggle */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowEMA(!showEMA)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                showEMA
-                  ? 'bg-[#8b5cf6]/20 text-[#8b5cf6] border border-[#8b5cf6]/40'
-                  : 'bg-[var(--surface)] text-[var(--text-secondary)] border border-[var(--border)]'
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${showEMA ? 'bg-[#8b5cf6]/20 text-[#8b5cf6] border border-[#8b5cf6]/40' : 'bg-[var(--surface)] text-[var(--text-secondary)] border border-[var(--border)]'}`}
             >
               EWMA
             </button>
             {showEMA && (
               <input
-                type="number"
-                value={emaWindow}
-                onChange={(e) => setEmaWindow(Math.max(2, Math.min(200, Number(e.target.value) || 20)))}
+                type="number" value={emaWindow}
+                onChange={(e) => setEmaWindow(Math.max(2, Math.min(500, Number(e.target.value) || 20)))}
                 className="w-16 px-2 py-1.5 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-xs text-[var(--text-primary)] text-center"
-                min={2}
-                max={200}
+                min={2} max={500}
               />
             )}
           </div>
-          {/* Comparison */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-[var(--text-muted)]">Comparar:</span>
             {comparisonSymbol ? (
@@ -994,12 +1199,8 @@ function HistoricoTab({
             ) : (
               <div className="relative" ref={compRef}>
                 <input
-                  type="text"
-                  value={comparisonSearch}
-                  onChange={(e) => {
-                    setComparisonSearch(e.target.value.toUpperCase());
-                    setShowCompDropdown(true);
-                  }}
+                  type="text" value={comparisonSearch}
+                  onChange={(e) => { setComparisonSearch(e.target.value.toUpperCase()); setShowCompDropdown(true); }}
                   onFocus={() => setShowCompDropdown(true)}
                   placeholder="TICKER..."
                   className="w-28 px-2 py-1.5 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-xs text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
@@ -1020,13 +1221,9 @@ function HistoricoTab({
                 )}
               </div>
             )}
-            {comparisonLoading && (
-              <div className="w-4 h-4 border-2 border-[#3b82f6] border-t-transparent rounded-full animate-spin" />
-            )}
+            {comparisonLoading && <div className="w-4 h-4 border-2 border-[#3b82f6] border-t-transparent rounded-full animate-spin" />}
           </div>
-          {isComparing && (
-            <span className="text-[10px] text-[var(--text-muted)]">Retorno normalizado (base 1.0)</span>
-          )}
+          {isComparing && <span className="text-[10px] text-[var(--text-muted)]">Retorno normalizado (base 1.0)</span>}
         </div>
 
         <div className="h-[400px] -mx-2">
@@ -1034,20 +1231,9 @@ function HistoricoTab({
             {isComparing ? (
               <LineChart data={chartData}>
                 <XAxis dataKey="date" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis
-                  domain={['auto', 'auto']}
-                  tick={{ fill: '#6b7280', fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v) => v.toFixed(2)}
-                />
+                <YAxis domain={['auto', 'auto']} tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => v.toFixed(2)} />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#0b0f19',
-                    border: '1px solid #1f2937',
-                    borderRadius: '0.75rem',
-                    fontSize: '0.75rem',
-                  }}
+                  contentStyle={{ backgroundColor: '#0b0f19', border: '1px solid #1f2937', borderRadius: '0.75rem', fontSize: '0.75rem' }}
                   formatter={(value, name) => {
                     const v = Number(value) || 0;
                     return [`${((v - 1) * 100).toFixed(2)}%`, name];
@@ -1065,29 +1251,10 @@ function HistoricoTab({
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="date" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis
-                  yAxisId="price"
-                  domain={[priceMin, priceMax]}
-                  tick={{ fill: '#6b7280', fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v) => `R$ ${v.toFixed(2)}`}
-                />
-                <YAxis
-                  yAxisId="volume"
-                  orientation="right"
-                  tick={{ fill: '#6b7280', fontSize: 10 }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v) => (v > 1e6 ? `${(v / 1e6).toFixed(0)}M` : `${(v / 1e3).toFixed(0)}K`)}
-                />
+                <YAxis yAxisId="price" domain={[priceMin, priceMax]} tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `R$ ${v.toFixed(2)}`} />
+                <YAxis yAxisId="volume" orientation="right" tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => (v > 1e6 ? `${(v / 1e6).toFixed(0)}M` : `${(v / 1e3).toFixed(0)}K`)} />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#0b0f19',
-                    border: '1px solid #1f2937',
-                    borderRadius: '0.75rem',
-                    fontSize: '0.75rem',
-                  }}
+                  contentStyle={{ backgroundColor: '#0b0f19', border: '1px solid #1f2937', borderRadius: '0.75rem', fontSize: '0.75rem' }}
                   formatter={(value, name) => {
                     const v = Number(value) || 0;
                     if (name === 'volume') return [v.toLocaleString('pt-BR'), 'Volume'];
@@ -1135,9 +1302,145 @@ function HistoricoTab({
             )}
           </ResponsiveContainer>
         </div>
+
+        {/* ── Performance Stats Strip ──────────────────────────────────── */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mt-4 pt-4 border-t border-[var(--border)]">
+          <div className="bg-[var(--surface)] rounded-xl p-3 border border-[var(--border)]">
+            <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-bold">Retorno Total</p>
+            <p className={`text-base font-bold data-value mt-0.5 ${totalReturn >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+              {totalReturn >= 0 ? '+' : ''}{totalReturn.toFixed(2)}%
+            </p>
+          </div>
+          <div className="bg-[var(--surface)] rounded-xl p-3 border border-[var(--border)]">
+            <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-bold">Retorno Anualizado</p>
+            <p className={`text-base font-bold data-value mt-0.5 ${annualizedReturn >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+              {annualizedReturn >= 0 ? '+' : ''}{annualizedReturn.toFixed(2)}%
+            </p>
+          </div>
+          <div className="bg-[var(--surface)] rounded-xl p-3 border border-[var(--border)]">
+            <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-bold">Vol. Realizada (a.a.)</p>
+            <p className="text-base font-bold data-value mt-0.5 text-[var(--text-primary)]">
+              {realizedVol.toFixed(2)}%
+            </p>
+          </div>
+          <div className="bg-[var(--surface)] rounded-xl p-3 border border-[var(--border)]">
+            <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-bold">Sharpe Ratio</p>
+            <p className={`text-base font-bold data-value mt-0.5 ${sharpe >= 1 ? 'text-[var(--success)]' : sharpe < 0 ? 'text-[var(--danger)]' : 'text-[var(--warning)]'}`}>
+              {sharpe.toFixed(2)}
+            </p>
+            <p className="text-[9px] text-[var(--text-muted)] mt-0.5">rf = Selic 10.5% a.a.</p>
+          </div>
+          <div className="bg-[var(--surface)] rounded-xl p-3 border border-[var(--border)]">
+            <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-bold">Alpha vs IBOV</p>
+            <p className={`text-base font-bold data-value mt-0.5 ${alpha !== null && alpha >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+              {alpha !== null ? `${alpha >= 0 ? '+' : ''}${alpha.toFixed(2)}%` : '...'}
+            </p>
+            <p className="text-[9px] text-[var(--text-muted)] mt-0.5">vs BOVA11</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+          <div className="bg-[var(--surface)] rounded-xl p-3 border border-[var(--border)] flex items-center gap-3">
+            <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-bold">Max Drawdown</span>
+            <span className="text-sm font-bold data-value text-[var(--danger)] ml-auto">{maxDrawdown.toFixed(2)}%</span>
+          </div>
+          <div className="bg-[var(--surface)] rounded-xl p-3 border border-[var(--border)] flex items-center gap-3">
+            <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-bold">Pregoes na Janela</span>
+            <span className="text-sm font-bold data-value text-[var(--text-primary)] ml-auto">{n}</span>
+          </div>
+        </div>
       </div>
 
-      {/* Historical Daily Table */}
+      {/* ── Drawdown Chart ───────────────────────────────────────────── */}
+      {drawdownData.length > 2 && (
+        <div className="modern-card">
+          <div className="flex items-center gap-3 mb-4 pb-3 border-b border-[var(--border)]">
+            <div className="w-1 h-5 bg-[var(--danger)] rounded-full" />
+            <div>
+              <h3 className="section-title text-xs">Drawdown</h3>
+              <p className="text-[10px] text-[var(--text-muted)]">
+                Queda em relacao ao pico historico na janela selecionada &bull; Max Drawdown: <strong className="text-[var(--danger)]">{maxDrawdown.toFixed(2)}%</strong>
+              </p>
+            </div>
+          </div>
+          <div className="h-[200px] -mx-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={drawdownData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="ddGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f85149" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="#f85149" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                <XAxis dataKey="date" tick={{ fill: '#6b7280', fontSize: 9 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v.toFixed(0)}%`} />
+                <ReferenceLine y={0} stroke="#374151" strokeDasharray="3 3" />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#0b0f19', border: '1px solid #1f2937', borderRadius: '0.75rem', fontSize: '0.75rem' }}
+                  formatter={(v: unknown) => [`${Number(v).toFixed(2)}%`, 'Drawdown']}
+                />
+                <Area type="monotone" dataKey="drawdown" stroke="#f85149" strokeWidth={1.5} fill="url(#ddGrad)" dot={false} isAnimationActive={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* ── Monthly Volatility ─────────────────────────────────────── */}
+      {monthlyVolData.length >= 3 && (
+        <div className="modern-card">
+          <div className="flex items-center gap-3 mb-4 pb-3 border-b border-[var(--border)]">
+            <div className="w-1 h-5 bg-[var(--info)] rounded-full" />
+            <div>
+              <h3 className="section-title text-xs">Volatilidade em Janelas Mensais</h3>
+              <p className="text-[10px] text-[var(--text-muted)]">Volatilidade anualizada por mes (desvio padrao dos retornos diarios × √21)</p>
+            </div>
+          </div>
+          <div className="h-[220px] -mx-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={monthlyVolData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
+                <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 9 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v.toFixed(0)}%`} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#0b0f19', border: '1px solid #1f2937', borderRadius: '0.75rem', fontSize: '0.75rem' }}
+                  formatter={(v: unknown) => [`${Number(v).toFixed(2)}%`, 'Vol. Mensal Anualizada']}
+                />
+                <Bar dataKey="vol" fill="#3b82f6" fillOpacity={0.75} radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* ── Annual Volatility ──────────────────────────────────────── */}
+      {annualVolData.length >= 1 && (
+        <div className="modern-card">
+          <div className="flex items-center gap-3 mb-4 pb-3 border-b border-[var(--border)]">
+            <div className="w-1 h-5 bg-[var(--warning)] rounded-full" />
+            <div>
+              <h3 className="section-title text-xs">Volatilidade em Janelas Anuais</h3>
+              <p className="text-[10px] text-[var(--text-muted)]">Volatilidade anualizada por ano (desvio padrao dos retornos diarios × √252)</p>
+            </div>
+          </div>
+          <div className="h-[200px] -mx-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={annualVolData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
+                <XAxis dataKey="year" tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v.toFixed(0)}%`} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#0b0f19', border: '1px solid #1f2937', borderRadius: '0.75rem', fontSize: '0.75rem' }}
+                  formatter={(v: unknown) => [`${Number(v).toFixed(2)}%`, 'Vol. Anual']}
+                />
+                <Bar dataKey="vol" fill="#f59e0b" fillOpacity={0.75} radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* ── Historical Daily Table ─────────────────────────────────── */}
       {stock.data.length > 0 && (
         <div className="modern-card">
           <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[var(--border)]">
@@ -1165,19 +1468,12 @@ function HistoricoTab({
                   const change = item.close - (prevClose || item.open);
                   const changePct = prevClose && prevClose > 0 ? (change / prevClose) * 100 : 0;
                   const positive = change >= 0;
-
                   return (
                     <tr key={idx} className="hover:bg-[var(--surface-hover)] transition-colors">
                       <td className="py-2 text-xs text-[var(--text-secondary)]">{item.fullDate || item.date}</td>
-                      <td className="py-2 text-right text-xs data-value text-[var(--text-primary)] font-bold">
-                        {formatBRL(item.adjustedClose || item.close)}
-                      </td>
-                      <td className={`py-2 text-right text-xs data-value font-bold ${positive ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
-                        {positive ? '+' : ''}{formatBRL(change)}
-                      </td>
-                      <td className={`py-2 text-right text-xs data-value font-bold ${positive ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
-                        {positive ? '+' : ''}{changePct.toFixed(2)}%
-                      </td>
+                      <td className="py-2 text-right text-xs data-value text-[var(--text-primary)] font-bold">{formatBRL(item.adjustedClose || item.close)}</td>
+                      <td className={`py-2 text-right text-xs data-value font-bold ${positive ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>{positive ? '+' : ''}{formatBRL(change)}</td>
+                      <td className={`py-2 text-right text-xs data-value font-bold ${positive ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>{positive ? '+' : ''}{changePct.toFixed(2)}%</td>
                       <td className="py-2 text-right text-xs data-value text-[var(--text-secondary)]">{formatBRL(item.open)}</td>
                       <td className="py-2 text-right text-xs data-value text-[var(--danger)]">{formatBRL(item.low)}</td>
                       <td className="py-2 text-right text-xs data-value text-[var(--success)]">{formatBRL(item.high)}</td>
