@@ -24,6 +24,24 @@ export const MAIN_STOCKS = [
   'MSFT34', 'TSLA34', 'NVDC34', 'NFLX34', 'DISB34',
 ];
 
+// ETFs da B3
+export const MAIN_ETFS = [
+  // Índices Amplos
+  'BOVA11', 'IVVB11', 'SMAL11', 'BRAX11', 'PIBB11',
+  // Renda Fixa
+  'IMAB11', 'IRFM11', 'FIXA11', 'B5P211',
+  // Setoriais & Temáticos
+  'FIND11', 'MATB11', 'DIVO11', 'BBSD11', 'GOVE11',
+  // Internacional
+  'SPXI11', 'NASD11', 'EURP11', 'XINA11', 'HASH11',
+  // Commodities & Cripto
+  'GOLD11', 'BITH11', 'ETHE11', 'QBTC11',
+  // Small Caps & Dividendos
+  'SMAC11', 'NDIV11', 'BOVV11',
+  // ESG
+  'ISUS11',
+];
+
 // Categorias de ações
 export const STOCKS_BY_CATEGORY = {
   blueChips: [
@@ -51,6 +69,14 @@ export const STOCKS_BY_CATEGORY = {
   ],
   tech: ['TOTS3', 'LWSA3', 'CASH3', 'STOC31'],
   bdrs: ['ROXO34', 'M1TA34', 'AAPL34', 'AMZO34', 'GOGL34', 'MSFT34', 'TSLA34', 'NVDC34', 'NFLX34', 'DISB34'],
+  etfs: [
+    'BOVA11', 'IVVB11', 'SMAL11', 'BRAX11', 'PIBB11',
+    'IMAB11', 'IRFM11', 'FIXA11', 'B5P211',
+    'FIND11', 'MATB11', 'DIVO11', 'BBSD11', 'GOVE11',
+    'SPXI11', 'NASD11', 'EURP11', 'XINA11', 'HASH11',
+    'GOLD11', 'BITH11', 'ETHE11', 'QBTC11',
+    'SMAC11', 'NDIV11', 'BOVV11', 'ISUS11',
+  ],
 };
 
 // Mapeamento de nomes das ações
@@ -131,6 +157,34 @@ export const STOCK_NAMES: Record<string, string> = {
   FESA3: 'Ferbasa ON',
   GMAT3: 'Grupo Mateus',
   ENEV3: 'Eneva',
+  // ETFs
+  BOVA11: 'iShares Ibovespa',
+  IVVB11: 'iShares S&P 500 BRL',
+  SMAL11: 'iShares Small Cap',
+  BRAX11: 'iShares IBrX 100',
+  PIBB11: 'Itau IBrX 50',
+  IMAB11: 'Itau IMA-B',
+  IRFM11: 'Itau IRF-M P2',
+  FIXA11: 'Mirae Asset Renda Fixa',
+  B5P211: 'Itau IMA-B5 P2',
+  FIND11: 'Itau Financeiro',
+  MATB11: 'Itau Materiais Basicos',
+  DIVO11: 'Itau Dividendos',
+  BBSD11: 'BB ETF S&P Dividendos',
+  GOVE11: 'Itau Governanca',
+  SPXI11: 'Itau S&P 500',
+  NASD11: 'Investo Nasdaq 100',
+  EURP11: 'Investo MSCI Europe',
+  XINA11: 'Investo MSCI China',
+  HASH11: 'Hashdex NCI Cripto',
+  GOLD11: 'Trend ETF Ouro',
+  BITH11: 'Hashdex Bitcoin',
+  ETHE11: 'Hashdex Ethereum',
+  QBTC11: 'QR Bitcoin',
+  SMAC11: 'Itau Small Cap',
+  NDIV11: 'Investo Dividendos',
+  BOVV11: 'Itau Bovespa',
+  ISUS11: 'Itau Sustentabilidade',
   // BDRs
   ROXO34: 'Nubank',
   M1TA34: 'Meta Platforms',
