@@ -140,7 +140,7 @@ export default function ExchangeFlowChart() {
               ))}
             </Bar>
             <Line
-              type="monotone"
+              type="linear"
               dataKey="comercial"
               stroke="#3b82f6"
               strokeWidth={2}

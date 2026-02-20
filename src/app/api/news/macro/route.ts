@@ -120,7 +120,7 @@ export async function GET() {
 
       // Interleave politics and economy, take 10 total
       const mixed: NewsArticle[] = [];
-      const maxPer = 5;
+      const maxPer = 6;
       for (let i = 0; i < maxPer; i++) {
         if (i < politics.length) mixed.push(politics[i]);
         if (i < economy.length) mixed.push(economy[i]);

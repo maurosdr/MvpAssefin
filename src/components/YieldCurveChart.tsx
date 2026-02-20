@@ -183,7 +183,7 @@ export default function YieldCurveChart() {
                 }
               />
               <Line
-                type="monotone"
+                type="linear"
                 dataKey="current"
                 stroke={lineColor}
                 strokeWidth={2}
@@ -193,7 +193,7 @@ export default function YieldCurveChart() {
               />
               {data?.comparison && (
                 <Line
-                  type="monotone"
+                  type="linear"
                   dataKey="comparison"
                   stroke="#f97316"
                   strokeWidth={2}

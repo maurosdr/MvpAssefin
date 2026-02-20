@@ -53,6 +53,7 @@ interface StockDetail {
   averageDailyVolume3Month?: number;
   dividendsData?: { cashDividends?: { rate: number; paymentDate: string; relatedTo: string }[] };
   data: HistoryItem[];
+  logoUrl?: string;
   // Fundamental data
   summaryProfile?: FundamentalData;
   financialData?: FundamentalData;
@@ -135,12 +136,12 @@ export default function StockDetailPage() {
         <main className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 pt-[140px] pb-8">
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
-              <p className="text-[var(--text-muted)] mb-4">Acao nao encontrada</p>
+              <p className="text-[var(--text-muted)] mb-4">Ação não encontrada</p>
               <button
                 onClick={() => router.push('/stocks')}
                 className="px-4 py-2 bg-[var(--accent)] text-[var(--text-inverse)] rounded-lg font-semibold hover:bg-[var(--accent-hover)] transition-colors"
               >
-                Voltar para Acoes
+                Voltar para Ações
               </button>
             </div>
           </div>
@@ -169,10 +170,10 @@ export default function StockDetailPage() {
               </svg>
             </button>
             <div className="w-16 h-16 rounded-xl bg-[var(--surface)] border border-[var(--border)] flex items-center justify-center overflow-hidden shadow-sm">
-              {getStockLogoUrl(symbol) && !logoError ? (
+              {(stock.logoUrl || getStockLogoUrl(symbol)) && !logoError ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={getStockLogoUrl(symbol)}
+                  src={stock.logoUrl || getStockLogoUrl(symbol)}
                   alt={stock.name}
                   className="w-full h-full object-contain p-2"
                   onError={() => setLogoError(true)}
@@ -377,7 +378,7 @@ function SumarioTab({ stock }: { stock: StockDetail }) {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-[var(--text-muted)]">Dados de acionistas nao disponiveis</p>
+            <p className="text-sm text-[var(--text-muted)]">Dados de acionistas não disponíveis</p>
           )}
         </div>
       )}
@@ -477,7 +478,7 @@ function ContabilTab({ stock }: { stock: StockDetail }) {
   if (!hasData) {
     return (
       <div className="modern-card p-12 text-center">
-        <p className="text-[var(--text-muted)]">Dados contabeis nao disponiveis para esta acao.</p>
+        <p className="text-[var(--text-muted)]">Dados contábeis não disponíveis para esta ação.</p>
         <p className="text-xs text-[var(--text-muted)] mt-2">A API pode nao fornecer dados fundamentais para este ativo.</p>
       </div>
     );
@@ -490,7 +491,7 @@ function ContabilTab({ stock }: { stock: StockDetail }) {
         <div className="modern-card">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[var(--border)]">
             <div className="w-1 h-5 bg-[var(--accent)] rounded-full" />
-            <h3 className="section-title text-xs">DRE - Demonstracao do Resultado</h3>
+            <h3 className="section-title text-xs">DRE - Demonstração do Resultado</h3>
           </div>
           <FinancialTable
             data={incomeHistory}
@@ -549,10 +550,10 @@ function ContabilTab({ stock }: { stock: StockDetail }) {
               { key: 'capitalExpenditures', label: 'CAPEX' },
               { key: 'totalCashflowsFromInvestingActivities', label: 'FCO - Investimentos' },
               { key: 'totalCashFromFinancingActivities', label: 'FCO - Financiamento' },
-              { key: 'changeInCash', label: 'Variacao de Caixa' },
-              { key: 'netIncome', label: 'Lucro Liquido' },
+              { key: 'changeInCash', label: 'Variação de Caixa' },
+              { key: 'netIncome', label: 'Lucro Líquido' },
               { key: 'netIncomeBeforeTaxes', label: 'Lucro antes IR' },
-              { key: 'depreciation', label: 'Depreciacao' },
+              { key: 'depreciation', label: 'Depreciação' },
               { key: 'adjustmentsToProfitOrLoss', label: 'Ajustes ao Lucro' },
             ]}
           />
@@ -895,7 +896,7 @@ function HistoricoTab({
         <InfoCard label="Max 52 Semanas" value={formatBRL(stock.fiftyTwoWeekHigh)} valueClass="text-[var(--success)]" />
         <InfoCard label="Dividendos (12M)" value={formatBRL(totalDividends)} valueClass="text-[var(--success)]" />
         <InfoCard label="D.Y. (12M)" value={`${dividendYield.toFixed(2)}%`} />
-        <InfoCard label={`Valorizacao (${timeWindow.toUpperCase()})`} value={`${appreciation >= 0 ? '+' : ''}${appreciation.toFixed(2)}%`} valueClass={appreciation >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'} />
+        <InfoCard label={`Valorização (${timeWindow.toUpperCase()})`} value={`${appreciation >= 0 ? '+' : ''}${appreciation.toFixed(2)}%`} valueClass={appreciation >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'} />
       </div>
 
       {/* Up/Down Days */}
@@ -1052,8 +1053,8 @@ function HistoricoTab({
                     return [`${((v - 1) * 100).toFixed(2)}%`, name];
                   }}
                 />
-                <Line type="monotone" dataKey={stock.symbol} stroke="#22c55e" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-                <Line type="monotone" dataKey={comparisonSymbol} stroke="#3b82f6" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                <Line type="linear" dataKey={stock.symbol} stroke="#22c55e" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                <Line type="linear" dataKey={comparisonSymbol} stroke="#3b82f6" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
               </LineChart>
             ) : (
               <ComposedChart data={chartData}>
@@ -1098,7 +1099,7 @@ function HistoricoTab({
                 <Bar yAxisId="volume" dataKey="volume" fill="var(--accent)" opacity={0.15} radius={[2, 2, 0, 0]} />
                 <Area
                   yAxisId="price"
-                  type="monotone"
+                  type="linear"
                   dataKey="price"
                   stroke={isPositive ? '#22c55e' : '#f85149'}
                   strokeWidth={2}
@@ -1109,7 +1110,7 @@ function HistoricoTab({
                 {showSMA && (
                   <Line
                     yAxisId="price"
-                    type="monotone"
+                    type="linear"
                     dataKey="sma"
                     stroke="#f59e0b"
                     strokeWidth={2}
@@ -1121,7 +1122,7 @@ function HistoricoTab({
                 {showEMA && (
                   <Line
                     yAxisId="price"
-                    type="monotone"
+                    type="linear"
                     dataKey="ema"
                     stroke="#8b5cf6"
                     strokeWidth={2}

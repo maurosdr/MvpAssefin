@@ -304,7 +304,7 @@ export default function StockChart({ availableStocks }: StockChartProps) {
               {selectedStocks.map((sym, idx) => (
                 <Line
                   key={sym}
-                  type="monotone"
+                  type="linear"
                   dataKey={sym}
                   stroke={COMPARISON_COLORS[idx]}
                   strokeWidth={2}
@@ -345,7 +345,7 @@ export default function StockChart({ availableStocks }: StockChartProps) {
                 }}
               />
               <Area
-                type="monotone"
+                type="linear"
                 dataKey="price"
                 stroke={isPositive ? '#22c55e' : '#f85149'}
                 strokeWidth={2}

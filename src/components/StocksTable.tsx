@@ -14,6 +14,7 @@ interface StockRow {
   marketCap?: number;
   high?: number;
   low?: number;
+  logoUrl?: string;
 }
 
 function StockRowWithLogo({
@@ -28,7 +29,7 @@ function StockRowWithLogo({
   router: ReturnType<typeof useRouter>;
 }) {
   const [logoError, setLogoError] = useState(false);
-  const logoUrl = getStockLogoUrl(stock.symbol);
+  const logoUrl = stock.logoUrl || getStockLogoUrl(stock.symbol);
 
   return (
     <tr

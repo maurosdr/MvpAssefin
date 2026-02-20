@@ -27,7 +27,7 @@ const SECTOR_LABELS: Record<string, string> = {
   banks: 'Financeiro',
   retail: 'Varejo',
   energy: 'Energia',
-  mining: 'Mineracao & Siderurgia',
+  mining: 'Mineração & Siderurgia',
   tech: 'Tecnologia',
   fiis: 'FIIs',
   bdrs: 'BDRs',
@@ -60,6 +60,7 @@ export default function StocksPage() {
 
   useEffect(() => {
     const fetchStocks = async () => {
+      setLoading(true);
       try {
         const url = selectedCategory === 'all'
           ? '/api/stocks'
@@ -158,10 +159,10 @@ export default function StocksPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                 </div>
-                Acoes Brasileiras - B3
+                Ações Brasileiras - B3
               </h1>
               <p className="text-[var(--text-secondary)] text-sm ml-[52px]">
-                {stocks.length} acoes disponiveis &bull; Principais acoes negociadas na Bolsa de Valores do Brasil
+                {stocks.length} ações disponíveis &bull; Principais ações negociadas na Bolsa de Valores do Brasil
               </p>
             </div>
           </div>
@@ -179,7 +180,7 @@ export default function StocksPage() {
                     : 'bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
                 }`}
               >
-                {cat === 'all' ? 'Todas' : cat === 'blueChips' ? 'Blue Chips' : cat === 'fiis' ? 'FIIs' : cat === 'bdrs' ? 'BDRs' : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                {cat === 'all' ? 'Todas' : SECTOR_LABELS[cat] || cat.charAt(0).toUpperCase() + cat.slice(1)}
               </button>
             ))}
           </div>

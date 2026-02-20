@@ -82,6 +82,7 @@ export async function GET(request: NextRequest) {
       averageDailyVolume10Day: stock.averageDailyVolume10Day,
       averageDailyVolume3Month: stock.averageDailyVolume3Month,
       dividendsData: stock.dividendsData,
+      logoUrl: stock.logoUrl || stock.logourl,
       data: history.map((item: HistoryItem) => ({
         date: new Date(item.date * 1000).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
         fullDate: new Date(item.date * 1000).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }),

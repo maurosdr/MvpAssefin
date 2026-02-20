@@ -224,7 +224,7 @@ function HeatmapCard({ symbol, currentPrice }: { symbol: string; currentPrice?: 
                     formatter={(value: any, name: any) => {
                       if (name === 'price' || name === 'Price') return [`$${(value ?? 0).toLocaleString()}`, 'Price'];
                       if (name === 'ma200w' || name === '200w MA') return [`$${(value ?? 0).toLocaleString()}`, '200w MA'];
-                      return [`${(value ?? 0).toFixed(2)}%`, 'Monthly % Change'];
+                      return [`${Number(value ?? 0).toFixed(2)}%`, 'Monthly % Change'];
                     }}
                   />
                   {/* Current price horizontal reference line */}
