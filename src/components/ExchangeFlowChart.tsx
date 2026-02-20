@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   ComposedChart,
   Bar,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
