@@ -124,7 +124,7 @@ export default function SubscriptionPage() {
           {PLANS.map((plan) => (
             <div key={plan.id} className="relative flex">
               {plan.popular && (
-                <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-50">
+                <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-10">
                   <span className="bg-[var(--accent)] text-black px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider shadow-xl whitespace-nowrap inline-block">
                     Mais Popular
                   </span>

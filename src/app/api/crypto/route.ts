@@ -1,11 +1,22 @@
 import { NextResponse } from 'next/server';
 import ccxt from 'ccxt';
 
-const binance = new ccxt.binance({ enableRateLimit: true });
-const coinbase = new ccxt.coinbase({ enableRateLimit: true });
+// Clients configurados com timeout explícito para evitar requisições presas
+const binance = new ccxt.binance({ enableRateLimit: true, timeout: 10_000 });
+const coinbase = new ccxt.coinbase({ enableRateLimit: true, timeout: 10_000 });
+
+// Cache simples em memória para acelerar chamadas repetidas
+// Mantém os dados por alguns segundos, o suficiente para navegação fluida
+let cache: { data: unknown; timestamp: number } | null = null;
+const CACHE_TTL = 15 * 1000; // 15 segundos
 
 export async function GET() {
   try {
+    // Retornar do cache se os dados ainda estiverem "frescos"
+    if (cache && Date.now() - cache.timestamp < CACHE_TTL) {
+      return NextResponse.json(cache.data);
+    }
+
     const tickers = await binance.fetchTickers();
 
     const usdtPairs = Object.values(tickers)
@@ -23,7 +34,7 @@ export async function GET() {
         }
       }
     } catch {
-      // Coinbase may fail, continue with Binance only
+      // Coinbase pode falhar ou estar lenta; continuamos apenas com Binance
     }
 
     const result = usdtPairs.map((t) => {
@@ -40,6 +51,8 @@ export async function GET() {
         low24h: t.low || 0,
       };
     });
+
+    cache = { data: result, timestamp: Date.now() };
 
     return NextResponse.json(result);
   } catch (error: unknown) {
