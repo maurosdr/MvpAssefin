@@ -38,24 +38,24 @@ export default function AppHeader({
   const [showModal, setShowModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [rendaVariavelOpen, setRendaVariavelOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const rendaVariavelRef = useRef<HTMLDivElement>(null);
 
-  // Fechar menu ao clicar fora
+  // Fechar menus ao clicar fora
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setUserMenuOpen(false);
       }
+      if (rendaVariavelRef.current && !rendaVariavelRef.current.contains(event.target as Node)) {
+        setRendaVariavelOpen(false);
+      }
     }
 
-    if (userMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [userMenuOpen]);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleSignOut = async () => {
     await signOut({ callbackUrl: '/' });
@@ -76,14 +76,21 @@ export default function AppHeader({
     return 'U';
   };
 
-  const navItems = [
-    { label: 'Crypto', path: '/crypto', icon: '📊' },
+  // Sub-itens de Renda Variável
+  const rendaVariavelItems = [
+    { label: 'Cripto', path: '/crypto', icon: '₿' },
     { label: 'Ações', path: '/stocks', icon: '📈' },
+    { label: 'Predictions', path: '/prediction-markets', icon: '🎯' },
+  ];
+
+  // Itens principais da nav
+  const navItems = [
     { label: 'Renda Fixa', path: '/renda-fixa', icon: '📉' },
     { label: 'Markets', path: '/markets', icon: '📰' },
-    { label: 'Predictions', path: '/prediction-markets', icon: '🎯' },
     { label: 'Portfolio', path: '/portfolio', icon: '💼' },
   ];
+
+  const isRendaVariavelActive = rendaVariavelItems.some((i) => pathname.startsWith(i.path));
 
   return (
     <>
@@ -119,13 +126,62 @@ export default function AppHeader({
 
               {/* Desktop Navigation */}
               <nav className="hidden xl:flex items-center gap-1 flex-shrink-0">
+                {/* Dropdown: Renda Variável */}
+                <div className="relative" ref={rendaVariavelRef}>
+                  <button
+                    onClick={() => setRendaVariavelOpen((v) => !v)}
+                    className={`relative flex items-center gap-1.5 px-4 py-3 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                      isRendaVariavelActive
+                        ? 'text-[var(--text-primary)]'
+                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    {isRendaVariavelActive && (
+                      <>
+                        <div className="absolute inset-0 bg-[var(--accent-soft)] rounded-lg" />
+                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[var(--accent)] rounded-full" />
+                      </>
+                    )}
+                    <span className="relative z-10">Renda Variável</span>
+                    <svg
+                      className={`relative z-10 w-3.5 h-3.5 transition-transform duration-200 ${rendaVariavelOpen ? 'rotate-180' : ''}`}
+                      fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {rendaVariavelOpen && (
+                    <div className="absolute left-0 top-full mt-1 w-44 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-xl overflow-hidden z-50">
+                      {rendaVariavelItems.map((item) => {
+                        const isActive = pathname.startsWith(item.path);
+                        return (
+                          <button
+                            key={item.path}
+                            onClick={() => { router.push(item.path); setRendaVariavelOpen(false); }}
+                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${
+                              isActive
+                                ? 'bg-[var(--accent-soft)] text-[var(--accent)]'
+                                : 'text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]'
+                            }`}
+                          >
+                            <span className="text-base">{item.icon}</span>
+                            {item.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Itens principais */}
                 {navItems.map((item) => {
                   const isActive = pathname.startsWith(item.path);
                   return (
                     <button
                       key={item.path}
                       onClick={() => router.push(item.path)}
-                      className={`relative px-6 py-3 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                      className={`relative px-4 py-3 rounded-lg text-sm font-semibold transition-all duration-200 ${
                         isActive
                           ? 'text-[var(--text-primary)]'
                           : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
@@ -353,15 +409,39 @@ export default function AppHeader({
 
               {/* Mobile Navigation */}
               <nav className="flex flex-col gap-1 px-2">
+                {/* Grupo Renda Variável */}
+                <div className="px-4 pt-1 pb-0.5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
+                    Renda Variável
+                  </span>
+                </div>
+                {rendaVariavelItems.map((item) => {
+                  const isActive = pathname.startsWith(item.path);
+                  return (
+                    <button
+                      key={item.path}
+                      onClick={() => { router.push(item.path); setMobileMenuOpen(false); }}
+                      className={`flex items-center gap-3 pl-7 pr-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                        isActive
+                          ? 'bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--accent)]/30'
+                          : 'text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]'
+                      }`}
+                    >
+                      <span className="text-base">{item.icon}</span>
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+
+                <div className="h-px bg-[var(--border)] my-1" />
+
+                {/* Itens principais */}
                 {navItems.map((item) => {
                   const isActive = pathname.startsWith(item.path);
                   return (
                     <button
                       key={item.path}
-                      onClick={() => {
-                        router.push(item.path);
-                        setMobileMenuOpen(false);
-                      }}
+                      onClick={() => { router.push(item.path); setMobileMenuOpen(false); }}
                       className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all ${
                         isActive
                           ? 'bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--accent)]/30'
