@@ -23,6 +23,3 @@ declare module 'next-auth/jwt' {
     name?: string | null;
   }
 }
-
-
-

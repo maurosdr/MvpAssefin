@@ -3,6 +3,7 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
 import AppHeader from '@/components/AppHeader';
 import MarketTickerBar from '@/components/MarketTickerBar';
+import Footer from '@/components/Footer';
 import StockIndicesChart from '@/components/StockIndicesChart';
 import MacroIndicatorsCard from '@/components/MacroIndicatorsCard';
 import VIXCard from '@/components/VIXCard';
@@ -155,6 +156,7 @@ export default function MarketsPage() {
           </div>
         </div>
       </main>
+      <Footer />
     </div>
   );
 }

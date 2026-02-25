@@ -6,6 +6,7 @@ import PriceChart from '@/components/PriceChart';
 import FearGreedIndex from '@/components/FearGreedIndex';
 import AppHeader from '@/components/AppHeader';
 import MarketTickerBar from '@/components/MarketTickerBar';
+import Footer from '@/components/Footer';
 import CryptoFeaturedNews from '@/components/CryptoFeaturedNews';
 import MacroNewsCard from '@/components/MacroNewsCard';
 
@@ -176,6 +177,7 @@ export default function CryptoDashboard() {
               <BinancePortfolio />
             </Suspense>
       </main>
+      <Footer />
     </div>
   );
 }

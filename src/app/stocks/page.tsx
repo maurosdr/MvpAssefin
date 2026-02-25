@@ -4,6 +4,7 @@ import { useEffect, useState, lazy, Suspense, useCallback } from 'react';
 import { Treemap, ResponsiveContainer } from 'recharts';
 import AppHeader from '@/components/AppHeader';
 import MarketTickerBar from '@/components/MarketTickerBar';
+import Footer from '@/components/Footer';
 import StocksTable from '@/components/StocksTable';
 import StockChart from '@/components/StockChart';
 import { STOCKS_BY_CATEGORY } from '@/lib/stocks-data';
@@ -429,6 +430,7 @@ export default function StocksPage() {
           </>
         )}
       </main>
+      <Footer />
     </div>
   );
 }

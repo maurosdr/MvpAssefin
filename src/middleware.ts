@@ -18,8 +18,10 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/subscription/:path*',
-    '/api/subscription/:path*',
+    // Proteger apenas APIs de assinatura (criar, cancelar, etc)
+    '/api/subscription/create/:path*',
+    '/api/subscription/cancel/:path*',
+    '/api/subscription/status/:path*',
     '/api/exchange/:path*',
     '/api/binance/:path*',
     // Adicione outras rotas protegidas aqui

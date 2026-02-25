@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/app/api/auth/[...nextauth]/route';
+import { prisma } from '@/lib/prisma';
+
+// Forçar Node.js runtime
+export const runtime = 'nodejs';
 
 /**
  * API Route para criar preferência de pagamento no Mercado Pago
@@ -16,6 +21,15 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
+    // Verificar autenticação
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Usuário não autenticado' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { planId, planName, price, description } = body;
 
@@ -27,16 +41,49 @@ export async function POST(request: NextRequest) {
     }
 
     // Obter Access Token do Mercado Pago
-    // Em produção, use variável de ambiente: process.env.MERCADOPAGO_ACCESS_TOKEN
-    const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN || 'TEST-ACCESS-TOKEN';
+    const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: 'MERCADOPAGO_ACCESS_TOKEN não configurado' },
+        { status: 500 }
+      );
+    }
+
+    // Validar formato do token
+    if (!accessToken.startsWith('TEST-') && !accessToken.startsWith('APP_USR-')) {
+      return NextResponse.json(
+        { 
+          error: 'Token inválido. Use um token de TESTE (TEST-...) ou PRODUÇÃO (APP_USR-...)',
+          hint: 'Obtenha em: https://www.mercadopago.com.br/developers/panel/credentials'
+        },
+        { status: 400 }
+      );
+    }
 
     // URL base do Mercado Pago
-    const baseUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://api.mercadopago.com'
-      : 'https://api.mercadopago.com'; // Mesma URL para test e produção
+    const baseUrl = 'https://api.mercadopago.com';
+
+    // Construir URLs de retorno
+    const baseUrl_app = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const successUrl = `${baseUrl_app}/subscription/success?plan=${planId}`;
+    const failureUrl = `${baseUrl_app}/subscription/failure?plan=${planId}`;
+    const pendingUrl = `${baseUrl_app}/subscription/pending?plan=${planId}`;
+    const webhookUrl = `${baseUrl_app}/api/payment/webhook`;
+
+    // Validar URLs
+    if (!successUrl || !successUrl.includes('http')) {
+      return NextResponse.json(
+        { 
+          error: 'URL de sucesso não configurada',
+          hint: 'Configure NEXT_PUBLIC_BASE_URL no .env',
+          debug: { baseUrl_app, successUrl }
+        },
+        { status: 400 }
+      );
+    }
 
     // Criar preferência de pagamento
-    const preferenceData = {
+    const preferenceData: Record<string, unknown> = {
       items: [
         {
           title: description || `Assinatura ${planName} - Assefin`,
@@ -46,22 +93,31 @@ export async function POST(request: NextRequest) {
           currency_id: 'BRL',
         },
       ],
-      payer: {
-        // O email será coletado no checkout do Mercado Pago
-      },
       back_urls: {
-        success: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/subscription/success?plan=${planId}`,
-        failure: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/subscription/failure?plan=${planId}`,
-        pending: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/subscription/pending?plan=${planId}`,
+        success: successUrl,
+        failure: failureUrl,
+        pending: pendingUrl,
       },
-      auto_return: 'approved', // Redireciona automaticamente após pagamento aprovado
-      notification_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/payment/webhook`,
-      statement_descriptor: 'ASSEFIN',
-      external_reference: planId, // ID do plano para rastreamento
-      metadata: {
-        plan_id: planId,
-        plan_name: planName,
-      },
+    };
+
+    // Só adicionar auto_return se success URL estiver definida
+    if (successUrl && successUrl.includes('http')) {
+      preferenceData.auto_return = 'approved';
+    }
+
+    // Adicionar webhook apenas se URL válida
+    if (webhookUrl && webhookUrl.includes('http')) {
+      preferenceData.notification_url = webhookUrl;
+    }
+
+    // Adicionar outros campos
+    preferenceData.statement_descriptor = 'ASSEFIN';
+    preferenceData.external_reference = `${session.user.id}:${planId}`;
+    preferenceData.metadata = {
+      user_id: session.user.id,
+      user_email: session.user.email,
+      plan_id: planId,
+      plan_name: planName,
     };
 
     // Fazer requisição para o Mercado Pago
@@ -77,18 +133,43 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const errorData = await response.json();
       console.error('Erro ao criar preferência no Mercado Pago:', errorData);
+      
+      // Mensagens de erro mais amigáveis
+      let errorMessage = 'Erro ao criar preferência de pagamento';
+      let hint = '';
+      
+      if (response.status === 401 || response.status === 403) {
+        errorMessage = 'Credenciais inválidas ou sem permissão';
+        hint = 'Verifique se o Access Token está correto e é um token de TESTE (TEST-...). Obtenha em: https://www.mercadopago.com.br/developers/panel/credentials';
+      } else if (response.status === 400) {
+        errorMessage = 'Dados inválidos na requisição';
+        hint = errorData.message || 'Verifique os dados enviados';
+      }
+      
       return NextResponse.json(
-        { error: 'Erro ao criar preferência de pagamento', details: errorData },
+        { 
+          error: errorMessage,
+          details: errorData,
+          hint,
+          status: response.status
+        },
         { status: response.status }
       );
     }
 
     const preference = await response.json();
 
+    // Em desenvolvimento, usar sandbox_init_point se disponível
+    // Em produção, usar init_point
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const checkoutUrl = isDevelopment && preference.sandbox_init_point 
+      ? preference.sandbox_init_point 
+      : preference.init_point;
+
     return NextResponse.json({
       id: preference.id,
-      init_point: preference.init_point, // URL para redirecionar o usuário
-      sandbox_init_point: preference.sandbox_init_point, // URL para ambiente de teste
+      init_point: checkoutUrl,
+      sandbox_init_point: preference.sandbox_init_point,
     });
   } catch (error) {
     console.error('Erro na API de pagamento:', error);
