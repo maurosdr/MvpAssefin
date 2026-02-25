@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-const SUPPORTED_EXCHANGES = ['binance', 'coinbase'];
+const SUPPORTED_EXCHANGES = ['binance', 'coinbase', 'kalshi', 'polymarket'];
 
 function getCookieName(exchange: string): string {
   return `exchange_keys_${exchange}`;
@@ -23,11 +23,17 @@ export async function POST(
 
     const { apiKey, secret } = await request.json();
 
-    if (!apiKey || !secret) {
+    if (!apiKey) {
+      return NextResponse.json({ error: 'API Key is required' }, { status: 400 });
+    }
+
+    // Polymarket only requires API key (no secret)
+    const needsSecret = ['binance', 'coinbase', 'kalshi'].includes(exchange);
+    if (needsSecret && !secret) {
       return NextResponse.json({ error: 'API Key and Secret are required' }, { status: 400 });
     }
 
-    const encoded = Buffer.from(JSON.stringify({ apiKey, secret })).toString('base64');
+    const encoded = Buffer.from(JSON.stringify({ apiKey, secret: secret || '' })).toString('base64');
 
     const cookieStore = await cookies();
     cookieStore.set(getCookieName(exchange), encoded, {

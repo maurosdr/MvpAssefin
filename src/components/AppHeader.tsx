@@ -79,7 +79,10 @@ export default function AppHeader({
   const navItems = [
     { label: 'Crypto', path: '/crypto', icon: '📊' },
     { label: 'Ações', path: '/stocks', icon: '📈' },
+    { label: 'Renda Fixa', path: '/renda-fixa', icon: '📉' },
     { label: 'Markets', path: '/markets', icon: '📰' },
+    { label: 'Predictions', path: '/prediction-markets', icon: '🎯' },
+    { label: 'Portfolio', path: '/portfolio', icon: '💼' },
   ];
 
   return (
@@ -307,15 +310,15 @@ export default function AppHeader({
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span className="hidden sm:inline">{connectedExchanges.length}/2 Connected</span>
-                    <span className="sm:hidden">{connectedExchanges.length}/2</span>
+                    <span className="hidden sm:inline">{connectedExchanges.length}/4 Connected</span>
+                    <span className="sm:hidden">{connectedExchanges.length}/4</span>
                   </>
                 ) : (
                   <>
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 2L6.5 7.5 12 13l5.5-5.5L12 2zm0 22l5.5-5.5L12 13l-5.5 5.5L12 24zm-10-10l5.5 5.5L13 12 7.5 6.5 2 12zm20 0l-5.5-5.5L11 12l5.5 5.5L22 12z" />
                     </svg>
-                    <span className="hidden sm:inline">Connect Exchange</span>
+                    <span className="hidden sm:inline">Connect</span>
                     <span className="sm:hidden">Connect</span>
                   </>
                 )}

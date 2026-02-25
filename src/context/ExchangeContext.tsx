@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { BinancePosition, BookEntry } from '@/types/crypto';
 
-export type ExchangeName = 'binance' | 'coinbase';
+export type ExchangeName = 'binance' | 'coinbase' | 'kalshi' | 'polymarket';
 
 interface ExchangeConnection {
   connected: boolean;
@@ -17,7 +17,7 @@ interface ExchangeContextType {
   exchanges: Record<ExchangeName, ExchangeConnection>;
   activeExchange: ExchangeName;
   setActiveExchange: (name: ExchangeName) => void;
-  connect: (exchange: ExchangeName, apiKey: string, secret: string) => Promise<boolean>;
+  connect: (exchange: ExchangeName, apiKey: string, secret?: string) => Promise<boolean>;
   disconnect: (exchange: ExchangeName) => Promise<void>;
   refreshPortfolio: (exchange: ExchangeName) => Promise<void>;
   refreshAllPortfolios: () => void;
@@ -47,6 +47,8 @@ const ExchangeContext = createContext<ExchangeContextType>({
   exchanges: {
     binance: { ...defaultConnection },
     coinbase: { ...defaultConnection },
+    kalshi: { ...defaultConnection },
+    polymarket: { ...defaultConnection },
   },
   activeExchange: 'binance',
   setActiveExchange: () => {},
@@ -65,12 +67,14 @@ const ExchangeContext = createContext<ExchangeContextType>({
   book: [],
 });
 
-const EXCHANGE_NAMES: ExchangeName[] = ['binance', 'coinbase'];
+const EXCHANGE_NAMES: ExchangeName[] = ['binance', 'coinbase', 'kalshi', 'polymarket'];
 
 export function ExchangeProvider({ children }: { children: React.ReactNode }) {
   const [exchangeStates, setExchangeStates] = useState<Record<ExchangeName, ExchangeConnection>>({
     binance: { ...defaultConnection },
     coinbase: { ...defaultConnection },
+    kalshi: { ...defaultConnection },
+    polymarket: { ...defaultConnection },
   });
   const [activeExchange, setActiveExchange] = useState<ExchangeName>('binance');
 
@@ -117,12 +121,12 @@ export function ExchangeProvider({ children }: { children: React.ReactNode }) {
     EXCHANGE_NAMES.forEach((name) => checkConnection(name));
   }, [checkConnection]);
 
-  const connect = async (name: ExchangeName, apiKey: string, secret: string): Promise<boolean> => {
+  const connect = async (name: ExchangeName, apiKey: string, secret?: string): Promise<boolean> => {
     try {
       const res = await fetch(`/api/exchange/${name}/keys`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey, secret }),
+        body: JSON.stringify({ apiKey, secret: secret || '' }),
       });
       const data = await res.json();
       if (data.success) {
@@ -145,8 +149,12 @@ export function ExchangeProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const PORTFOLIO_EXCHANGES: ExchangeName[] = ['binance', 'coinbase'];
+
   const refreshPortfolio = useCallback(async (name: ExchangeName) => {
     if (!exchangeStates[name].connected) return;
+    // Only fetch portfolio for crypto exchanges, not prediction market platforms
+    if (!PORTFOLIO_EXCHANGES.includes(name)) return;
     updateExchange(name, { loading: true });
     try {
       const res = await fetch(`/api/exchange/${name}/portfolio`);
