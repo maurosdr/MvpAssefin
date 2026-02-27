@@ -2,11 +2,13 @@
 
 import { useRouter, usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
-import AssetSearch from '@/components/AssetSearch';
+import AssetSearch, { SearchableAsset } from '@/components/AssetSearch';
 import BinanceLoginModal from '@/components/BinanceLoginModal';
+import AIKeysModal from '@/components/AIKeysModal';
+import AssetChatPanel, { AssetInfo } from '@/components/AssetChatPanel';
 import { useExchange } from '@/context/ExchangeContext';
 import { useTheme } from '@/context/ThemeContext';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 
 interface SearchableCrypto {
   symbol: string;
@@ -36,9 +38,37 @@ export default function AppHeader({
   const { theme, toggleTheme } = useTheme();
   const connected = connectedExchanges.length > 0;
   const [showModal, setShowModal] = useState(false);
+  const [showAPIModal, setShowAPIModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [chatPanelOpen, setChatPanelOpen] = useState(false);
+  const [chatAsset, setChatAsset] = useState<AssetInfo | null>(null);
+  const [apiConfigCount, setApiConfigCount] = useState(0);
   const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Fetch how many APIs are configured for the button indicator
+  const fetchApiStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/trading/keys');
+      if (res.ok) {
+        const data = await res.json();
+        const count = [data.anthropic?.configured, data.gemini?.configured, data.openai?.configured].filter(Boolean).length;
+        setApiConfigCount(count);
+      }
+    } catch {
+      // silently ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchApiStatus();
+  }, [fetchApiStatus]);
+
+  // Re-fetch after API modal closes
+  const handleAPIModalClose = () => {
+    setShowAPIModal(false);
+    fetchApiStatus();
+  };
 
   // Fechar menu ao clicar fora
   useEffect(() => {
@@ -74,6 +104,15 @@ export default function AppHeader({
       return email[0].toUpperCase();
     }
     return 'U';
+  };
+
+  const handleAssetSelect = (asset: SearchableAsset) => {
+    setChatAsset({
+      symbol: asset.base,
+      name: asset.name,
+      type: asset.type,
+    });
+    setChatPanelOpen(true);
   };
 
   const navItems = [
@@ -147,7 +186,7 @@ export default function AppHeader({
 
             {/* Center Section: Search */}
             <div className="hidden 2xl:block flex-1 max-w-xl mx-4 xl:mx-8 min-w-0">
-              <AssetSearch cryptos={cryptos} stocks={stocks} />
+              <AssetSearch cryptos={cryptos} stocks={stocks} onSelect={handleAssetSelect} />
             </div>
 
             {/* Right Section: Actions */}
@@ -178,6 +217,23 @@ export default function AppHeader({
                   <svg className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--text-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                   </svg>
+                )}
+              </button>
+
+              {/* APIs Button */}
+              <button
+                onClick={() => setShowAPIModal(true)}
+                className="hidden sm:flex items-center gap-2 px-3 py-2 sm:py-2.5 rounded-lg bg-[var(--surface)] border border-[var(--border)] hover:bg-[var(--surface-hover)] hover:border-[var(--accent)]/50 transition-all active:scale-95"
+                title="Configurar APIs de IA (Claude, Gemini, GPT)"
+              >
+                <svg className="w-4 h-4 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+                <span className="text-sm font-semibold text-[var(--text-primary)] hidden lg:inline">APIs</span>
+                {apiConfigCount > 0 && (
+                  <span className="flex items-center justify-center w-4 h-4 rounded-full bg-[var(--accent)] text-[var(--text-inverse)] text-[10px] font-bold leading-none">
+                    {apiConfigCount}
+                  </span>
                 )}
               </button>
 
@@ -346,7 +402,7 @@ export default function AppHeader({
             <div className="lg:hidden border-t border-[var(--border)] py-4 space-y-3 animate-in slide-in-from-top">
               {/* Mobile Search */}
               <div className="px-2">
-                <AssetSearch cryptos={cryptos} stocks={stocks} />
+                <AssetSearch cryptos={cryptos} stocks={stocks} onSelect={handleAssetSelect} />
               </div>
 
               {/* Mobile Navigation */}
@@ -372,6 +428,24 @@ export default function AppHeader({
                   );
                 })}
               </nav>
+
+              {/* Mobile APIs button */}
+              <div className="px-2">
+                <button
+                  onClick={() => { setShowAPIModal(true); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all border border-[var(--border)]"
+                >
+                  <svg className="w-5 h-5 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                  </svg>
+                  <span>APIs de IA</span>
+                  {apiConfigCount > 0 && (
+                    <span className="ml-auto flex items-center justify-center w-5 h-5 rounded-full bg-[var(--accent)] text-[var(--text-inverse)] text-[10px] font-bold">
+                      {apiConfigCount}/3
+                    </span>
+                  )}
+                </button>
+              </div>
 
               {/* Mobile Children */}
               {children && <div className="px-2">{children}</div>}
@@ -471,6 +545,12 @@ export default function AppHeader({
       </header>
 
       <BinanceLoginModal open={showModal} onClose={() => setShowModal(false)} />
+      <AIKeysModal open={showAPIModal} onClose={handleAPIModalClose} />
+      <AssetChatPanel
+        isOpen={chatPanelOpen}
+        asset={chatAsset}
+        onClose={() => setChatPanelOpen(false)}
+      />
     </>
   );
 }

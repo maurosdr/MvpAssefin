@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
-type Provider = 'claude' | 'gemini';
+type Provider = 'claude' | 'gemini' | 'gpt';
 
 interface KeyStatus {
   configured: boolean;
@@ -12,6 +12,7 @@ interface KeyStatus {
 interface KeysState {
   anthropic: KeyStatus;
   gemini: KeyStatus;
+  openai: KeyStatus;
 }
 
 const PROVIDERS: { id: Provider; label: string; subtitle: string; cookieName: string; placeholder: string; docsUrl: string; color: string }[] = [
@@ -33,6 +34,15 @@ const PROVIDERS: { id: Provider; label: string; subtitle: string; cookieName: st
     docsUrl: 'https://aistudio.google.com/app/apikey',
     color: 'blue',
   },
+  {
+    id: 'gpt',
+    label: 'GPT (OpenAI)',
+    subtitle: 'Para usar o GPT-4o',
+    cookieName: 'openai',
+    placeholder: 'sk-...',
+    docsUrl: 'https://platform.openai.com/api-keys',
+    color: 'green',
+  },
 ];
 
 export default function AIKeysModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -44,6 +54,7 @@ export default function AIKeysModal({ open, onClose }: { open: boolean; onClose:
   const [status, setStatus] = useState<KeysState>({
     anthropic: { configured: false, preview: null },
     gemini: { configured: false, preview: null },
+    openai: { configured: false, preview: null },
   });
 
   const fetchStatus = useCallback(async () => {
@@ -51,7 +62,11 @@ export default function AIKeysModal({ open, onClose }: { open: boolean; onClose:
       const res = await fetch('/api/trading/keys');
       if (res.ok) {
         const data = await res.json();
-        setStatus(data);
+        setStatus({
+          anthropic: data.anthropic ?? { configured: false, preview: null },
+          gemini: data.gemini ?? { configured: false, preview: null },
+          openai: data.openai ?? { configured: false, preview: null },
+        });
       }
     } catch {
       // silently ignore
@@ -69,8 +84,8 @@ export default function AIKeysModal({ open, onClose }: { open: boolean; onClose:
   if (!open) return null;
 
   const current = PROVIDERS.find((p) => p.id === selected)!;
-  const currentStatus = selected === 'claude' ? status.anthropic : status.gemini;
-  const bothConfigured = status.anthropic.configured && status.gemini.configured;
+  const currentStatus = selected === 'claude' ? status.anthropic : selected === 'gemini' ? status.gemini : status.openai;
+  const configuredCount = [status.anthropic.configured, status.gemini.configured, status.openai.configured].filter(Boolean).length;
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,7 +95,9 @@ export default function AIKeysModal({ open, onClose }: { open: boolean; onClose:
     try {
       const body = selected === 'claude'
         ? { anthropicKey: inputKey.trim() }
-        : { geminiKey: inputKey.trim() };
+        : selected === 'gemini'
+        ? { geminiKey: inputKey.trim() }
+        : { openaiKey: inputKey.trim() };
 
       const res = await fetch('/api/trading/keys', {
         method: 'POST',
@@ -100,7 +117,7 @@ export default function AIKeysModal({ open, onClose }: { open: boolean; onClose:
   const handleRemove = async () => {
     setRemoving(true);
     try {
-      const provider = selected === 'claude' ? 'anthropic' : 'gemini';
+      const provider = selected === 'claude' ? 'anthropic' : selected === 'gemini' ? 'gemini' : 'openai';
       await fetch('/api/trading/keys', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
@@ -121,11 +138,11 @@ export default function AIKeysModal({ open, onClose }: { open: boolean; onClose:
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-[var(--accent-soft)] flex items-center justify-center text-base">
-              ⚙️
+              🔑
             </div>
             <div>
-              <h2 className="text-base font-bold text-[var(--text-primary)]">Chaves de API — IA</h2>
-              <p className="text-xs text-[var(--text-muted)]">Configure suas chaves para o A-Trading</p>
+              <h2 className="text-base font-bold text-[var(--text-primary)]">APIs de IA</h2>
+              <p className="text-xs text-[var(--text-muted)]">{configuredCount}/3 APIs configuradas</p>
             </div>
           </div>
           <button
@@ -140,7 +157,7 @@ export default function AIKeysModal({ open, onClose }: { open: boolean; onClose:
         {/* Status badges */}
         <div className="flex items-center gap-2 mb-5">
           {PROVIDERS.map((p) => {
-            const st = p.id === 'claude' ? status.anthropic : status.gemini;
+            const st = p.id === 'claude' ? status.anthropic : p.id === 'gemini' ? status.gemini : status.openai;
             return (
               <div
                 key={p.id}
@@ -161,12 +178,12 @@ export default function AIKeysModal({ open, onClose }: { open: boolean; onClose:
         {/* Provider tabs */}
         <div className="flex gap-2 mb-5">
           {PROVIDERS.map((p) => {
-            const st = p.id === 'claude' ? status.anthropic : status.gemini;
+            const st = p.id === 'claude' ? status.anthropic : p.id === 'gemini' ? status.gemini : status.openai;
             return (
               <button
                 key={p.id}
                 onClick={() => { setSelected(p.id); setError(''); setInputKey(''); }}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all ${
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl font-semibold text-sm transition-all ${
                   selected === p.id
                     ? 'bg-[var(--accent)] text-[var(--text-inverse)] shadow-sm'
                     : 'bg-[var(--bg)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
@@ -252,12 +269,12 @@ export default function AIKeysModal({ open, onClose }: { open: boolean; onClose:
         </div>
 
         {/* Done button */}
-        {(status.anthropic.configured || status.gemini.configured) && (
+        {configuredCount > 0 && (
           <button
             onClick={onClose}
             className="w-full mt-4 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text-secondary)] rounded-xl font-semibold text-sm transition-colors"
           >
-            {bothConfigured ? 'Pronto' : 'Pronto (configurar mais depois)'}
+            {configuredCount === 3 ? 'Pronto' : 'Pronto (configurar mais depois)'}
           </button>
         )}
       </div>

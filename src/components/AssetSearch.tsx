@@ -7,7 +7,7 @@ import { MAIN_STOCKS, MAIN_ETFS, STOCK_NAMES } from '@/lib/stocks-data';
 
 type AssetType = 'crypto' | 'stock' | 'etf';
 
-interface SearchableAsset {
+export interface SearchableAsset {
   symbol: string;
   base: string;
   name: string;
@@ -18,9 +18,10 @@ interface SearchableAsset {
 interface AssetSearchProps {
   cryptos?: { symbol: string; base: string; price: number }[];
   stocks?: { symbol: string; name: string; price: number }[];
+  onSelect?: (asset: SearchableAsset) => void;
 }
 
-export default function AssetSearch({ cryptos, stocks }: AssetSearchProps) {
+export default function AssetSearch({ cryptos, stocks, onSelect }: AssetSearchProps) {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<SearchableAsset[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -133,12 +134,16 @@ export default function AssetSearch({ cryptos, stocks }: AssetSearchProps) {
     setQuery('');
     setShowDropdown(false);
     setSelectedIndex(-1);
-    if (asset.type === 'crypto') {
-      router.push(`/crypto/${asset.base}`);
-    } else if (asset.type === 'etf') {
-      router.push(`/etf/${asset.base}`);
+    if (onSelect) {
+      onSelect(asset);
     } else {
-      router.push(`/stocks/${asset.base}`);
+      if (asset.type === 'crypto') {
+        router.push(`/crypto/${asset.base}`);
+      } else if (asset.type === 'etf') {
+        router.push(`/etf/${asset.base}`);
+      } else {
+        router.push(`/stocks/${asset.base}`);
+      }
     }
   };
 
