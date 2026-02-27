@@ -609,20 +609,32 @@ function ContabilTab({ stock }: { stock: StockDetail }) {
         <div className="modern-card">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[var(--border)]">
             <div className="w-1 h-5 bg-[var(--accent)] rounded-full" />
-            <h3 className="section-title text-xs">DRE - Demonstração do Resultado</h3>
+            <h3 className="section-title text-xs">DRE — Demonstração do Resultado</h3>
           </div>
           <FinancialTable
             data={incomeHistory}
             fields={[
-              { key: 'totalRevenue', label: 'Receita Total' },
-              { key: 'costOfRevenue', label: 'Custo da Receita' },
-              { key: 'grossProfit', label: 'Lucro Bruto' },
-              { key: 'totalOperatingExpenses', label: 'Despesas Operacionais' },
-              { key: 'operatingIncome', label: 'Lucro Operacional' },
-              { key: 'incomeBeforeTax', label: 'Lucro antes IR' },
-              { key: 'incomeTaxExpense', label: 'IR' },
-              { key: 'netIncome', label: 'Lucro Liquido' },
-              { key: 'ebit', label: 'EBIT' },
+              { key: 'totalRevenue',                    label: 'Receita Total (Bruta)' },
+              { key: 'costOfRevenue',                   label: 'CPV / Custo da Receita' },
+              { key: 'grossProfit',                     label: 'Lucro Bruto', bold: true },
+              { key: 'researchDevelopment',             label: 'Pesquisa & Desenvolvimento' },
+              { key: 'sellingGeneralAdministrative',    label: 'SG&A (Vendas, Gerais e Adm.)' },
+              { key: 'nonRecurring',                    label: 'Itens Não Recorrentes' },
+              { key: 'otherOperatingExpenses',          label: 'Outras Despesas Operacionais' },
+              { key: 'totalOperatingExpenses',          label: 'Total Despesas Operacionais' },
+              { key: 'operatingIncome',                 label: 'Lucro Operacional (EBIT)', bold: true },
+              { key: 'ebit',                            label: 'EBIT (alt)' },
+              { key: 'interestExpense',                 label: 'Despesa Financeira (Juros)' },
+              { key: 'totalOtherIncomeExpenseNet',      label: 'Outras Receitas / Despesas Líq.' },
+              { key: 'incomeBeforeTax',                 label: 'LAIR (Lucro antes IR)', bold: true },
+              { key: 'incomeTaxExpense',                label: 'Imposto de Renda (IR/CSLL)' },
+              { key: 'minorityInterest',                label: 'Participação Minoritária' },
+              { key: 'netIncomeFromContinuingOps',      label: 'LL — Operações Continuadas' },
+              { key: 'discontinuedOperations',          label: 'Operações Descontinuadas' },
+              { key: 'netIncome',                       label: 'Lucro Líquido', bold: true },
+              { key: 'netIncomeApplicableToCommonShares', label: 'LL Atribuível aos Acionistas' },
+              { key: 'basicEPS',                        label: 'LPA Básico (por ação)' },
+              { key: 'dilutedEPS',                      label: 'LPA Diluído (por ação)' },
             ]}
           />
         </div>
@@ -633,21 +645,39 @@ function ContabilTab({ stock }: { stock: StockDetail }) {
         <div className="modern-card">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[var(--border)]">
             <div className="w-1 h-5 bg-[var(--info)] rounded-full" />
-            <h3 className="section-title text-xs">Balanco Patrimonial</h3>
+            <h3 className="section-title text-xs">Balanço Patrimonial</h3>
           </div>
           <FinancialTable
             data={balanceHistory}
             fields={[
-              { key: 'totalAssets', label: 'Ativo Total' },
-              { key: 'totalCurrentAssets', label: 'Ativo Circulante' },
-              { key: 'cash', label: 'Caixa' },
-              { key: 'shortTermInvestments', label: 'Invest. Curto Prazo' },
-              { key: 'netReceivables', label: 'Recebiveis' },
-              { key: 'inventory', label: 'Estoque' },
-              { key: 'totalLiab', label: 'Passivo Total' },
-              { key: 'totalCurrentLiabilities', label: 'Passivo Circulante' },
-              { key: 'longTermDebt', label: 'Divida Longo Prazo' },
-              { key: 'totalStockholderEquity', label: 'Patrimonio Liquido' },
+              { key: 'totalAssets',                label: 'ATIVO TOTAL', bold: true },
+              { key: 'totalCurrentAssets',         label: 'Ativo Circulante', bold: true },
+              { key: 'cash',                       label: '  Caixa & Equivalentes' },
+              { key: 'shortTermInvestments',       label: '  Aplicações Financeiras CP' },
+              { key: 'netReceivables',             label: '  Contas a Receber' },
+              { key: 'inventory',                  label: '  Estoques' },
+              { key: 'otherCurrentAssets',         label: '  Outros Ativos Circulantes' },
+              { key: 'propertyPlantEquipment',     label: 'Imobilizado Líquido (PP&E)' },
+              { key: 'goodwill',                   label: 'Ágio (Goodwill)' },
+              { key: 'intangibleAssets',           label: 'Intangíveis' },
+              { key: 'longTermInvestments',        label: 'Investimentos LP' },
+              { key: 'deferredLongTermAssetCharges', label: 'Ativo Diferido LP' },
+              { key: 'otherAssets',                label: 'Outros Ativos' },
+              { key: 'totalLiab',                  label: 'PASSIVO TOTAL', bold: true },
+              { key: 'totalCurrentLiabilities',    label: 'Passivo Circulante', bold: true },
+              { key: 'accountsPayable',            label: '  Fornecedores (AP)' },
+              { key: 'shortLongTermDebt',          label: '  Dívida CP' },
+              { key: 'otherCurrentLiab',           label: '  Outros Passivos Circulantes' },
+              { key: 'longTermDebt',               label: 'Dívida Longo Prazo' },
+              { key: 'deferredLongTermLiab',       label: 'Passivo Diferido LP' },
+              { key: 'minorityInterest',           label: 'Participação Minoritária' },
+              { key: 'otherLiab',                  label: 'Outros Passivos LP' },
+              { key: 'totalStockholderEquity',     label: 'PATRIMÔNIO LÍQUIDO (PL)', bold: true },
+              { key: 'commonStock',                label: '  Capital Social' },
+              { key: 'capitalSurplus',             label: '  Reserva de Capital' },
+              { key: 'retainedEarnings',           label: '  Lucros / Prejuízos Acumulados' },
+              { key: 'treasuryStock',              label: '  Ações em Tesouraria' },
+              { key: 'otherStockholderEquity',     label: '  Outros (PL)' },
             ]}
           />
         </div>
@@ -663,16 +693,28 @@ function ContabilTab({ stock }: { stock: StockDetail }) {
           <FinancialTable
             data={cashflowData}
             fields={[
-              { key: 'operatingCashFlow', label: 'FCO - Operacional' },
-              { key: 'totalCashFromOperatingActivities', label: 'FCO - Operacional (alt)' },
-              { key: 'capitalExpenditures', label: 'CAPEX' },
-              { key: 'totalCashflowsFromInvestingActivities', label: 'FCO - Investimentos' },
-              { key: 'totalCashFromFinancingActivities', label: 'FCO - Financiamento' },
-              { key: 'changeInCash', label: 'Variação de Caixa' },
-              { key: 'netIncome', label: 'Lucro Líquido' },
-              { key: 'netIncomeBeforeTaxes', label: 'Lucro antes IR' },
-              { key: 'depreciation', label: 'Depreciação' },
-              { key: 'adjustmentsToProfitOrLoss', label: 'Ajustes ao Lucro' },
+              { key: 'netIncome',                            label: 'Lucro Líquido (base)' },
+              { key: 'depreciation',                        label: 'D&A (Depreciação & Amortização)', bold: true },
+              { key: 'changeToNetincome',                   label: '  Ajustes ao Lucro Líquido' },
+              { key: 'changeToAccountReceivables',          label: '  Var. Contas a Receber' },
+              { key: 'changeToInventory',                   label: '  Var. Estoques' },
+              { key: 'changeToLiabilities',                 label: '  Var. Passivos Operacionais' },
+              { key: 'changeToOperatingActivities',         label: '  Var. Capital de Giro (outros)' },
+              { key: 'otherCashflowsFromOperatingActivities', label: '  Outros Ajustes Operacionais' },
+              { key: 'totalCashFromOperatingActivities',    label: 'FCO — Caixa Operacional', bold: true },
+              { key: 'operatingCashFlow',                   label: 'FCO (alt)' },
+              { key: 'capitalExpenditures',                 label: 'CapEx (Despesas de Capital)', bold: true },
+              { key: 'investments',                         label: '  Investimentos Financeiros' },
+              { key: 'otherCashflowsFromInvestingActivities', label: '  Outros Investimentos' },
+              { key: 'totalCashflowsFromInvestingActivities', label: 'FCI — Caixa de Investimentos', bold: true },
+              { key: 'dividendsPaid',                       label: '  Dividendos Pagos' },
+              { key: 'netBorrowings',                       label: '  Captações / (Pagamentos) Líq.' },
+              { key: 'repurchaseOfStock',                   label: '  Recompra de Ações' },
+              { key: 'issuanceOfStock',                     label: '  Emissão de Ações' },
+              { key: 'otherCashflowsFromFinancingActivities', label: '  Outros Financiamentos' },
+              { key: 'totalCashFromFinancingActivities',    label: 'FCF — Caixa de Financiamentos', bold: true },
+              { key: 'effectOfExchangeRate',                label: 'Efeito Câmbio no Caixa' },
+              { key: 'changeInCash',                        label: 'Variação Líquida de Caixa', bold: true },
             ]}
           />
         </div>
@@ -686,14 +728,14 @@ function FinancialTable({
   fields,
 }: {
   data: FundamentalData[];
-  fields: { key: string; label: string }[];
+  fields: { key: string; label: string; bold?: boolean }[];
 }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
           <tr className="text-[10px] font-black uppercase tracking-[0.15em] text-[var(--text-muted)] border-b-2 border-[var(--border)]">
-            <th className="pb-2 text-left min-w-[180px]">ITEM</th>
+            <th className="pb-2 text-left min-w-[240px]">ITEM</th>
             {data.map((item: FundamentalData, i: number) => (
               <th key={i} className="pb-2 text-right min-w-[120px]">
                 {item.endDate ? new Date(item.endDate).getFullYear() : `Periodo ${i + 1}`}
@@ -705,10 +747,12 @@ function FinancialTable({
           {fields
             .filter((field) => data.some((item) => item[field.key] != null))
             .map((field) => (
-            <tr key={field.key} className="hover:bg-[var(--surface-hover)] transition-colors">
-              <td className="py-2 text-xs font-semibold text-[var(--text-secondary)]">{field.label}</td>
+            <tr key={field.key} className={`transition-colors ${field.bold ? 'bg-[var(--surface)]/40' : 'hover:bg-[var(--surface-hover)]'}`}>
+              <td className={`py-2 text-xs ${field.bold ? 'font-bold text-[var(--text-primary)]' : 'font-medium text-[var(--text-secondary)]'}`}>
+                {field.label}
+              </td>
               {data.map((item: FundamentalData, i: number) => (
-                <td key={i} className="py-2 text-right text-xs data-value text-[var(--text-primary)]">
+                <td key={i} className={`py-2 text-right text-xs data-value ${field.bold ? 'font-bold text-[var(--text-primary)]' : 'text-[var(--text-primary)]'}`}>
                   {formatLargeNumber(item[field.key])}
                 </td>
               ))}
@@ -1534,11 +1578,27 @@ function ValuacaoTab({ stock }: { stock: StockDetail }) {
     (Array.isArray(stock.balanceSheetHistory) ? stock.balanceSheetHistory : [])
   ).slice().reverse();
 
+  // ─── Index cashflow and balance by year for accurate joining ────
+  // BRAPI may return different lengths for each statement; always join by year
+  const cfByYear: Record<number, FundamentalData> = {};
+  cashflowData.forEach(cf => {
+    if (cf.endDate) cfByYear[new Date(cf.endDate).getFullYear()] = cf;
+  });
+  const balByYear: Record<number, FundamentalData> = {};
+  balanceHistory.forEach(bal => {
+    if (bal.endDate) balByYear[new Date(bal.endDate).getFullYear()] = bal;
+  });
+  // Keep sorted years for NWC delta (need previous year)
+  const balYears = Object.keys(balByYear).map(Number).sort();
+
   // ─── Compute historical metrics per year ───────────────────────
-  const histMetrics = incomeHistory.map((inc, i) => {
-    const cf = cashflowData[i] || {};
-    const bal = balanceHistory[i] || {};
-    const prevBal = i > 0 ? (balanceHistory[i - 1] || {}) : {};
+  const histMetrics = incomeHistory.map((inc) => {
+    const year: number = inc.endDate ? new Date(inc.endDate).getFullYear() : 0;
+    // Join by year; fallback to empty object if year not present
+    const cf: FundamentalData = (year && cfByYear[year]) ? cfByYear[year] : {};
+    const bal: FundamentalData = (year && balByYear[year]) ? balByYear[year] : {};
+    const prevYearIdx = balYears.indexOf(year) - 1;
+    const prevBal: FundamentalData = prevYearIdx >= 0 ? (balByYear[balYears[prevYearIdx]] || {}) : {};
 
     const revenue = inc.totalRevenue || 0;
     const cogs = inc.costOfRevenue || 0;
@@ -1548,22 +1608,23 @@ function ValuacaoTab({ stock }: { stock: StockDetail }) {
     const taxExpense = Math.abs(inc.incomeTaxExpense || 0);
     const effectiveTaxRate = incomeBeforeTax > 0 ? taxExpense / incomeBeforeTax : 0.25;
     const netIncome = inc.netIncome || 0;
-    // D&A = Depreciação + Amortização (ambos os campos do fluxo de caixa)
-    const da = Math.abs(cf.depreciation || 0) + Math.abs(cf.amortization || 0);
+    // No BRAPI does NOT have a separate amortization field; the `depreciation` field
+    // in Yahoo Finance cashflow = combined Depreciation & Amortization
+    const da = Math.abs(cf.depreciation || 0);
     const ebitda = ebit + da;
-    // CapEx = despesas de capital (capitalExpenditures já é negativo no formato Yahoo/BRAPI)
-    const capex = Math.abs(cf.capitalExpenditures || cf.purchaseOfPropertyPlantAndEquipment || 0);
+    // CapEx = capitalExpenditures (reported as negative outflow in Yahoo/BRAPI)
+    const capex = Math.abs(cf.capitalExpenditures || 0);
 
     const curAssets = bal.totalCurrentAssets || 0;
     const curLiab = bal.totalCurrentLiabilities || 0;
     const nwc = curAssets - curLiab;
     const prevNwc = (prevBal.totalCurrentAssets || 0) - (prevBal.totalCurrentLiabilities || 0);
-    const chgNwc = i > 0 ? nwc - prevNwc : 0;
+    const chgNwc = prevBal.totalCurrentAssets != null ? nwc - prevNwc : 0;
 
     const fcff = ebit * (1 - effectiveTaxRate) + da - capex - chgNwc;
 
     return {
-      year: inc.endDate ? new Date(inc.endDate).getFullYear() : `Y${i + 1}`,
+      year: year || `Y`,
       revenue, cogs, grossProfit,
       grossMargin: revenue ? grossProfit / revenue : 0,
       da, daRate: revenue ? da / revenue : 0,
@@ -1573,6 +1634,7 @@ function ValuacaoTab({ stock }: { stock: StockDetail }) {
       netIncome, netMargin: revenue ? netIncome / revenue : 0,
       capex, capexRate: revenue ? capex / revenue : 0,
       chgNwc, chgNwcRate: revenue ? chgNwc / revenue : 0,
+      hasCf: Object.keys(cf).length > 0,
       fcff,
     };
   });
@@ -1701,6 +1763,10 @@ function ValuacaoTab({ stock }: { stock: StockDetail }) {
 
   // ─── Last 5 years only for the historical table ─────────────────
   const displayHist = histMetrics.slice(-5);
+  // Show D&A / CapEx rows only when BRAPI actually has cash flow data for ≥1 year
+  const hasAnyCf = displayHist.some(m => m.hasCf);
+  const hasAnyDa = displayHist.some(m => m.da !== 0);
+  const hasAnyCapex = displayHist.some(m => m.capex !== 0);
 
   const sentColor = (val: number | null, base: number) => {
     if (val === null) return 'bg-[var(--surface)] text-[var(--text-muted)]';
@@ -1919,23 +1985,25 @@ function ValuacaoTab({ stock }: { stock: StockDetail }) {
               </thead>
               <tbody className="divide-y divide-[var(--border-subtle)]">
                 {([
-                  { label: 'Receita', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.revenue) },
-                  { label: 'COGS', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.cogs) },
-                  { label: 'Lucro Bruto', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.grossProfit), bold: true },
-                  { label: 'Margem Bruta', fn: (m: typeof displayHist[0]) => `${(m.grossMargin * 100).toFixed(1)}%` },
-                  { label: 'D&A (Depreciação + Amortização)', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.da) },
-                  { label: 'EBITDA', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.ebitda), bold: true },
-                  { label: 'Margem EBITDA', fn: (m: typeof displayHist[0]) => `${(m.ebitdaMargin * 100).toFixed(1)}%` },
-                  { label: 'EBIT', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.ebit), bold: true },
-                  { label: 'Margem EBIT', fn: (m: typeof displayHist[0]) => `${(m.ebitMargin * 100).toFixed(1)}%` },
-                  { label: 'IR / Taxes', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.taxExpense) },
-                  { label: 'Alíquota Efetiva', fn: (m: typeof displayHist[0]) => `${(m.effectiveTaxRate * 100).toFixed(1)}%` },
-                  { label: 'Lucro Líquido', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.netIncome), bold: true },
-                  { label: 'Margem Líquida', fn: (m: typeof displayHist[0]) => `${(m.netMargin * 100).toFixed(1)}%` },
-                  { label: 'CapEx', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.capex) },
-                  { label: 'Δ NWC (Chg NWC)', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.chgNwc) },
-                  { label: 'FCFF', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.fcff), bold: true },
-                ] as { label: string; fn: (m: typeof displayHist[0]) => string; bold?: boolean }[]).map(row => (
+                  { label: 'Receita', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.revenue), show: true },
+                  { label: 'COGS', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.cogs), show: true },
+                  { label: 'Lucro Bruto', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.grossProfit), bold: true, show: true },
+                  { label: 'Margem Bruta', fn: (m: typeof displayHist[0]) => `${(m.grossMargin * 100).toFixed(1)}%`, show: true },
+                  { label: 'D&A', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.da), show: hasAnyDa },
+                  { label: 'EBITDA', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.ebitda), bold: true, show: true },
+                  { label: 'Margem EBITDA', fn: (m: typeof displayHist[0]) => `${(m.ebitdaMargin * 100).toFixed(1)}%`, show: true },
+                  { label: 'EBIT', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.ebit), bold: true, show: true },
+                  { label: 'Margem EBIT', fn: (m: typeof displayHist[0]) => `${(m.ebitMargin * 100).toFixed(1)}%`, show: true },
+                  { label: 'IR / Taxes', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.taxExpense), show: true },
+                  { label: 'Alíquota Efetiva', fn: (m: typeof displayHist[0]) => `${(m.effectiveTaxRate * 100).toFixed(1)}%`, show: true },
+                  { label: 'Lucro Líquido', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.netIncome), bold: true, show: true },
+                  { label: 'Margem Líquida', fn: (m: typeof displayHist[0]) => `${(m.netMargin * 100).toFixed(1)}%`, show: true },
+                  { label: 'CapEx', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.capex), show: hasAnyCapex },
+                  { label: 'Δ NWC', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.chgNwc), show: true },
+                  { label: 'FCFF', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.fcff), bold: true, show: true },
+                ] as { label: string; fn: (m: typeof displayHist[0]) => string; bold?: boolean; show: boolean }[])
+                  .filter(row => row.show)
+                  .map(row => (
                   <tr key={row.label} className="hover:bg-[var(--surface-hover)] transition-colors">
                     <td className={`py-2 text-xs ${row.bold ? 'font-bold text-[var(--text-primary)]' : 'font-semibold text-[var(--text-secondary)]'}`}>{row.label}</td>
                     {displayHist.map((m, i) => (
@@ -1945,6 +2013,13 @@ function ValuacaoTab({ stock }: { stock: StockDetail }) {
                     ))}
                   </tr>
                 ))}
+                {!hasAnyCf && (
+                  <tr>
+                    <td colSpan={displayHist.length + 1} className="py-3 text-center text-xs text-[var(--text-muted)]">
+                      * D&A e CapEx não disponíveis — BRAPI não retornou dados de fluxo de caixa histórico para este ativo.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
