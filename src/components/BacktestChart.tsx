@@ -49,8 +49,11 @@ interface BacktestChartProps {
 const formatCurrency = (v: number) =>
   v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${v.toFixed(0)}`;
 
-const formatDate = (d: string) => {
-  const dt = new Date(d);
+const formatDate = (d: string, multiYear: boolean) => {
+  const dt = new Date(d + 'T12:00:00');
+  if (multiYear) {
+    return dt.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+  }
   return dt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 };
 
@@ -146,10 +149,14 @@ export default function BacktestChart({ results, loading, strategyName }: Backte
   const isProfit = stats.totalReturn >= 0;
   const accentColor = isProfit ? 'var(--success)' : 'var(--danger)';
 
-  // Thin out equity for chart performance
+  // Thin out equity for chart performance (keeps first + last always)
   const chartData = equity.length > 300
-    ? equity.filter((_, i) => i % Math.ceil(equity.length / 300) === 0)
+    ? equity.filter((_, i) => i % Math.ceil(equity.length / 300) === 0 || i === equity.length - 1)
     : equity;
+
+  const firstYear = equity[0]?.date?.slice(0, 4) ?? '';
+  const lastYear = equity[equity.length - 1]?.date?.slice(0, 4) ?? '';
+  const multiYear = firstYear !== lastYear;
 
   const sellTrades = trades.filter((t) => t.type === 'sell').slice(-20);
 
@@ -216,7 +223,7 @@ export default function BacktestChart({ results, loading, strategyName }: Backte
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" strokeOpacity={0.5} />
                 <XAxis
                   dataKey="date"
-                  tickFormatter={formatDate}
+                  tickFormatter={(d) => formatDate(d, multiYear)}
                   tick={{ fontSize: 9, fill: 'var(--text-muted)' }}
                   tickLine={false}
                   axisLine={false}

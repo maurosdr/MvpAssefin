@@ -85,7 +85,7 @@ async function fetchFromCCXT(asset: string, period: string, interval: string): P
   const tfConfig = CCXT_TIMEFRAME_MAP[interval] ?? { tf: '1d', limit: 365 };
 
   const limitMultiplier: Record<string, number> = {
-    '3mo': 90, '6mo': 180, '1y': 365, '2y': 730,
+    '3mo': 90, '6mo': 180, '1y': 365, '2y': 730, '5y': 1825,
     '3m': 90, '6m': 180, '1m': 30,
   };
   const days = limitMultiplier[period] ?? 365;
