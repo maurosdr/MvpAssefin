@@ -8,6 +8,8 @@ import AIKeysModal from '@/components/AIKeysModal';
 import AssetChatPanel, { AssetInfo } from '@/components/AssetChatPanel';
 import { useExchange } from '@/context/ExchangeContext';
 import { useTheme } from '@/context/ThemeContext';
+import { STOCK_NAMES } from '@/lib/stocks-data';
+import { getCryptoName } from '@/lib/crypto-names';
 import { useState, useRef, useEffect, useCallback } from 'react';
 
 interface SearchableCrypto {
@@ -69,6 +71,33 @@ export default function AppHeader({
     setShowAPIModal(false);
     fetchApiStatus();
   };
+
+  // Auto-open chat panel when navigating to an asset detail page
+  useEffect(() => {
+    const stockMatch = pathname.match(/^\/stocks\/([^/]+)$/);
+    const cryptoMatch = pathname.match(/^\/crypto\/([^/]+)$/);
+    const etfMatch = pathname.match(/^\/etf\/([^/]+)$/);
+
+    if (stockMatch) {
+      const symbol = stockMatch[1].toUpperCase();
+      setChatAsset((prev) =>
+        prev?.symbol === symbol ? prev : { symbol, name: STOCK_NAMES[symbol] || symbol, type: 'stock' }
+      );
+      setChatPanelOpen(true);
+    } else if (cryptoMatch) {
+      const symbol = cryptoMatch[1].toUpperCase();
+      setChatAsset((prev) =>
+        prev?.symbol === symbol ? prev : { symbol, name: getCryptoName(symbol), type: 'crypto' }
+      );
+      setChatPanelOpen(true);
+    } else if (etfMatch) {
+      const symbol = etfMatch[1].toUpperCase();
+      setChatAsset((prev) =>
+        prev?.symbol === symbol ? prev : { symbol, name: STOCK_NAMES[symbol] || symbol, type: 'etf' }
+      );
+      setChatPanelOpen(true);
+    }
+  }, [pathname]);
 
   // Fechar menu ao clicar fora
   useEffect(() => {

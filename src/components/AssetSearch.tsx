@@ -136,14 +136,13 @@ export default function AssetSearch({ cryptos, stocks, onSelect }: AssetSearchPr
     setSelectedIndex(-1);
     if (onSelect) {
       onSelect(asset);
+    }
+    if (asset.type === 'crypto') {
+      router.push(`/crypto/${asset.base}`);
+    } else if (asset.type === 'etf') {
+      router.push(`/etf/${asset.base}`);
     } else {
-      if (asset.type === 'crypto') {
-        router.push(`/crypto/${asset.base}`);
-      } else if (asset.type === 'etf') {
-        router.push(`/etf/${asset.base}`);
-      } else {
-        router.push(`/stocks/${asset.base}`);
-      }
+      router.push(`/stocks/${asset.base}`);
     }
   };
 
