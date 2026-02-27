@@ -16,41 +16,43 @@ function keyPreview(key: string): string {
 
 export async function GET() {
   const cookieStore = cookies();
-  const anthropicRaw = cookieStore.get('ai_anthropic_key')?.value ?? '';
-  const geminiRaw = cookieStore.get('ai_gemini_key')?.value ?? '';
-  const openaiRaw = cookieStore.get('ai_openai_key')?.value ?? '';
+  const anthropicRaw   = cookieStore.get('ai_anthropic_key')?.value   ?? '';
+  const geminiRaw      = cookieStore.get('ai_gemini_key')?.value      ?? '';
+  const openaiRaw      = cookieStore.get('ai_openai_key')?.value      ?? '';
+  const polymarketRaw  = cookieStore.get('ai_polymarket_key')?.value  ?? '';
+  const kalshiRaw      = cookieStore.get('ai_kalshi_key')?.value      ?? '';
+
+  const mkStatus = (raw: string) => ({
+    configured: raw.length > 0,
+    preview: raw.length > 0 ? keyPreview(raw) : null,
+  });
 
   return NextResponse.json({
-    anthropic: {
-      configured: anthropicRaw.length > 0,
-      preview: anthropicRaw.length > 0 ? keyPreview(anthropicRaw) : null,
-    },
-    gemini: {
-      configured: geminiRaw.length > 0,
-      preview: geminiRaw.length > 0 ? keyPreview(geminiRaw) : null,
-    },
-    openai: {
-      configured: openaiRaw.length > 0,
-      preview: openaiRaw.length > 0 ? keyPreview(openaiRaw) : null,
-    },
+    anthropic:  mkStatus(anthropicRaw),
+    gemini:     mkStatus(geminiRaw),
+    openai:     mkStatus(openaiRaw),
+    polymarket: mkStatus(polymarketRaw),
+    kalshi:     mkStatus(kalshiRaw),
   });
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { anthropicKey, geminiKey, openaiKey } = await req.json();
+    const { anthropicKey, geminiKey, openaiKey, polymarketKey, kalshiKey } = await req.json();
 
     const response = NextResponse.json({ success: true });
 
-    if (anthropicKey && typeof anthropicKey === 'string' && anthropicKey.trim()) {
-      response.cookies.set('ai_anthropic_key', anthropicKey.trim(), COOKIE_OPTS);
-    }
-    if (geminiKey && typeof geminiKey === 'string' && geminiKey.trim()) {
-      response.cookies.set('ai_gemini_key', geminiKey.trim(), COOKIE_OPTS);
-    }
-    if (openaiKey && typeof openaiKey === 'string' && openaiKey.trim()) {
-      response.cookies.set('ai_openai_key', openaiKey.trim(), COOKIE_OPTS);
-    }
+    const set = (cookieName: string, value: unknown) => {
+      if (value && typeof value === 'string' && value.trim()) {
+        response.cookies.set(cookieName, value.trim(), COOKIE_OPTS);
+      }
+    };
+
+    set('ai_anthropic_key',  anthropicKey);
+    set('ai_gemini_key',     geminiKey);
+    set('ai_openai_key',     openaiKey);
+    set('ai_polymarket_key', polymarketKey);
+    set('ai_kalshi_key',     kalshiKey);
 
     return response;
   } catch {
@@ -63,15 +65,17 @@ export async function DELETE(req: NextRequest) {
     const { provider } = await req.json();
     const response = NextResponse.json({ success: true });
 
-    if (provider === 'anthropic' || provider === 'all') {
-      response.cookies.set('ai_anthropic_key', '', { ...COOKIE_OPTS, maxAge: 0 });
-    }
-    if (provider === 'gemini' || provider === 'all') {
-      response.cookies.set('ai_gemini_key', '', { ...COOKIE_OPTS, maxAge: 0 });
-    }
-    if (provider === 'openai' || provider === 'all') {
-      response.cookies.set('ai_openai_key', '', { ...COOKIE_OPTS, maxAge: 0 });
-    }
+    const clear = (cookieName: string, match: string) => {
+      if (provider === match || provider === 'all') {
+        response.cookies.set(cookieName, '', { ...COOKIE_OPTS, maxAge: 0 });
+      }
+    };
+
+    clear('ai_anthropic_key',  'anthropic');
+    clear('ai_gemini_key',     'gemini');
+    clear('ai_openai_key',     'openai');
+    clear('ai_polymarket_key', 'polymarket');
+    clear('ai_kalshi_key',     'kalshi');
 
     return response;
   } catch {

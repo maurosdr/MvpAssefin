@@ -100,6 +100,17 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Chat panel layout — shifts main content left when panel is open */
+main {
+  transition: padding-right 0.3s ease-in-out;
+}
+
+@media (min-width: 640px) {
+  body.chat-panel-open main {
+    padding-right: 408px;
+  }
+}
+
 body {
   background-color: var(--bg);
   color: var(--text);

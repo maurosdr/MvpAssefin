@@ -3,8 +3,7 @@
 import { useRouter, usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import AssetSearch, { SearchableAsset } from '@/components/AssetSearch';
-import BinanceLoginModal from '@/components/BinanceLoginModal';
-import AIKeysModal from '@/components/AIKeysModal';
+import ConnectionsModal from '@/components/ConnectionsModal';
 import AssetChatPanel, { AssetInfo } from '@/components/AssetChatPanel';
 import { useExchange } from '@/context/ExchangeContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -38,45 +37,53 @@ export default function AppHeader({
   const { data: session, status } = useSession();
   const { connectedExchanges } = useExchange();
   const { theme, toggleTheme } = useTheme();
-  const connected = connectedExchanges.length > 0;
-  const [showModal, setShowModal] = useState(false);
-  const [showAPIModal, setShowAPIModal] = useState(false);
+
+  const [showConnectionsModal, setShowConnectionsModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [chatPanelOpen, setChatPanelOpen] = useState(false);
   const [chatAsset, setChatAsset] = useState<AssetInfo | null>(null);
-  const [apiConfigCount, setApiConfigCount] = useState(0);
+  const [apiKeyCount, setApiKeyCount] = useState(0);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  // Fetch how many APIs are configured for the button indicator
-  const fetchApiStatus = useCallback(async () => {
+  // Total active connections for the button badge
+  const totalConnected = connectedExchanges.length + apiKeyCount;
+
+  /* ── Fetch API key count ── */
+  const fetchApiKeyCount = useCallback(async () => {
     try {
       const res = await fetch('/api/trading/keys');
       if (res.ok) {
         const data = await res.json();
-        const count = [data.anthropic?.configured, data.gemini?.configured, data.openai?.configured].filter(Boolean).length;
-        setApiConfigCount(count);
+        const count = [
+          data.anthropic?.configured,
+          data.gemini?.configured,
+          data.openai?.configured,
+          data.polymarket?.configured,
+          data.kalshi?.configured,
+        ].filter(Boolean).length;
+        setApiKeyCount(count);
       }
-    } catch {
-      // silently ignore
-    }
+    } catch { /* ignore */ }
   }, []);
 
-  useEffect(() => {
-    fetchApiStatus();
-  }, [fetchApiStatus]);
+  useEffect(() => { fetchApiKeyCount(); }, [fetchApiKeyCount]);
 
-  // Re-fetch after API modal closes
-  const handleAPIModalClose = () => {
-    setShowAPIModal(false);
-    fetchApiStatus();
-  };
-
-  // Auto-open chat panel when navigating to an asset detail page
+  /* ── Body class: shift main content when chat panel is open ── */
   useEffect(() => {
-    const stockMatch = pathname.match(/^\/stocks\/([^/]+)$/);
+    if (chatPanelOpen) {
+      document.body.classList.add('chat-panel-open');
+    } else {
+      document.body.classList.remove('chat-panel-open');
+    }
+    return () => { document.body.classList.remove('chat-panel-open'); };
+  }, [chatPanelOpen]);
+
+  /* ── Auto-open chat on asset detail pages ── */
+  useEffect(() => {
+    const stockMatch  = pathname.match(/^\/stocks\/([^/]+)$/);
     const cryptoMatch = pathname.match(/^\/crypto\/([^/]+)$/);
-    const etfMatch = pathname.match(/^\/etf\/([^/]+)$/);
+    const etfMatch    = pathname.match(/^\/etf\/([^/]+)$/);
 
     if (stockMatch) {
       const symbol = stockMatch[1].toUpperCase();
@@ -99,56 +106,40 @@ export default function AppHeader({
     }
   }, [pathname]);
 
-  // Fechar menu ao clicar fora
+  /* ── Close user menu on outside click ── */
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setUserMenuOpen(false);
       }
     }
-
-    if (userMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    if (userMenuOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [userMenuOpen]);
 
-  const handleSignOut = async () => {
-    await signOut({ callbackUrl: '/' });
-  };
+  const handleSignOut = async () => { await signOut({ callbackUrl: '/' }); };
 
   const getInitials = (name?: string | null, email?: string) => {
-    if (name) {
-      return name
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2);
-    }
-    if (email) {
-      return email[0].toUpperCase();
-    }
+    if (name) return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+    if (email) return email[0].toUpperCase();
     return 'U';
   };
 
   const handleAssetSelect = (asset: SearchableAsset) => {
-    setChatAsset({
-      symbol: asset.base,
-      name: asset.name,
-      type: asset.type,
-    });
+    setChatAsset({ symbol: asset.base, name: asset.name, type: asset.type });
     setChatPanelOpen(true);
   };
 
+  const handleConnectionsClose = () => {
+    setShowConnectionsModal(false);
+    fetchApiKeyCount();
+  };
+
   const navItems = [
-    { label: 'Crypto', path: '/crypto', icon: '📊' },
-    { label: 'Ações', path: '/stocks', icon: '📈' },
-    { label: 'Markets', path: '/markets', icon: '📰' },
-    { label: 'A-Trading', path: '/trading', icon: '🤖' },
+    { label: 'Crypto',    path: '/crypto',   icon: '📊' },
+    { label: 'Ações',     path: '/stocks',   icon: '📈' },
+    { label: 'Markets',   path: '/markets',  icon: '📰' },
+    { label: 'A-Trading', path: '/trading',  icon: '🤖' },
   ];
 
   return (
@@ -156,9 +147,9 @@ export default function AppHeader({
       <header className="absolute top-[40px] left-0 right-0 z-[45] bg-[var(--bg-elevated)]/98 backdrop-blur-xl border-b border-[var(--border)] shadow-sm">
         <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20 gap-2 sm:gap-4">
-            {/* Left Section: Logo + Navigation */}
+
+            {/* ── Left: Logo + Nav ── */}
             <div className="flex items-center gap-4 sm:gap-6 lg:gap-8 flex-1 min-w-0 overflow-hidden">
-              {/* Logo */}
               <div
                 className="flex items-center gap-2 sm:gap-3 cursor-pointer group flex-shrink-0 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
                 onClick={() => router.push('/crypto')}
@@ -183,7 +174,7 @@ export default function AppHeader({
                 </div>
               </div>
 
-              {/* Desktop Navigation */}
+              {/* Desktop Nav */}
               <nav className="hidden xl:flex items-center gap-1 flex-shrink-0">
                 {navItems.map((item) => {
                   const isActive = pathname.startsWith(item.path);
@@ -209,18 +200,17 @@ export default function AppHeader({
                 })}
               </nav>
 
-              {/* Children (like live indicator) */}
               {children && <div className="hidden lg:block flex-shrink-0">{children}</div>}
             </div>
 
-            {/* Center Section: Search */}
+            {/* ── Center: Search ── */}
             <div className="hidden 2xl:block flex-1 max-w-xl mx-4 xl:mx-8 min-w-0">
               <AssetSearch cryptos={cryptos} stocks={stocks} onSelect={handleAssetSelect} />
             </div>
 
-            {/* Right Section: Actions */}
+            {/* ── Right: Actions ── */}
             <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-              {/* Mobile Search Toggle */}
+              {/* Mobile search toggle */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="2xl:hidden p-2 sm:p-2.5 rounded-lg bg-[var(--surface)] border border-[var(--border)] hover:bg-[var(--surface-hover)] transition-all"
@@ -231,7 +221,7 @@ export default function AppHeader({
                 </svg>
               </button>
 
-              {/* Theme Toggle */}
+              {/* Theme toggle */}
               <button
                 onClick={toggleTheme}
                 className="p-2 sm:p-2.5 rounded-lg bg-[var(--surface)] border border-[var(--border)] hover:bg-[var(--surface-hover)] transition-all hover:scale-105 active:scale-95"
@@ -249,24 +239,7 @@ export default function AppHeader({
                 )}
               </button>
 
-              {/* APIs Button */}
-              <button
-                onClick={() => setShowAPIModal(true)}
-                className="hidden sm:flex items-center gap-2 px-3 py-2 sm:py-2.5 rounded-lg bg-[var(--surface)] border border-[var(--border)] hover:bg-[var(--surface-hover)] hover:border-[var(--accent)]/50 transition-all active:scale-95"
-                title="Configurar APIs de IA (Claude, Gemini, GPT)"
-              >
-                <svg className="w-4 h-4 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                </svg>
-                <span className="text-sm font-semibold text-[var(--text-primary)] hidden lg:inline">APIs</span>
-                {apiConfigCount > 0 && (
-                  <span className="flex items-center justify-center w-4 h-4 rounded-full bg-[var(--accent)] text-[var(--text-inverse)] text-[10px] font-bold leading-none">
-                    {apiConfigCount}
-                  </span>
-                )}
-              </button>
-
-              {/* User Menu or Login/Signup Buttons */}
+              {/* User menu */}
               {status === 'loading' ? (
                 <div className="hidden lg:flex items-center gap-2">
                   <div className="w-10 h-10 rounded-full bg-[var(--surface)] border border-[var(--border)] animate-pulse" />
@@ -281,7 +254,7 @@ export default function AppHeader({
                       <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-strong)] flex items-center justify-center text-sm font-bold text-[var(--text-inverse)] shadow-lg">
                         {getInitials(session.user.name, session.user.email)}
                       </div>
-                      <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[var(--success)] rounded-full border-2 border-[var(--bg-elevated)]"></div>
+                      <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[var(--success)] rounded-full border-2 border-[var(--bg-elevated)]" />
                     </div>
                     <div className="text-left hidden 2xl:block min-w-0">
                       <div className="text-sm font-semibold text-[var(--text-primary)] leading-tight truncate max-w-[120px]">
@@ -293,15 +266,12 @@ export default function AppHeader({
                     </div>
                     <svg
                       className={`w-4 h-4 text-[var(--text-secondary)] transition-transform ${userMenuOpen ? 'rotate-180' : ''}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                      fill="none" stroke="currentColor" viewBox="0 0 24 24"
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
 
-                  {/* Dropdown Menu */}
                   {userMenuOpen && (
                     <div className="absolute right-0 mt-2 w-64 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-xl overflow-hidden animate-in slide-in-from-top-2 z-50">
                       <div className="p-4 border-b border-[var(--border)]">
@@ -310,49 +280,26 @@ export default function AppHeader({
                             {getInitials(session.user.name, session.user.email)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-semibold text-[var(--text-primary)] truncate">
-                              {session.user.name || 'Usuário'}
-                            </div>
-                            <div className="text-xs text-[var(--text-muted)] truncate">
-                              {session.user.email}
-                            </div>
+                            <div className="text-sm font-semibold text-[var(--text-primary)] truncate">{session.user.name || 'Usuário'}</div>
+                            <div className="text-xs text-[var(--text-muted)] truncate">{session.user.email}</div>
                           </div>
                         </div>
                       </div>
-
                       <div className="p-2">
-                        <button
-                          onClick={() => {
-                            router.push('/subscription');
-                            setUserMenuOpen(false);
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all text-left"
-                        >
+                        <button onClick={() => { router.push('/subscription'); setUserMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all text-left">
                           <svg className="w-5 h-5 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
                           </svg>
                           <span>Assinatura</span>
                         </button>
-
-                        <button
-                          onClick={() => {
-                            router.push('/profile');
-                            setUserMenuOpen(false);
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all text-left"
-                        >
+                        <button onClick={() => { router.push('/profile'); setUserMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all text-left">
                           <svg className="w-5 h-5 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                           </svg>
                           <span>Perfil</span>
                         </button>
-
                         <div className="h-px bg-[var(--border)] my-2" />
-
-                        <button
-                          onClick={handleSignOut}
-                          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-[var(--danger)] hover:bg-[var(--danger-soft)] transition-all text-left"
-                        >
+                        <button onClick={handleSignOut} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-[var(--danger)] hover:bg-[var(--danger-soft)] transition-all text-left">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                           </svg>
@@ -364,50 +311,38 @@ export default function AppHeader({
                 </div>
               ) : (
                 <div className="hidden lg:flex items-center gap-2">
-                  <button
-                    onClick={() => router.push('/login')}
-                    className="px-4 py-2.5 rounded-lg font-semibold text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all"
-                  >
+                  <button onClick={() => router.push('/login')} className="px-4 py-2.5 rounded-lg font-semibold text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all">
                     Entrar
                   </button>
-                  <button
-                    onClick={() => router.push('/subscription')}
-                    className="px-4 py-2.5 rounded-lg font-semibold text-sm bg-[var(--accent)] text-[var(--text-inverse)] hover:bg-[var(--accent-hover)] transition-all shadow-sm"
-                  >
+                  <button onClick={() => router.push('/subscription')} className="px-4 py-2.5 rounded-lg font-semibold text-sm bg-[var(--accent)] text-[var(--text-inverse)] hover:bg-[var(--accent-hover)] transition-all shadow-sm">
                     Assinatura
                   </button>
                 </div>
               )}
 
-              {/* Connect Button */}
+              {/* ── Unified Conexões button ── */}
               <button
-                onClick={() => setShowModal(true)}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold text-sm transition-all whitespace-nowrap border ${
-                  connected
-                    ? 'bg-[var(--success-soft)] text-[var(--success)] border-[var(--success)]/30 hover:bg-[var(--success-soft)] hover:border-[var(--success)]/50'
-                    : 'bg-[var(--accent-soft)] text-[var(--accent)] border-[var(--accent)]/30 hover:bg-[var(--accent-soft)] hover:border-[var(--accent)]/50'
-                } active:scale-95 shadow-sm`}
+                onClick={() => setShowConnectionsModal(true)}
+                className={`flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-lg font-semibold text-sm transition-all whitespace-nowrap border active:scale-95 shadow-sm ${
+                  totalConnected > 0
+                    ? 'bg-[var(--success-soft)] text-[var(--success)] border-[var(--success)]/30 hover:border-[var(--success)]/50'
+                    : 'bg-[var(--accent-soft)] text-[var(--accent)] border-[var(--accent)]/30 hover:border-[var(--accent)]/50'
+                }`}
+                title="Conexões: IA, Exchanges, Prediction Markets"
               >
-                {connected ? (
-                  <>
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span className="hidden sm:inline">{connectedExchanges.length}/2 Connected</span>
-                    <span className="sm:hidden">{connectedExchanges.length}/2</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 2L6.5 7.5 12 13l5.5-5.5L12 2zm0 22l5.5-5.5L12 13l-5.5 5.5L12 24zm-10-10l5.5 5.5L13 12 7.5 6.5 2 12zm20 0l-5.5-5.5L11 12l5.5 5.5L22 12z" />
-                    </svg>
-                    <span className="hidden sm:inline">Connect Exchange</span>
-                    <span className="sm:hidden">Connect</span>
-                  </>
+                {/* plug icon */}
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <span className="hidden sm:inline">Conectar</span>
+                {totalConnected > 0 && (
+                  <span className="flex items-center justify-center w-5 h-5 rounded-full bg-current/20 text-[10px] font-bold leading-none border border-current/30">
+                    {totalConnected}
+                  </span>
                 )}
               </button>
 
-              {/* Mobile Menu Toggle */}
+              {/* Mobile menu toggle */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="lg:hidden p-2.5 rounded-lg bg-[var(--surface)] border border-[var(--border)] hover:bg-[var(--surface-hover)] transition-all"
@@ -426,25 +361,20 @@ export default function AppHeader({
             </div>
           </div>
 
-          {/* Mobile Menu */}
+          {/* ── Mobile menu ── */}
           {mobileMenuOpen && (
             <div className="lg:hidden border-t border-[var(--border)] py-4 space-y-3 animate-in slide-in-from-top">
-              {/* Mobile Search */}
               <div className="px-2">
                 <AssetSearch cryptos={cryptos} stocks={stocks} onSelect={handleAssetSelect} />
               </div>
 
-              {/* Mobile Navigation */}
               <nav className="flex flex-col gap-1 px-2">
                 {navItems.map((item) => {
                   const isActive = pathname.startsWith(item.path);
                   return (
                     <button
                       key={item.path}
-                      onClick={() => {
-                        router.push(item.path);
-                        setMobileMenuOpen(false);
-                      }}
+                      onClick={() => { router.push(item.path); setMobileMenuOpen(false); }}
                       className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all ${
                         isActive
                           ? 'bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--accent)]/30'
@@ -458,28 +388,27 @@ export default function AppHeader({
                 })}
               </nav>
 
-              {/* Mobile APIs button */}
+              {/* Mobile connections button */}
               <div className="px-2">
                 <button
-                  onClick={() => { setShowAPIModal(true); setMobileMenuOpen(false); }}
+                  onClick={() => { setShowConnectionsModal(true); setMobileMenuOpen(false); }}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all border border-[var(--border)]"
                 >
                   <svg className="w-5 h-5 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
-                  <span>APIs de IA</span>
-                  {apiConfigCount > 0 && (
-                    <span className="ml-auto flex items-center justify-center w-5 h-5 rounded-full bg-[var(--accent)] text-[var(--text-inverse)] text-[10px] font-bold">
-                      {apiConfigCount}/3
+                  <span>Conexões</span>
+                  {totalConnected > 0 && (
+                    <span className="ml-auto flex items-center justify-center w-5 h-5 rounded-full bg-[var(--success)] text-[var(--text-inverse)] text-[10px] font-bold">
+                      {totalConnected}
                     </span>
                   )}
                 </button>
               </div>
 
-              {/* Mobile Children */}
               {children && <div className="px-2">{children}</div>}
 
-              {/* Mobile Auth Links */}
+              {/* Mobile auth */}
               {session?.user ? (
                 <div className="px-2 space-y-2 border-t border-[var(--border)] pt-4 mt-4">
                   <div className="px-4 py-3 rounded-lg bg-[var(--surface)] border border-[var(--border)] mb-2">
@@ -488,52 +417,27 @@ export default function AppHeader({
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-strong)] flex items-center justify-center text-sm font-bold text-[var(--text-inverse)] shadow-lg">
                           {getInitials(session.user.name, session.user.email)}
                         </div>
-                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[var(--success)] rounded-full border-2 border-[var(--surface)]"></div>
+                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[var(--success)] rounded-full border-2 border-[var(--surface)]" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold text-[var(--text-primary)] truncate">
-                          {session.user.name || 'Usuário'}
-                        </div>
-                        <div className="text-xs text-[var(--text-muted)] truncate">
-                          {session.user.email}
-                        </div>
+                        <div className="text-sm font-semibold text-[var(--text-primary)] truncate">{session.user.name || 'Usuário'}</div>
+                        <div className="text-xs text-[var(--text-muted)] truncate">{session.user.email}</div>
                       </div>
                     </div>
                   </div>
-
-                  <button
-                    onClick={() => {
-                      router.push('/subscription');
-                      setMobileMenuOpen(false);
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all"
-                  >
+                  <button onClick={() => { router.push('/subscription'); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all">
                     <svg className="w-5 h-5 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
                     </svg>
                     <span>Assinatura</span>
                   </button>
-
-                  <button
-                    onClick={() => {
-                      router.push('/profile');
-                      setMobileMenuOpen(false);
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all"
-                  >
+                  <button onClick={() => { router.push('/profile'); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all">
                     <svg className="w-5 h-5 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
                     <span>Perfil</span>
                   </button>
-
-                  <button
-                    onClick={() => {
-                      handleSignOut();
-                      setMobileMenuOpen(false);
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-[var(--danger)] hover:bg-[var(--danger-soft)] transition-all"
-                  >
+                  <button onClick={() => { handleSignOut(); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-[var(--danger)] hover:bg-[var(--danger-soft)] transition-all">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                     </svg>
@@ -542,25 +446,13 @@ export default function AppHeader({
                 </div>
               ) : (
                 <div className="px-2 space-y-2 border-t border-[var(--border)] pt-4 mt-4">
-                  <button
-                    onClick={() => {
-                      router.push('/login');
-                      setMobileMenuOpen(false);
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] transition-all"
-                  >
+                  <button onClick={() => { router.push('/login'); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] transition-all">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
                     <span>Entrar</span>
                   </button>
-                  <button
-                    onClick={() => {
-                      router.push('/subscription');
-                      setMobileMenuOpen(false);
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold bg-[var(--accent)] text-[var(--text-inverse)] hover:bg-[var(--accent-hover)] transition-all"
-                  >
+                  <button onClick={() => { router.push('/subscription'); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold bg-[var(--accent)] text-[var(--text-inverse)] hover:bg-[var(--accent-hover)] transition-all">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
                     </svg>
@@ -573,13 +465,8 @@ export default function AppHeader({
         </div>
       </header>
 
-      <BinanceLoginModal open={showModal} onClose={() => setShowModal(false)} />
-      <AIKeysModal open={showAPIModal} onClose={handleAPIModalClose} />
-      <AssetChatPanel
-        isOpen={chatPanelOpen}
-        asset={chatAsset}
-        onClose={() => setChatPanelOpen(false)}
-      />
+      <ConnectionsModal open={showConnectionsModal} onClose={handleConnectionsClose} />
+      <AssetChatPanel isOpen={chatPanelOpen} asset={chatAsset} onClose={() => setChatPanelOpen(false)} />
     </>
   );
 }
