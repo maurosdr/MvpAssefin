@@ -136,36 +136,6 @@ export default function TradingPage() {
           </div>
         </div>
 
-        {/* Features row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[
-            {
-              icon: '🔬',
-              title: 'Backtest com Dados Reais',
-              description: 'A estratégia é testada com dados históricos reais via BRAPI API ou Binance (CCXT), sem dados sintéticos.',
-            },
-            {
-              icon: '🔑',
-              title: 'Integração com Corretoras',
-              description: 'Conecte Binance, Coinbase, Polymarket e Kalshi para trading ao vivo após validar sua estratégia.',
-            },
-            {
-              icon: '🛡️',
-              title: 'Constituição de IA',
-              description: 'A IA segue regras rígidas: sempre valida com backtest antes de implementar, e confirma cada etapa com você.',
-            },
-          ].map((feature) => (
-            <div key={feature.title} className="modern-card p-5 flex gap-4">
-              <div className="w-10 h-10 rounded-xl bg-[var(--surface)] border border-[var(--border)] flex items-center justify-center text-xl flex-shrink-0">
-                {feature.icon}
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-[var(--text-primary)] mb-1">{feature.title}</h3>
-                <p className="text-xs text-[var(--text-muted)] leading-relaxed">{feature.description}</p>
-              </div>
-            </div>
-          ))}
-        </div>
       </main>
 
       <Footer />

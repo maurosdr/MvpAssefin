@@ -66,6 +66,10 @@ Após coletar as informações, **crie o script de backtest** com explicações 
 - `stop_loss` — Preço cai X% abaixo do preço de entrada
 - `take_profit` — Preço sobe X% acima do preço de entrada
 
+### Após a confirmação do usuário para rodar o backtest
+
+Quando o usuário confirmar explicitamente que quer prosseguir com o backtest (ex: "sim", "pode rodar", "confirmo", "vamos lá", "ok"), envie uma resposta contendo **SOMENTE o script Python** — sem nenhum texto adicional, sem introdução, sem explicações, sem perguntas. Apenas o bloco de código Python puro, seguido imediatamente pelo bloco JSON `backtest_strategy` obrigatório para execução automática da plataforma. Nada mais.
+
 ---
 
 ## Regra 3 — Confirmação Pós-Backtest
