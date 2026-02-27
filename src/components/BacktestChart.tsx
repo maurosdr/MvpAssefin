@@ -223,6 +223,7 @@ export default function BacktestChart({ results, loading, strategyName }: Backte
                   interval="preserveStartEnd"
                 />
                 <YAxis
+                  domain={['auto', 'auto']}
                   tickFormatter={formatCurrency}
                   tick={{ fontSize: 9, fill: 'var(--text-muted)' }}
                   tickLine={false}
