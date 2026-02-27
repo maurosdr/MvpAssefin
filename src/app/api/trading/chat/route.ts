@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { cookies } from 'next/headers';
 
 function loadConstitution(): string {
   try {
@@ -11,14 +12,24 @@ function loadConstitution(): string {
   }
 }
 
+function resolveApiKey(cookieName: string, envVar: string): string | undefined {
+  const cookieStore = cookies();
+  const fromCookie = cookieStore.get(cookieName)?.value;
+  return fromCookie || process.env[envVar];
+}
+
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
 }
 
 async function callClaude(systemPrompt: string, messages: ChatMessage[]): Promise<string> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error('ANTHROPIC_API_KEY não configurada');
+  const apiKey = resolveApiKey('ai_anthropic_key', 'ANTHROPIC_API_KEY');
+  if (!apiKey) {
+    throw new Error(
+      'Chave da API Anthropic não configurada. Clique em ⚙️ Configurar Chaves de API na página de A-Trading para adicionar sua chave.'
+    );
+  }
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -45,8 +56,12 @@ async function callClaude(systemPrompt: string, messages: ChatMessage[]): Promis
 }
 
 async function callGemini(systemPrompt: string, messages: ChatMessage[]): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('GEMINI_API_KEY não configurada');
+  const apiKey = resolveApiKey('ai_gemini_key', 'GEMINI_API_KEY');
+  if (!apiKey) {
+    throw new Error(
+      'Chave da API Gemini não configurada. Clique em ⚙️ Configurar Chaves de API na página de A-Trading para adicionar sua chave.'
+    );
+  }
 
   const geminiMessages = messages.map((m) => ({
     role: m.role === 'assistant' ? 'model' : 'user',
@@ -54,7 +69,7 @@ async function callGemini(systemPrompt: string, messages: ChatMessage[]): Promis
   }));
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

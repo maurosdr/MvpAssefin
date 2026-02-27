@@ -13,6 +13,8 @@ type AIModel = 'claude' | 'gemini';
 interface TradingChatProps {
   onBacktestFound: (strategy: BacktestStrategy) => void;
   isRunningBacktest: boolean;
+  keysConfigured?: boolean;
+  onOpenSettings?: () => void;
 }
 
 function extractBacktestStrategy(text: string): BacktestStrategy | null {
@@ -74,7 +76,7 @@ function renderMessageContent(content: string) {
   });
 }
 
-export default function TradingChat({ onBacktestFound, isRunningBacktest }: TradingChatProps) {
+export default function TradingChat({ onBacktestFound, isRunningBacktest, keysConfigured, onOpenSettings }: TradingChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -197,6 +199,22 @@ export default function TradingChat({ onBacktestFound, isRunningBacktest }: Trad
         </div>
       </div>
 
+      {/* No keys warning */}
+      {keysConfigured === false && (
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-[var(--warning-soft,#fffbe6)] border-b border-[var(--warning,#f59e0b)]/30 text-xs text-[var(--warning,#b45309)] flex-shrink-0">
+          <span>⚠️</span>
+          <span className="flex-1">Chaves de API não configuradas. O chat não vai funcionar sem elas.</span>
+          {onOpenSettings && (
+            <button
+              onClick={onOpenSettings}
+              className="font-bold underline hover:no-underline whitespace-nowrap"
+            >
+              Configurar agora →
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
         {messages.length === 0 && (
@@ -314,7 +332,7 @@ export default function TradingChat({ onBacktestFound, isRunningBacktest }: Trad
         <p className="text-xs text-[var(--text-muted)] mt-2 text-center">
           Enter para enviar · Shift+Enter para nova linha · Usando{' '}
           <span className="text-[var(--accent)] font-medium">
-            {selectedModel === 'claude' ? 'Claude Sonnet' : 'Gemini 2.0 Flash'}
+            {selectedModel === 'claude' ? 'Claude Sonnet' : 'Gemini 2.5 Flash'}
           </span>
         </p>
       </div>
