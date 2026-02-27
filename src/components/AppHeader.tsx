@@ -80,6 +80,7 @@ export default function AppHeader({
     { label: 'Crypto', path: '/crypto', icon: '📊' },
     { label: 'Ações', path: '/stocks', icon: '📈' },
     { label: 'Markets', path: '/markets', icon: '📰' },
+    { label: 'A-Trading', path: '/trading', icon: '🤖' },
   ];
 
   return (
