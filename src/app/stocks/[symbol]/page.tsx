@@ -1548,9 +1548,11 @@ function ValuacaoTab({ stock }: { stock: StockDetail }) {
     const taxExpense = Math.abs(inc.incomeTaxExpense || 0);
     const effectiveTaxRate = incomeBeforeTax > 0 ? taxExpense / incomeBeforeTax : 0.25;
     const netIncome = inc.netIncome || 0;
-    const da = Math.abs(cf.depreciation || 0);
+    // D&A = Depreciação + Amortização (ambos os campos do fluxo de caixa)
+    const da = Math.abs(cf.depreciation || 0) + Math.abs(cf.amortization || 0);
     const ebitda = ebit + da;
-    const capex = Math.abs(cf.capitalExpenditures || 0);
+    // CapEx = despesas de capital (capitalExpenditures já é negativo no formato Yahoo/BRAPI)
+    const capex = Math.abs(cf.capitalExpenditures || cf.purchaseOfPropertyPlantAndEquipment || 0);
 
     const curAssets = bal.totalCurrentAssets || 0;
     const curLiab = bal.totalCurrentLiabilities || 0;
@@ -1921,7 +1923,7 @@ function ValuacaoTab({ stock }: { stock: StockDetail }) {
                   { label: 'COGS', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.cogs) },
                   { label: 'Lucro Bruto', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.grossProfit), bold: true },
                   { label: 'Margem Bruta', fn: (m: typeof displayHist[0]) => `${(m.grossMargin * 100).toFixed(1)}%` },
-                  { label: 'D&A', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.da) },
+                  { label: 'D&A (Depreciação + Amortização)', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.da) },
                   { label: 'EBITDA', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.ebitda), bold: true },
                   { label: 'Margem EBITDA', fn: (m: typeof displayHist[0]) => `${(m.ebitdaMargin * 100).toFixed(1)}%` },
                   { label: 'EBIT', fn: (m: typeof displayHist[0]) => formatLargeNumber(m.ebit), bold: true },
