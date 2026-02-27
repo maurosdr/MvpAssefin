@@ -104,11 +104,15 @@ async function fetchFromCCXT(asset: string, period: string, interval: string): P
 }
 
 async function fetchCandles(asset: string, period: string, interval: string): Promise<OHLCVCandle[]> {
+  let candles: OHLCVCandle[];
   try {
-    return await fetchFromBRAPI(asset, period, interval);
+    candles = await fetchFromBRAPI(asset, period, interval);
   } catch {
-    return await fetchFromCCXT(asset, period, interval);
+    candles = await fetchFromCCXT(asset, period, interval);
   }
+  // Ensure ascending chronological order regardless of source
+  candles.sort((a, b) => a.timestamp - b.timestamp);
+  return candles;
 }
 
 interface Trade {
@@ -148,6 +152,12 @@ function runBacktest(candles: OHLCVCandle[], strategy: BacktestStrategy) {
   const winPnls: number[] = [];
 
   const warmup = Math.max(smaFastPeriod, smaSlowPeriod, rsiPeriod) + 1;
+
+  // Fill the warmup period with flat initialCapital so the equity curve
+  // starts from the very first candle of the requested period
+  for (let i = 0; i < warmup && i < candles.length; i++) {
+    equity.push({ date: candles[i].date, value: initialCapital });
+  }
 
   for (let i = warmup; i < candles.length; i++) {
     const candle = candles[i];
