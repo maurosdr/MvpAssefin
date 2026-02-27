@@ -23,7 +23,7 @@ import {
   ReferenceLine,
   CartesianGrid,
 } from 'recharts';
-type StockTab = 'sumario' | 'contabil' | 'multiplos' | 'trade-idea';
+type StockTab = 'sumario' | 'contabil' | 'multiplos' | 'trade-idea' | 'valuation';
 
 interface HistoryItem {
   date: string;
@@ -212,6 +212,7 @@ export default function StockDetailPage() {
             { key: 'contabil', label: 'Contabil', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
             { key: 'multiplos', label: 'Multiplos e Indices', icon: 'M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z' },
             { key: 'trade-idea', label: 'Trade Idea', icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6' },
+            { key: 'valuation', label: 'Valuation', icon: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M12 7h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
           ] as { key: StockTab; label: string; icon: string }[]).map((tab) => (
             <button
               key={tab.key}
@@ -237,6 +238,7 @@ export default function StockDetailPage() {
         {activeTab === 'trade-idea' && (
           <HistoricoTab stock={stock} timeWindow={timeWindow} setTimeWindow={setTimeWindow} />
         )}
+        {activeTab === 'valuation' && <ValuacaoTab stock={stock} />}
       </main>
     </div>
   );
@@ -1504,6 +1506,533 @@ function HistoricoTab({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ─── VALUACAO TAB ─── */
+
+function ValuacaoTab({ stock }: { stock: StockDetail }) {
+  const fd = stock.financialData || {};
+  const ks = stock.defaultKeyStatistics || {};
+
+  // ─── Historical data (oldest first) ────────────────────────────
+  const incomeHistory: FundamentalData[] = (
+    stock.incomeStatementHistory?.incomeStatementHistory ||
+    (Array.isArray(stock.incomeStatementHistory) ? stock.incomeStatementHistory : [])
+  ).slice().reverse();
+
+  const cashflowData: FundamentalData[] = (
+    stock.cashflowHistory?.cashflowHistory ||
+    stock.cashflowHistory?.cashflowStatements ||
+    stock.cashflowStatementHistory?.cashflowStatements ||
+    (Array.isArray(stock.cashflowHistory) ? stock.cashflowHistory : [])
+  ).slice().reverse();
+
+  const balanceHistory: FundamentalData[] = (
+    stock.balanceSheetHistory?.balanceSheetHistory ||
+    (Array.isArray(stock.balanceSheetHistory) ? stock.balanceSheetHistory : [])
+  ).slice().reverse();
+
+  // ─── Compute historical metrics per year ───────────────────────
+  const histMetrics = incomeHistory.map((inc, i) => {
+    const cf = cashflowData[i] || {};
+    const bal = balanceHistory[i] || {};
+    const prevBal = i > 0 ? (balanceHistory[i - 1] || {}) : {};
+
+    const revenue = inc.totalRevenue || 0;
+    const cogs = inc.costOfRevenue || 0;
+    const grossProfit = inc.grossProfit || (revenue - cogs);
+    const ebit = inc.ebit || inc.operatingIncome || 0;
+    const incomeBeforeTax = inc.incomeBeforeTax || 0;
+    const taxExpense = Math.abs(inc.incomeTaxExpense || 0);
+    const effectiveTaxRate = incomeBeforeTax > 0 ? taxExpense / incomeBeforeTax : 0.25;
+    const netIncome = inc.netIncome || 0;
+    const da = Math.abs(cf.depreciation || 0);
+    const ebitda = ebit + da;
+    const capex = Math.abs(cf.capitalExpenditures || 0);
+
+    const curAssets = bal.totalCurrentAssets || 0;
+    const curLiab = bal.totalCurrentLiabilities || 0;
+    const nwc = curAssets - curLiab;
+    const prevNwc = (prevBal.totalCurrentAssets || 0) - (prevBal.totalCurrentLiabilities || 0);
+    const chgNwc = i > 0 ? nwc - prevNwc : 0;
+
+    const fcff = ebit * (1 - effectiveTaxRate) + da - capex - chgNwc;
+
+    return {
+      year: inc.endDate ? new Date(inc.endDate).getFullYear() : `Y${i + 1}`,
+      revenue, cogs, grossProfit,
+      grossMargin: revenue ? grossProfit / revenue : 0,
+      da, daRate: revenue ? da / revenue : 0,
+      ebitda, ebitdaMargin: revenue ? ebitda / revenue : 0,
+      ebit, ebitMargin: revenue ? ebit / revenue : 0,
+      taxExpense, effectiveTaxRate,
+      netIncome, netMargin: revenue ? netIncome / revenue : 0,
+      capex, capexRate: revenue ? capex / revenue : 0,
+      chgNwc, chgNwcRate: revenue ? chgNwc / revenue : 0,
+      fcff,
+    };
+  });
+
+  // ─── Initial projection values from last historical period ──────
+  const lastH = histMetrics[histMetrics.length - 1];
+  const lastRevenue = lastH?.revenue || fd.totalRevenue || 0;
+  const initRevGrowth = parseFloat(((fd.revenueGrowth || 0.05) * 100).toFixed(1));
+  const initEbitdaMargin = parseFloat(((lastH?.ebitdaMargin || 0.15) * 100).toFixed(1));
+  const initDaRate = parseFloat(((lastH?.daRate || 0.03) * 100).toFixed(1));
+  const initCapexRate = parseFloat(((lastH?.capexRate || 0.04) * 100).toFixed(1));
+  const initNwcRate = parseFloat(((lastH?.chgNwcRate || 0.01) * 100).toFixed(1));
+  const initTaxRate = parseFloat(((lastH?.effectiveTaxRate || 0.25) * 100).toFixed(1));
+
+  const YEARS = 10;
+
+  // ─── State ──────────────────────────────────────────────────────
+  const [wacc, setWacc] = useState(10.0);
+  const [tgr, setTgr] = useState(3.5);
+  const [taxRate, setTaxRate] = useState(initTaxRate);
+  const [revenueGrowth, setRevenueGrowth] = useState<number[]>(Array(YEARS).fill(initRevGrowth));
+  const [ebitdaMargin, setEbitdaMargin] = useState<number[]>(Array(YEARS).fill(initEbitdaMargin));
+  const [daRate, setDaRate] = useState<number[]>(Array(YEARS).fill(initDaRate));
+  const [capexRate, setCapexRate] = useState<number[]>(Array(YEARS).fill(initCapexRate));
+  const [nwcRate, setNwcRate] = useState<number[]>(Array(YEARS).fill(initNwcRate));
+
+  const updateRow = (
+    setter: React.Dispatch<React.SetStateAction<number[]>>,
+    idx: number,
+    val: number
+  ) => setter(prev => { const n = [...prev]; n[idx] = val; return n; });
+
+  // ─── Projected cash flows ────────────────────────────────────────
+  const projections = useMemo(() => {
+    const out = [];
+    let prevRev = lastRevenue;
+    for (let i = 0; i < YEARS; i++) {
+      const rev = prevRev * (1 + revenueGrowth[i] / 100);
+      const ebitda = rev * (ebitdaMargin[i] / 100);
+      const da = rev * (daRate[i] / 100);
+      const ebit = ebitda - da;
+      const nopat = ebit * (1 - taxRate / 100);
+      const capex = rev * (capexRate[i] / 100);
+      const chgNwc = rev * (nwcRate[i] / 100);
+      const fcff = nopat + da - capex - chgNwc;
+      out.push({ year: new Date().getFullYear() + 1 + i, rev, ebitda, da, ebit, nopat, capex, chgNwc, fcff });
+      prevRev = rev;
+    }
+    return out;
+  }, [lastRevenue, revenueGrowth, ebitdaMargin, daRate, capexRate, nwcRate, taxRate]);
+
+  // ─── DCF result ─────────────────────────────────────────────────
+  const dcf = useMemo(() => {
+    const wD = wacc / 100;
+    const tD = tgr / 100;
+    if (wD <= tD) return null;
+    let pvFcff = 0;
+    for (let i = 0; i < projections.length; i++) {
+      pvFcff += projections[i].fcff / Math.pow(1 + wD, i + 1);
+    }
+    const lastFcff = projections[YEARS - 1]?.fcff || 0;
+    const tv = lastFcff * (1 + tD) / (wD - tD);
+    const pvTv = tv / Math.pow(1 + wD, YEARS);
+    const ev = pvFcff + pvTv;
+    const cash = fd.totalCash || 0;
+    const debt = fd.totalDebt || 0;
+    const equityValue = ev + cash - debt;
+    const shares = ks.sharesOutstanding || 0;
+    const pricePerShare = shares > 0 ? equityValue / shares : 0;
+    const upside = stock.currentPrice > 0 ? (pricePerShare - stock.currentPrice) / stock.currentPrice : 0;
+    return { pvFcff, tv, pvTv, ev, cash, debt, equityValue, pricePerShare, upside };
+  }, [projections, wacc, tgr, fd, ks, stock.currentPrice]);
+
+  // ─── Sensitivity table (5×5 WACC × TGR) ────────────────────────
+  const sensitivityData = useMemo(() => {
+    const waccSteps = [-2, -1, 0, 1, 2].map(d => wacc + d);
+    const tgrSteps = [-2, -1, 0, 1, 2].map(d => tgr + d);
+    return tgrSteps.map(tgrVal =>
+      waccSteps.map(waccVal => {
+        const wD = waccVal / 100;
+        const tD = tgrVal / 100;
+        if (wD <= tD) return null;
+        let pvFcff = 0;
+        for (let i = 0; i < projections.length; i++) {
+          pvFcff += projections[i].fcff / Math.pow(1 + wD, i + 1);
+        }
+        const lastFcff = projections[YEARS - 1]?.fcff || 0;
+        const tv = lastFcff * (1 + tD) / (wD - tD);
+        const pvTv = tv / Math.pow(1 + wD, YEARS);
+        const ev = pvFcff + pvTv;
+        const shares = ks.sharesOutstanding || 0;
+        const eq = ev + (fd.totalCash || 0) - (fd.totalDebt || 0);
+        return shares > 0 ? eq / shares : ev;
+      })
+    );
+  }, [projections, wacc, tgr, fd, ks]);
+
+  const sentColor = (val: number | null, base: number) => {
+    if (val === null) return 'bg-[var(--surface)] text-[var(--text-muted)]';
+    if (!base) return 'text-[var(--text-primary)]';
+    const d = (val - base) / Math.abs(base);
+    if (d > 0.2) return 'bg-emerald-500/20 text-emerald-400';
+    if (d > 0.05) return 'bg-emerald-500/10 text-emerald-500';
+    if (d < -0.2) return 'bg-red-500/20 text-red-400';
+    if (d < -0.05) return 'bg-red-500/10 text-red-500';
+    return 'bg-[var(--accent)]/10 text-[var(--accent)]';
+  };
+
+  const inputCls = 'w-full px-2 py-1 bg-[var(--surface)] border border-[var(--accent)]/20 rounded text-[var(--text-primary)] font-mono text-xs text-center focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/50 focus:border-[var(--accent)] transition-colors';
+
+  return (
+    <div className="space-y-6">
+
+      {/* ── TOP BAR ─────────────────────────────────────────────────── */}
+      <div className="modern-card">
+        <div className="flex flex-wrap items-end gap-6 justify-between">
+          {/* Ticker */}
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-[var(--text-muted)] mb-1">Ticker</p>
+            <p className="text-3xl font-black text-[var(--text-primary)] tracking-tight">{stock.symbol}</p>
+          </div>
+
+          {/* WACC */}
+          <div className="flex-1 min-w-[180px]">
+            <div className="flex items-center gap-2 mb-2">
+              <p className="text-[10px] uppercase tracking-widest text-[var(--text-muted)]">WACC</p>
+              <a
+                href="https://www.google.com/search?q=calculadora+WACC"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] px-2 py-0.5 bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/30 rounded-full hover:bg-[var(--accent)] hover:text-[var(--text-inverse)] transition-all font-bold"
+              >
+                Calculadora
+              </a>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="number" step="0.1" min="0" max="100" value={wacc}
+                onChange={e => setWacc(parseFloat(e.target.value) || 0)}
+                className="w-24 px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] font-mono text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+              />
+              <span className="text-[var(--text-secondary)] font-bold">%</span>
+            </div>
+          </div>
+
+          {/* TGR */}
+          <div className="flex-1 min-w-[180px]">
+            <p className="text-[10px] uppercase tracking-widest text-[var(--text-muted)] mb-2">Terminal Growth Rate</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="number" step="0.1" min="0" max="20" value={tgr}
+                onChange={e => setTgr(parseFloat(e.target.value) || 0)}
+                className="w-24 px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] font-mono text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+              />
+              <span className="text-[var(--text-secondary)] font-bold">%</span>
+            </div>
+          </div>
+
+          {/* Tax Rate */}
+          <div className="flex-1 min-w-[140px]">
+            <p className="text-[10px] uppercase tracking-widest text-[var(--text-muted)] mb-2">Alíquota IR</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="number" step="0.5" min="0" max="60" value={taxRate}
+                onChange={e => setTaxRate(parseFloat(e.target.value) || 0)}
+                className="w-24 px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] font-mono text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+              />
+              <span className="text-[var(--text-secondary)] font-bold">%</span>
+            </div>
+          </div>
+
+          {/* Price + Upside */}
+          <div className="text-right border-l border-[var(--border)] pl-6">
+            <p className="text-[10px] uppercase tracking-widest text-[var(--text-muted)] mb-1">Preço Justo (DCF)</p>
+            <p className="text-3xl font-black text-[var(--text-primary)] font-mono">
+              {dcf && dcf.pricePerShare > 0 ? formatBRL(dcf.pricePerShare) : '—'}
+            </p>
+            {dcf && dcf.pricePerShare > 0 && (
+              <>
+                <p className={`text-lg font-black mt-0.5 ${dcf.upside >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+                  {dcf.upside >= 0 ? '+' : ''}{(dcf.upside * 100).toFixed(1)}% upside
+                </p>
+                <p className="text-xs text-[var(--text-muted)]">atual: {formatBRL(stock.currentPrice)}</p>
+              </>
+            )}
+            {!dcf && <p className="text-xs text-[var(--danger)] mt-1">WACC ≤ TGR — inválido</p>}
+          </div>
+        </div>
+      </div>
+
+      {/* ── HISTORICAL DATA ─────────────────────────────────────────── */}
+      {histMetrics.length > 0 && (
+        <div className="modern-card">
+          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[var(--border)]">
+            <div className="w-1 h-5 bg-[var(--info)] rounded-full" />
+            <h3 className="section-title text-xs">Histórico — Principais Linhas do FCF</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="text-[10px] font-black uppercase tracking-[0.15em] text-[var(--text-muted)] border-b-2 border-[var(--border)]">
+                  <th className="pb-2 text-left min-w-[200px]">MÉTRICA</th>
+                  {histMetrics.map((m, i) => (
+                    <th key={i} className="pb-2 text-right min-w-[110px]">{m.year}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border-subtle)]">
+                {([
+                  { label: 'Receita', fn: (m: typeof histMetrics[0]) => formatLargeNumber(m.revenue) },
+                  { label: 'COGS', fn: (m: typeof histMetrics[0]) => formatLargeNumber(m.cogs) },
+                  { label: 'Lucro Bruto', fn: (m: typeof histMetrics[0]) => formatLargeNumber(m.grossProfit), bold: true },
+                  { label: 'Margem Bruta', fn: (m: typeof histMetrics[0]) => `${(m.grossMargin * 100).toFixed(1)}%` },
+                  { label: 'D&A', fn: (m: typeof histMetrics[0]) => formatLargeNumber(m.da) },
+                  { label: 'EBITDA', fn: (m: typeof histMetrics[0]) => formatLargeNumber(m.ebitda), bold: true },
+                  { label: 'Margem EBITDA', fn: (m: typeof histMetrics[0]) => `${(m.ebitdaMargin * 100).toFixed(1)}%` },
+                  { label: 'EBIT', fn: (m: typeof histMetrics[0]) => formatLargeNumber(m.ebit), bold: true },
+                  { label: 'Margem EBIT', fn: (m: typeof histMetrics[0]) => `${(m.ebitMargin * 100).toFixed(1)}%` },
+                  { label: 'IR / Taxes', fn: (m: typeof histMetrics[0]) => formatLargeNumber(m.taxExpense) },
+                  { label: 'Alíquota Efetiva', fn: (m: typeof histMetrics[0]) => `${(m.effectiveTaxRate * 100).toFixed(1)}%` },
+                  { label: 'Lucro Líquido', fn: (m: typeof histMetrics[0]) => formatLargeNumber(m.netIncome), bold: true },
+                  { label: 'Margem Líquida', fn: (m: typeof histMetrics[0]) => `${(m.netMargin * 100).toFixed(1)}%` },
+                  { label: 'CapEx', fn: (m: typeof histMetrics[0]) => formatLargeNumber(m.capex) },
+                  { label: 'Δ NWC (Chg NWC)', fn: (m: typeof histMetrics[0]) => formatLargeNumber(m.chgNwc) },
+                  { label: 'FCFF', fn: (m: typeof histMetrics[0]) => formatLargeNumber(m.fcff), bold: true },
+                ] as { label: string; fn: (m: typeof histMetrics[0]) => string; bold?: boolean }[]).map(row => (
+                  <tr key={row.label} className="hover:bg-[var(--surface-hover)] transition-colors">
+                    <td className={`py-2 text-xs ${row.bold ? 'font-bold text-[var(--text-primary)]' : 'font-semibold text-[var(--text-secondary)]'}`}>{row.label}</td>
+                    {histMetrics.map((m, i) => (
+                      <td key={i} className={`py-2 text-right text-xs data-value ${row.bold ? 'font-bold text-[var(--text-primary)]' : 'text-[var(--text-primary)]'}`}>
+                        {row.fn(m)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── PROJECTION INPUTS ───────────────────────────────────────── */}
+      <div className="modern-card">
+        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[var(--border)]">
+          <div className="w-1 h-5 bg-[var(--accent)] rounded-full" />
+          <h3 className="section-title text-xs">Simulação — Próximos 10 Anos</h3>
+          <span className="text-[10px] text-[var(--text-muted)] ml-1">(premissas editáveis)</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="text-[10px] font-black uppercase tracking-[0.15em] text-[var(--text-muted)] border-b-2 border-[var(--border)]">
+                <th className="pb-2 text-left min-w-[210px]">PREMISSA</th>
+                {Array.from({ length: YEARS }, (_, i) => (
+                  <th key={i} className="pb-2 text-center min-w-[80px]">Ano {i + 1}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--border-subtle)]">
+              {([
+                { label: 'Crescimento Receita (%)', state: revenueGrowth, setter: setRevenueGrowth, step: 0.5 },
+                { label: 'Margem EBITDA (%)', state: ebitdaMargin, setter: setEbitdaMargin, step: 0.5 },
+                { label: 'D&A (% da Receita)', state: daRate, setter: setDaRate, step: 0.1 },
+                { label: 'CapEx (% da Receita)', state: capexRate, setter: setCapexRate, step: 0.1 },
+                { label: 'Δ NWC (% da Receita)', state: nwcRate, setter: setNwcRate, step: 0.1 },
+              ] as { label: string; state: number[]; setter: React.Dispatch<React.SetStateAction<number[]>>; step: number }[]).map(row => (
+                <tr key={row.label} className="hover:bg-[var(--surface-hover)] transition-colors">
+                  <td className="py-2 text-xs font-semibold text-[var(--text-secondary)]">{row.label}</td>
+                  {row.state.map((v, i) => (
+                    <td key={i} className="py-1 px-1">
+                      <input
+                        type="number"
+                        step={row.step}
+                        value={v}
+                        onChange={e => updateRow(row.setter, i, parseFloat(e.target.value) || 0)}
+                        className={inputCls}
+                      />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── PROJECTED CASH FLOW STATEMENT ───────────────────────────── */}
+      <div className="modern-card">
+        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[var(--border)]">
+          <div className="w-1 h-5 bg-[var(--success)] rounded-full" />
+          <h3 className="section-title text-xs">Fluxo de Caixa Projetado — FCFF</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="text-[10px] font-black uppercase tracking-[0.15em] text-[var(--text-muted)] border-b-2 border-[var(--border)]">
+                <th className="pb-2 text-left min-w-[200px]">LINHA</th>
+                {projections.map(p => (
+                  <th key={p.year} className="pb-2 text-right min-w-[110px]">{p.year}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--border-subtle)]">
+              {([
+                { label: 'Receita', fn: (p: typeof projections[0]) => formatLargeNumber(p.rev), bold: true },
+                { label: 'EBITDA', fn: (p: typeof projections[0]) => formatLargeNumber(p.ebitda), bold: true },
+                { label: '(−) D&A', fn: (p: typeof projections[0]) => `(${formatLargeNumber(p.da)})` },
+                { label: 'EBIT', fn: (p: typeof projections[0]) => formatLargeNumber(p.ebit), bold: true },
+                { label: `NOPAT = EBIT × (1 − ${taxRate}%)`, fn: (p: typeof projections[0]) => formatLargeNumber(p.nopat) },
+                { label: '(+) D&A', fn: (p: typeof projections[0]) => formatLargeNumber(p.da) },
+                { label: '(−) CapEx', fn: (p: typeof projections[0]) => `(${formatLargeNumber(p.capex)})` },
+                { label: '(−) Δ NWC', fn: (p: typeof projections[0]) => `(${formatLargeNumber(p.chgNwc)})` },
+                { label: 'FCFF', fn: (p: typeof projections[0]) => formatLargeNumber(p.fcff), bold: true, highlight: true },
+              ] as { label: string; fn: (p: typeof projections[0]) => string; bold?: boolean; highlight?: boolean }[]).map(row => (
+                <tr
+                  key={row.label}
+                  className={`transition-colors ${row.highlight ? 'border-t-2 border-[var(--border)] bg-[var(--surface)]/40' : 'hover:bg-[var(--surface-hover)]'}`}
+                >
+                  <td className={`py-2 text-xs ${row.bold ? 'font-bold text-[var(--text-primary)]' : 'font-semibold text-[var(--text-secondary)]'}`}>{row.label}</td>
+                  {projections.map(p => (
+                    <td
+                      key={p.year}
+                      className={`py-2 text-right text-xs data-value ${
+                        row.highlight
+                          ? (p.fcff >= 0 ? 'text-[var(--success)] font-black' : 'text-[var(--danger)] font-black')
+                          : row.bold
+                          ? 'text-[var(--text-primary)] font-bold'
+                          : 'text-[var(--text-primary)]'
+                      }`}
+                    >
+                      {row.fn(p)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── VALUATION RESULT + CAPITAL STRUCTURE ────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* DCF Bridge */}
+        <div className="modern-card">
+          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[var(--border)]">
+            <div className="w-1 h-5 bg-[var(--accent)] rounded-full" />
+            <h3 className="section-title text-xs">Resultado DCF — Ponte de Valor</h3>
+          </div>
+          {dcf ? (
+            <div className="space-y-1">
+              <MetricRow label="PV dos FCFFs (10 anos)" value={formatLargeNumber(dcf.pvFcff)} />
+              <MetricRow label={`Valor Terminal (TGR: ${tgr}%)`} value={formatLargeNumber(dcf.tv)} />
+              <MetricRow label="PV do Valor Terminal" value={formatLargeNumber(dcf.pvTv)} />
+              <div className="border-t-2 border-[var(--border)] pt-2 mt-2">
+                <MetricRow label="Enterprise Value (EV)" value={formatLargeNumber(dcf.ev)} />
+              </div>
+              <MetricRow label="(+) Caixa & Equivalentes" value={formatLargeNumber(dcf.cash)} />
+              <MetricRow label="(−) Dívida Total" value={`(${formatLargeNumber(dcf.debt)})`} />
+              <div className="border-t-2 border-[var(--border)] pt-2 mt-2">
+                <MetricRow label="Equity Value" value={formatLargeNumber(dcf.equityValue)} />
+              </div>
+              {ks.sharesOutstanding > 0 && (
+                <>
+                  <MetricRow label="Ações em Circulação" value={formatLargeNumber(ks.sharesOutstanding, '')} />
+                  <div className="border-t-2 border-[var(--border)] pt-2 mt-2">
+                    <MetricRow label="Preço Justo / Ação" value={formatBRL(dcf.pricePerShare)} />
+                  </div>
+                  <div className={`flex items-center justify-between py-3 rounded-xl px-4 mt-3 ${dcf.upside >= 0 ? 'bg-[var(--success)]/10 border border-[var(--success)]/20' : 'bg-[var(--danger)]/10 border border-[var(--danger)]/20'}`}>
+                    <div>
+                      <p className="text-xs text-[var(--text-muted)]">Upside / Downside vs atual</p>
+                      <p className="text-xs text-[var(--text-muted)]">{formatBRL(stock.currentPrice)} → {formatBRL(dcf.pricePerShare)}</p>
+                    </div>
+                    <span className={`text-2xl font-black ${dcf.upside >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+                      {dcf.upside >= 0 ? '+' : ''}{(dcf.upside * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-[var(--danger)] text-center py-8">WACC deve ser maior que o TGR.</p>
+          )}
+        </div>
+
+        {/* Capital Structure */}
+        <div className="modern-card">
+          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[var(--border)]">
+            <div className="w-1 h-5 bg-[var(--info)] rounded-full" />
+            <h3 className="section-title text-xs">Estrutura de Capital</h3>
+          </div>
+          <div className="space-y-1">
+            <MetricRow label="Caixa & Equivalentes" value={formatLargeNumber(fd.totalCash)} />
+            <MetricRow label="Dívida Total" value={formatLargeNumber(fd.totalDebt)} />
+            <MetricRow label="Dívida Líquida" value={formatLargeNumber((fd.totalDebt || 0) - (fd.totalCash || 0))} />
+            <MetricRow label="Patrimônio Líquido (Equity)" value={formatLargeNumber(fd.totalStockholderEquity || ks.bookValue)} />
+            <div className="border-t border-[var(--border)] pt-1 mt-1">
+              <MetricRow label="Market Cap" value={formatLargeNumber(stock.marketCap)} />
+              <MetricRow label="EV (Referência de Mercado)" value={formatLargeNumber(ks.enterpriseValue)} />
+            </div>
+            <div className="border-t border-[var(--border)] pt-1 mt-1">
+              <MetricRow label="Dívida / EBITDA" value={fd.ebitda ? formatNumber((fd.totalDebt || 0) / fd.ebitda) : '-'} />
+              <MetricRow label="Dívida / Equity" value={formatNumber(fd.debtToEquity)} />
+              <MetricRow label="Ações em Circulação" value={formatLargeNumber(ks.sharesOutstanding, '')} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── SENSITIVITY TABLE ───────────────────────────────────────── */}
+      <div className="modern-card">
+        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[var(--border)]">
+          <div className="w-1 h-5 bg-yellow-500 rounded-full" />
+          <h3 className="section-title text-xs">Análise de Sensibilidade — Preço por Ação</h3>
+          <span className="text-[10px] text-[var(--text-muted)] ml-1">WACC (colunas) × TGR (linhas)</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-xs">
+            <thead>
+              <tr>
+                <th className="p-3 text-center border border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] font-black text-[10px]">
+                  TGR ↓ / WACC →
+                </th>
+                {[-2, -1, 0, 1, 2].map(d => (
+                  <th
+                    key={d}
+                    className={`p-3 text-center border border-[var(--border)] font-black text-[10px] ${d === 0 ? 'bg-[var(--accent)]/15 text-[var(--accent)]' : 'bg-[var(--surface)] text-[var(--text-muted)]'}`}
+                  >
+                    {(wacc + d).toFixed(1)}%
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {sensitivityData.map((row, ri) => (
+                <tr key={ri}>
+                  <td
+                    className={`p-3 text-center border border-[var(--border)] font-black text-[10px] ${ri === 2 ? 'bg-[var(--accent)]/15 text-[var(--accent)]' : 'bg-[var(--surface)] text-[var(--text-muted)]'}`}
+                  >
+                    {(tgr + (ri - 2)).toFixed(1)}%
+                  </td>
+                  {row.map((val, ci) => {
+                    const isCenter = ri === 2 && ci === 2;
+                    const base = dcf?.pricePerShare || 0;
+                    return (
+                      <td
+                        key={ci}
+                        className={`p-3 text-center border border-[var(--border)] font-mono ${isCenter ? 'ring-2 ring-inset ring-[var(--accent)] font-black' : ''} ${sentColor(val, base)}`}
+                      >
+                        {val !== null ? formatBRL(val) : '—'}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="text-[10px] text-[var(--text-muted)] mt-3">
+            * Preço justo por ação (R$). Centro = WACC {wacc.toFixed(1)}% / TGR {tgr.toFixed(1)}% (destacado). Verde = acima do cenário base · Vermelho = abaixo.
+          </p>
+        </div>
+      </div>
+
     </div>
   );
 }
