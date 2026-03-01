@@ -160,10 +160,10 @@ export default function CryptoDetailPage() {
         </div>
       </AppHeader>
 
-      {/* Two-column layout: main content + chat panel */}
-      <div className="flex pt-[120px] min-h-screen">
+      {/* Two-column layout: main content + fixed chat panel */}
+      <div className="flex min-h-screen">
         {/* Main Content */}
-        <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 pt-[140px] pb-6 space-y-6">
         {/* Top Tab Bar: Market / Trade Ideas */}
         <div className="flex items-center gap-2 bg-[var(--surface)]/60 border border-[var(--border)] rounded-2xl p-1.5 overflow-x-auto sticky top-[120px] z-30 backdrop-blur-sm">
           <button
@@ -369,10 +369,12 @@ export default function CryptoDetailPage() {
         )}
         </main>
 
-        {/* Right: Chat Panel */}
-        <aside className="hidden lg:flex flex-col w-[380px] xl:w-[420px] flex-shrink-0 border-l border-[var(--border)] sticky top-[120px] h-[calc(100vh-120px)]">
-          <AssetChat symbol={symbol} assetType="crypto" />
-        </aside>
+        {/* Right: Chat Panel — fixed full-height, sits under the top header */}
+        <div className="hidden lg:block w-[380px] xl:w-[420px] flex-shrink-0">
+          <div className="fixed right-0 top-0 h-screen w-[380px] xl:w-[420px] z-[44] flex flex-col bg-[var(--surface)] border-l border-[var(--border)]">
+            <AssetChat symbol={symbol} assetType="crypto" />
+          </div>
+        </div>
       </div>
     </div>
   );

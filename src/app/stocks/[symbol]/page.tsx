@@ -117,13 +117,21 @@ export default function StockDetailPage() {
     if (symbol) fetchStock();
   }, [symbol, timeWindow]);
 
+  const ChatAside = () => (
+    <div className="hidden lg:block w-[380px] xl:w-[420px] flex-shrink-0">
+      <div className="fixed right-0 top-0 h-screen w-[380px] xl:w-[420px] z-[44] flex flex-col bg-[var(--surface)] border-l border-[var(--border)]">
+        <AssetChat symbol={symbol} assetType="stock" />
+      </div>
+    </div>
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--bg)]">
         <MarketTickerBar />
         <AppHeader />
-        <div className="flex pt-[120px] min-h-screen">
-          <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex min-h-screen">
+          <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 pt-[140px] pb-8">
             <div className="flex items-center justify-center py-20">
               <div className="text-center">
                 <div className="w-12 h-12 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
@@ -131,9 +139,7 @@ export default function StockDetailPage() {
               </div>
             </div>
           </main>
-          <aside className="hidden lg:flex flex-col w-[380px] xl:w-[420px] flex-shrink-0 border-l border-[var(--border)] sticky top-[120px] h-[calc(100vh-120px)]">
-            <AssetChat symbol={symbol} assetType="stock" />
-          </aside>
+          <ChatAside />
         </div>
       </div>
     );
@@ -144,8 +150,8 @@ export default function StockDetailPage() {
       <div className="min-h-screen bg-[var(--bg)]">
         <MarketTickerBar />
         <AppHeader />
-        <div className="flex pt-[120px] min-h-screen">
-          <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex min-h-screen">
+          <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 pt-[140px] pb-8">
             <div className="flex items-center justify-center py-20">
               <div className="text-center">
                 <p className="text-[var(--text-muted)] mb-4">Ação não encontrada</p>
@@ -158,9 +164,7 @@ export default function StockDetailPage() {
               </div>
             </div>
           </main>
-          <aside className="hidden lg:flex flex-col w-[380px] xl:w-[420px] flex-shrink-0 border-l border-[var(--border)] sticky top-[120px] h-[calc(100vh-120px)]">
-            <AssetChat symbol={symbol} assetType="stock" />
-          </aside>
+          <ChatAside />
         </div>
       </div>
     );
@@ -173,10 +177,10 @@ export default function StockDetailPage() {
       <MarketTickerBar />
       <AppHeader />
 
-      {/* Two-column layout: main content + chat panel */}
-      <div className="flex pt-[120px] min-h-screen">
+      {/* Two-column layout: main content + fixed chat panel */}
+      <div className="flex min-h-screen">
         {/* Main Content */}
-        <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 py-8 space-y-6 overflow-x-hidden">
+        <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 pt-[140px] pb-8 space-y-6 overflow-x-hidden">
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
@@ -222,43 +226,44 @@ export default function StockDetailPage() {
         {/* Tab Bar */}
         <div className="flex items-center gap-2 bg-[var(--surface)]/60 border border-[var(--border)] rounded-2xl p-1.5 overflow-x-auto sticky top-[120px] z-30 backdrop-blur-sm">
           {([
-            { key: 'sumario', label: 'Sumario', icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
-            { key: 'contabil', label: 'Contabil', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
-            { key: 'multiplos', label: 'Multiplos e Indices', icon: 'M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z' },
-            { key: 'trade-idea', label: 'Trade Idea', icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6' },
-            { key: 'valuation', label: 'Valuation', icon: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M12 7h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
-          ] as { key: StockTab; label: string; icon: string }[]).map((tab) => (
+            { key: 'sumario', label: 'Sumário' },
+            { key: 'contabil', label: 'Contábil' },
+            { key: 'multiplos', label: 'Múltiplos e Índices' },
+            { key: 'trade-idea', label: 'Trade Idea' },
+            { key: 'valuation', label: 'Valuation' },
+          ] as { key: StockTab; label: string }[]).map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium text-sm transition-all whitespace-nowrap ${
+              className={`flex-1 flex items-center justify-center px-4 py-3 rounded-xl font-medium text-sm transition-all whitespace-nowrap ${
                 activeTab === tab.key
                   ? 'bg-[var(--accent)] text-[var(--text-inverse)] shadow-lg shadow-[var(--accent)]/20'
                   : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
               }`}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={tab.icon} />
-              </svg>
               {tab.label}
             </button>
           ))}
         </div>
 
-        {/* Tab Content */}
-        {activeTab === 'sumario' && <SumarioTab stock={stock} />}
-        {activeTab === 'contabil' && <ContabilTab stock={stock} />}
-        {activeTab === 'multiplos' && <MultiplosTab stock={stock} />}
-        {activeTab === 'trade-idea' && (
-          <HistoricoTab stock={stock} timeWindow={timeWindow} setTimeWindow={setTimeWindow} />
-        )}
-        {activeTab === 'valuation' && <ValuacaoTab stock={stock} />}
+        {/* Tab Content — extra top margin so it breathes below the sticky bar */}
+        <div className="mt-8">
+          {activeTab === 'sumario' && <SumarioTab stock={stock} />}
+          {activeTab === 'contabil' && <ContabilTab stock={stock} />}
+          {activeTab === 'multiplos' && <MultiplosTab stock={stock} />}
+          {activeTab === 'trade-idea' && (
+            <HistoricoTab stock={stock} timeWindow={timeWindow} setTimeWindow={setTimeWindow} />
+          )}
+          {activeTab === 'valuation' && <ValuacaoTab stock={stock} />}
+        </div>
         </main>
 
-        {/* Right: Chat Panel */}
-        <aside className="hidden lg:flex flex-col w-[380px] xl:w-[420px] flex-shrink-0 border-l border-[var(--border)] sticky top-[120px] h-[calc(100vh-120px)]">
-          <AssetChat symbol={symbol} assetType="stock" />
-        </aside>
+        {/* Right: Chat Panel — fixed full-height, sits under the top header */}
+        <div className="hidden lg:block w-[380px] xl:w-[420px] flex-shrink-0">
+          <div className="fixed right-0 top-0 h-screen w-[380px] xl:w-[420px] z-[44] flex flex-col bg-[var(--surface)] border-l border-[var(--border)]">
+            <AssetChat symbol={symbol} assetType="stock" />
+          </div>
+        </div>
       </div>
     </div>
   );
