@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import AppHeader from '@/components/AppHeader';
 import MarketTickerBar from '@/components/MarketTickerBar';
+import AssetChat from '@/components/AssetChat';
 import { getStockLogoUrl, getStockInitials } from '@/lib/stock-logos';
 import { MAIN_STOCKS, STOCK_NAMES } from '@/lib/stocks-data';
 import { calculateSMA, calculateEMA } from '@/lib/indicators';
@@ -82,6 +83,7 @@ export default function StockDetailPage() {
   const [timeWindow, setTimeWindow] = useState('1mo');
   const [logoError, setLogoError] = useState(false);
   const [activeTab, setActiveTab] = useState<StockTab>('sumario');
+  const [chatOpen, setChatOpen] = useState(false);
 
   useEffect(() => {
     const fetchStock = async () => {
@@ -158,89 +160,122 @@ export default function StockDetailPage() {
   const isPositive = stock.changePercent >= 0;
 
   return (
-    <div className="min-h-screen bg-[var(--bg)]">
-      <MarketTickerBar />
-      <AppHeader />
+    <>
+      <div className={`min-h-screen bg-[var(--bg)] transition-all duration-300 ${chatOpen ? 'pr-[400px]' : ''}`}>
+        <MarketTickerBar />
+        <AppHeader />
 
-      <main className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 pt-[140px] pb-8 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.push('/stocks')}
-              className="flex items-center gap-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <div className="w-16 h-16 rounded-xl bg-[var(--surface)] border border-[var(--border)] flex items-center justify-center overflow-hidden shadow-sm">
-              {(stock.logoUrl || getStockLogoUrl(symbol)) && !logoError ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={stock.logoUrl || getStockLogoUrl(symbol)}
-                  alt={stock.name}
-                  className="w-full h-full object-contain p-2"
-                  onError={() => setLogoError(true)}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-[var(--text-primary)] font-bold text-lg">
-                  {getStockInitials(symbol)}
+        <main className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 pt-[140px] pb-8 space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => router.push('/stocks')}
+                className="flex items-center gap-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <div className="w-16 h-16 rounded-xl bg-[var(--surface)] border border-[var(--border)] flex items-center justify-center overflow-hidden shadow-sm">
+                {(stock.logoUrl || getStockLogoUrl(symbol)) && !logoError ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={stock.logoUrl || getStockLogoUrl(symbol)}
+                    alt={stock.name}
+                    className="w-full h-full object-contain p-2"
+                    onError={() => setLogoError(true)}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-[var(--text-primary)] font-bold text-lg">
+                    {getStockInitials(symbol)}
+                  </div>
+                )}
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-1">{stock.name}</h1>
+                <p className="text-[var(--text-muted)]">{stock.symbol} &bull; B3</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <div className="data-value text-3xl font-bold text-[var(--text-primary)] mb-1">
+                  {stock.currentPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                 </div>
-              )}
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-1">{stock.name}</h1>
-              <p className="text-[var(--text-muted)]">{stock.symbol} &bull; B3</p>
+                <div className={`data-value text-xl font-semibold ${isPositive ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+                  {isPositive ? '+' : ''}{stock.changePercent.toFixed(2)}% ({isPositive ? '+' : ''}
+                  {stock.change.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})
+                </div>
+              </div>
+              {/* Chat IA Toggle */}
+              <button
+                onClick={() => setChatOpen((o) => !o)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all border ${
+                  chatOpen
+                    ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-lg shadow-[var(--accent)]/20'
+                    : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border)] hover:border-[var(--accent)]/50 hover:text-[var(--text-primary)]'
+                }`}
+                title={chatOpen ? 'Fechar Chat IA' : 'Abrir Chat IA'}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                </svg>
+                Chat IA
+              </button>
             </div>
           </div>
-          <div className="text-right">
-            <div className="data-value text-3xl font-bold text-[var(--text-primary)] mb-1">
-              {stock.currentPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-            </div>
-            <div className={`data-value text-xl font-semibold ${isPositive ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
-              {isPositive ? '+' : ''}{stock.changePercent.toFixed(2)}% ({isPositive ? '+' : ''}
-              {stock.change.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})
-            </div>
+
+          {/* Tab Bar */}
+          <div className="flex items-center gap-2 bg-[var(--surface)]/60 border border-[var(--border)] rounded-2xl p-1.5 overflow-x-auto sticky top-[120px] z-30 backdrop-blur-sm">
+            {([
+              { key: 'sumario', label: 'Sumario', icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+              { key: 'contabil', label: 'Contabil', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
+              { key: 'multiplos', label: 'Multiplos e Indices', icon: 'M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z' },
+              { key: 'trade-idea', label: 'Trade Idea', icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6' },
+              { key: 'valuation', label: 'Valuation', icon: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M12 7h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+            ] as { key: StockTab; label: string; icon: string }[]).map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium text-sm transition-all whitespace-nowrap ${
+                  activeTab === tab.key
+                    ? 'bg-[var(--accent)] text-[var(--text-inverse)] shadow-lg shadow-[var(--accent)]/20'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={tab.icon} />
+                </svg>
+                {tab.label}
+              </button>
+            ))}
           </div>
-        </div>
 
-        {/* Tab Bar */}
-        <div className="flex items-center gap-2 bg-[var(--surface)]/60 border border-[var(--border)] rounded-2xl p-1.5 overflow-x-auto sticky top-[120px] z-30 backdrop-blur-sm">
-          {([
-            { key: 'sumario', label: 'Sumario', icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
-            { key: 'contabil', label: 'Contabil', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
-            { key: 'multiplos', label: 'Multiplos e Indices', icon: 'M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z' },
-            { key: 'trade-idea', label: 'Trade Idea', icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6' },
-            { key: 'valuation', label: 'Valuation', icon: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M12 7h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
-          ] as { key: StockTab; label: string; icon: string }[]).map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium text-sm transition-all whitespace-nowrap ${
-                activeTab === tab.key
-                  ? 'bg-[var(--accent)] text-[var(--text-inverse)] shadow-lg shadow-[var(--accent)]/20'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
-              }`}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={tab.icon} />
-              </svg>
-              {tab.label}
-            </button>
-          ))}
-        </div>
+          {/* Tab Content */}
+          {activeTab === 'sumario' && <SumarioTab stock={stock} />}
+          {activeTab === 'contabil' && <ContabilTab stock={stock} />}
+          {activeTab === 'multiplos' && <MultiplosTab stock={stock} />}
+          {activeTab === 'trade-idea' && (
+            <HistoricoTab stock={stock} timeWindow={timeWindow} setTimeWindow={setTimeWindow} />
+          )}
+          {activeTab === 'valuation' && <ValuacaoTab stock={stock} />}
+        </main>
+      </div>
 
-        {/* Tab Content */}
-        {activeTab === 'sumario' && <SumarioTab stock={stock} />}
-        {activeTab === 'contabil' && <ContabilTab stock={stock} />}
-        {activeTab === 'multiplos' && <MultiplosTab stock={stock} />}
-        {activeTab === 'trade-idea' && (
-          <HistoricoTab stock={stock} timeWindow={timeWindow} setTimeWindow={setTimeWindow} />
-        )}
-        {activeTab === 'valuation' && <ValuacaoTab stock={stock} />}
-      </main>
-    </div>
+      {/* Fixed Chat Panel */}
+      <div
+        className={`fixed right-0 top-0 h-screen w-[400px] z-50 border-l border-[var(--border)] shadow-2xl transition-transform duration-300 ${
+          chatOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        <AssetChat
+          symbol={symbol}
+          assetType="stock"
+          assetName={stock.name}
+          onClose={() => setChatOpen(false)}
+        />
+      </div>
+    </>
   );
 }
 

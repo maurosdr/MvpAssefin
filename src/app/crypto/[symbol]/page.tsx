@@ -7,6 +7,7 @@ import CryptoInfoPanel from '@/components/CryptoInfoPanel';
 import TradeIdeas from '@/components/TradeIdeas';
 import AppHeader from '@/components/AppHeader';
 import MarketTickerBar from '@/components/MarketTickerBar';
+import AssetChat from '@/components/AssetChat';
 import StopLossTrackingCard from '@/components/StopLossTrackingCard';
 import { useExchange } from '@/context/ExchangeContext';
 // BinanceLoginModal is now managed by AppHeader
@@ -39,6 +40,7 @@ export default function CryptoDetailPage() {
   const [loading, setLoading] = useState(true);
   const [topTab, setTopTab] = useState<TopTab>('market');
   const [activeTab, setActiveTab] = useState<ActiveTab>('chart');
+  const [chatOpen, setChatOpen] = useState(false);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -124,38 +126,56 @@ export default function CryptoDetailPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--bg)]">
+    <>
+      <div className={`min-h-screen bg-[var(--bg)] transition-all duration-300 ${chatOpen ? 'pr-[400px]' : ''}`}>
       <MarketTickerBar />
       <AppHeader>
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => router.push('/crypto')}
-            className="text-gray-400 hover:text-[var(--text)] transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-          </button>
-          <div>
-            <h1 className="text-lg font-bold text-[var(--text)]">
-              {getCryptoName(symbol)} <span className="text-[var(--text-muted)] font-normal text-sm">({symbol})</span>
-            </h1>
-            {stats && (
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-xl font-bold text-[var(--text)]">{formatPrice(stats.price)}</span>
-                <span
-                  className={`text-xs font-medium px-2 py-0.5 rounded ${
-                    stats.changePercent24h >= 0
-                      ? 'bg-green-500/20 text-green-400'
-                      : 'bg-red-500/20 text-red-400'
-                  }`}
-                >
-                  {stats.changePercent24h >= 0 ? '+' : ''}
-                  {stats.changePercent24h.toFixed(2)}%
-                </span>
-              </div>
-            )}
+        <div className="flex items-center justify-between gap-4 w-full">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.push('/crypto')}
+              className="text-gray-400 hover:text-[var(--text)] transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+            </button>
+            <div>
+              <h1 className="text-lg font-bold text-[var(--text)]">
+                {getCryptoName(symbol)} <span className="text-[var(--text-muted)] font-normal text-sm">({symbol})</span>
+              </h1>
+              {stats && (
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-xl font-bold text-[var(--text)]">{formatPrice(stats.price)}</span>
+                  <span
+                    className={`text-xs font-medium px-2 py-0.5 rounded ${
+                      stats.changePercent24h >= 0
+                        ? 'bg-green-500/20 text-green-400'
+                        : 'bg-red-500/20 text-red-400'
+                    }`}
+                  >
+                    {stats.changePercent24h >= 0 ? '+' : ''}
+                    {stats.changePercent24h.toFixed(2)}%
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
+          {/* Chat IA Toggle */}
+          <button
+            onClick={() => setChatOpen((o) => !o)}
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl font-medium text-sm transition-all border ${
+              chatOpen
+                ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-lg shadow-[var(--accent)]/20'
+                : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border)] hover:border-[var(--accent)]/50 hover:text-[var(--text)]'
+            }`}
+            title={chatOpen ? 'Fechar Chat IA' : 'Abrir Chat IA'}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            </svg>
+            Chat IA
+          </button>
         </div>
       </AppHeader>
 
@@ -365,7 +385,22 @@ export default function CryptoDetailPage() {
         )}
       </main>
 
-    </div>
+      </div>
+
+      {/* Fixed Chat Panel */}
+      <div
+        className={`fixed right-0 top-0 h-screen w-[400px] z-50 border-l border-[var(--border)] shadow-2xl transition-transform duration-300 ${
+          chatOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        <AssetChat
+          symbol={symbol}
+          assetType="crypto"
+          assetName={getCryptoName(symbol)}
+          onClose={() => setChatOpen(false)}
+        />
+      </div>
+    </>
   );
 }
 
