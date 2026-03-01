@@ -13,6 +13,7 @@ import { useExchange } from '@/context/ExchangeContext';
 import { getCryptoName } from '@/lib/crypto-names';
 import { calculateRSI, calculateSMA, calculateVolatility } from '@/lib/indicators';
 import { OHLCV } from '@/types/crypto';
+import AssetChat from '@/components/AssetChat';
 
 type TopTab = 'market' | 'trade-ideas';
 type ActiveTab = 'chart' | 'info';
@@ -159,7 +160,10 @@ export default function CryptoDetailPage() {
         </div>
       </AppHeader>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-[140px] pb-6 space-y-6">
+      {/* Two-column layout: main content + chat panel */}
+      <div className="flex pt-[120px] min-h-screen">
+        {/* Main Content */}
+        <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Top Tab Bar: Market / Trade Ideas */}
         <div className="flex items-center gap-2 bg-[var(--surface)]/60 border border-[var(--border)] rounded-2xl p-1.5 overflow-x-auto sticky top-[120px] z-30 backdrop-blur-sm">
           <button
@@ -363,8 +367,13 @@ export default function CryptoDetailPage() {
             )}
           </>
         )}
-      </main>
+        </main>
 
+        {/* Right: Chat Panel */}
+        <aside className="hidden lg:flex flex-col w-[380px] xl:w-[420px] flex-shrink-0 border-l border-[var(--border)] sticky top-[120px] h-[calc(100vh-120px)]">
+          <AssetChat symbol={symbol} assetType="crypto" />
+        </aside>
+      </div>
     </div>
   );
 }

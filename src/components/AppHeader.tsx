@@ -3,10 +3,12 @@
 import { useRouter, usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import AssetSearch from '@/components/AssetSearch';
-import BinanceLoginModal from '@/components/BinanceLoginModal';
+import ApiKeysModal from '@/components/ApiKeysModal';
 import { useExchange } from '@/context/ExchangeContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useState, useRef, useEffect } from 'react';
+
+type ModalTab = 'crypto' | 'prediction' | 'ai';
 
 interface SearchableCrypto {
   symbol: string;
@@ -36,8 +38,14 @@ export default function AppHeader({
   const { theme, toggleTheme } = useTheme();
   const connected = connectedExchanges.length > 0;
   const [showModal, setShowModal] = useState(false);
+  const [modalTab, setModalTab] = useState<ModalTab>('crypto');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  const openModal = (tab: ModalTab = 'crypto') => {
+    setModalTab(tab);
+    setShowModal(true);
+  };
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   // Fechar menu ao clicar fora
@@ -293,33 +301,43 @@ export default function AppHeader({
                 </div>
               )}
 
-              {/* Connect Button */}
-              <button
-                onClick={() => setShowModal(true)}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold text-sm transition-all whitespace-nowrap border ${
-                  connected
-                    ? 'bg-[var(--success-soft)] text-[var(--success)] border-[var(--success)]/30 hover:bg-[var(--success-soft)] hover:border-[var(--success)]/50'
-                    : 'bg-[var(--accent-soft)] text-[var(--accent)] border-[var(--accent)]/30 hover:bg-[var(--accent-soft)] hover:border-[var(--accent)]/50'
-                } active:scale-95 shadow-sm`}
-              >
-                {connected ? (
-                  <>
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              {/* APIs & Conexões Button */}
+              <div className="flex items-center gap-1.5">
+                {/* Exchange status pill */}
+                <button
+                  onClick={() => openModal('crypto')}
+                  className={`flex items-center gap-1.5 px-3 py-2.5 rounded-lg font-semibold text-sm transition-all whitespace-nowrap border ${
+                    connected
+                      ? 'bg-[var(--success-soft)] text-[var(--success)] border-[var(--success)]/30 hover:border-[var(--success)]/50'
+                      : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border)] hover:border-[var(--accent)]/50 hover:text-[var(--text-primary)]'
+                  } active:scale-95 shadow-sm`}
+                  title={connected ? `${connectedExchanges.length}/2 exchanges conectadas` : 'Conectar exchange'}
+                >
+                  {connected ? (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="hidden sm:inline text-xs">{connectedExchanges.length}/2</span>
+                    </>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
-                    <span className="hidden sm:inline">{connectedExchanges.length}/2 Connected</span>
-                    <span className="sm:hidden">{connectedExchanges.length}/2</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 2L6.5 7.5 12 13l5.5-5.5L12 2zm0 22l5.5-5.5L12 13l-5.5 5.5L12 24zm-10-10l5.5 5.5L13 12 7.5 6.5 2 12zm20 0l-5.5-5.5L11 12l5.5 5.5L22 12z" />
-                    </svg>
-                    <span className="hidden sm:inline">Connect Exchange</span>
-                    <span className="sm:hidden">Connect</span>
-                  </>
-                )}
-              </button>
+                  )}
+                </button>
+
+                {/* Main APIs button */}
+                <button
+                  onClick={() => openModal('ai')}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all whitespace-nowrap border bg-[var(--accent-soft)] text-[var(--accent)] border-[var(--accent)]/30 hover:bg-[var(--accent-soft)] hover:border-[var(--accent)]/50 active:scale-95 shadow-sm"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                  <span className="hidden sm:inline">APIs</span>
+                </button>
+              </div>
 
               {/* Mobile Menu Toggle */}
               <button
@@ -469,7 +487,7 @@ export default function AppHeader({
         </div>
       </header>
 
-      <BinanceLoginModal open={showModal} onClose={() => setShowModal(false)} />
+      <ApiKeysModal open={showModal} onClose={() => setShowModal(false)} initialTab={modalTab} />
     </>
   );
 }

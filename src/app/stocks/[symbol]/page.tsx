@@ -8,6 +8,7 @@ import { getStockLogoUrl, getStockInitials } from '@/lib/stock-logos';
 import { MAIN_STOCKS, STOCK_NAMES } from '@/lib/stocks-data';
 import { calculateSMA, calculateEMA } from '@/lib/indicators';
 import StockTradeIdeas from '@/components/StockTradeIdeas';
+import AssetChat from '@/components/AssetChat';
 import {
   Area,
   AreaChart,
@@ -121,14 +122,19 @@ export default function StockDetailPage() {
       <div className="min-h-screen bg-[var(--bg)]">
         <MarketTickerBar />
         <AppHeader />
-        <main className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 pt-[140px] pb-8">
-          <div className="flex items-center justify-center py-20">
-            <div className="text-center">
-              <div className="w-12 h-12 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-[var(--text-muted)]">Carregando dados de {symbol}...</p>
+        <div className="flex pt-[120px] min-h-screen">
+          <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 py-8">
+            <div className="flex items-center justify-center py-20">
+              <div className="text-center">
+                <div className="w-12 h-12 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-[var(--text-muted)]">Carregando dados de {symbol}...</p>
+              </div>
             </div>
-          </div>
-        </main>
+          </main>
+          <aside className="hidden lg:flex flex-col w-[380px] xl:w-[420px] flex-shrink-0 border-l border-[var(--border)] sticky top-[120px] h-[calc(100vh-120px)]">
+            <AssetChat symbol={symbol} assetType="stock" />
+          </aside>
+        </div>
       </div>
     );
   }
@@ -138,19 +144,24 @@ export default function StockDetailPage() {
       <div className="min-h-screen bg-[var(--bg)]">
         <MarketTickerBar />
         <AppHeader />
-        <main className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 pt-[140px] pb-8">
-          <div className="flex items-center justify-center py-20">
-            <div className="text-center">
-              <p className="text-[var(--text-muted)] mb-4">Ação não encontrada</p>
-              <button
-                onClick={() => router.push('/stocks')}
-                className="px-4 py-2 bg-[var(--accent)] text-[var(--text-inverse)] rounded-lg font-semibold hover:bg-[var(--accent-hover)] transition-colors"
-              >
-                Voltar para Ações
-              </button>
+        <div className="flex pt-[120px] min-h-screen">
+          <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 py-8">
+            <div className="flex items-center justify-center py-20">
+              <div className="text-center">
+                <p className="text-[var(--text-muted)] mb-4">Ação não encontrada</p>
+                <button
+                  onClick={() => router.push('/stocks')}
+                  className="px-4 py-2 bg-[var(--accent)] text-[var(--text-inverse)] rounded-lg font-semibold hover:bg-[var(--accent-hover)] transition-colors"
+                >
+                  Voltar para Ações
+                </button>
+              </div>
             </div>
-          </div>
-        </main>
+          </main>
+          <aside className="hidden lg:flex flex-col w-[380px] xl:w-[420px] flex-shrink-0 border-l border-[var(--border)] sticky top-[120px] h-[calc(100vh-120px)]">
+            <AssetChat symbol={symbol} assetType="stock" />
+          </aside>
+        </div>
       </div>
     );
   }
@@ -162,7 +173,10 @@ export default function StockDetailPage() {
       <MarketTickerBar />
       <AppHeader />
 
-      <main className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 pt-[140px] pb-8 space-y-6">
+      {/* Two-column layout: main content + chat panel */}
+      <div className="flex pt-[120px] min-h-screen">
+        {/* Main Content */}
+        <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 py-8 space-y-6 overflow-x-hidden">
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
@@ -239,7 +253,13 @@ export default function StockDetailPage() {
           <HistoricoTab stock={stock} timeWindow={timeWindow} setTimeWindow={setTimeWindow} />
         )}
         {activeTab === 'valuation' && <ValuacaoTab stock={stock} />}
-      </main>
+        </main>
+
+        {/* Right: Chat Panel */}
+        <aside className="hidden lg:flex flex-col w-[380px] xl:w-[420px] flex-shrink-0 border-l border-[var(--border)] sticky top-[120px] h-[calc(100vh-120px)]">
+          <AssetChat symbol={symbol} assetType="stock" />
+        </aside>
+      </div>
     </div>
   );
 }
