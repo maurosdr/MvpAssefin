@@ -5,6 +5,99 @@ const cache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_TTL = 60 * 1000;
 const FUNDAMENTAL_CACHE_TTL = 5 * 60 * 1000;
 
+const BRAPI_TOKEN = 'kAohDLSrNNS3JNZijP4voJ';
+
+interface HistoryItem {
+  date: number;
+  open?: number;
+  high?: number;
+  low?: number;
+  close?: number;
+  volume?: number;
+  adjustedClose?: number;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function formatStockResponse(stock: any, modules?: string | null): Record<string, any> {
+  const history = stock.historicalDataPrice || [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const formattedData: Record<string, any> = {
+    symbol: stock.symbol,
+    name: stock.longName || stock.shortName || stock.symbol,
+    currentPrice: stock.regularMarketPrice || 0,
+    change: stock.regularMarketChange || 0,
+    changePercent: stock.regularMarketChangePercent || 0,
+    volume: stock.regularMarketVolume || 0,
+    marketCap: stock.marketCap,
+    high: stock.regularMarketDayHigh,
+    low: stock.regularMarketDayLow,
+    open: stock.regularMarketOpen,
+    previousClose: stock.regularMarketPreviousClose,
+    fiftyTwoWeekHigh: stock.fiftyTwoWeekHigh,
+    fiftyTwoWeekLow: stock.fiftyTwoWeekLow,
+    averageDailyVolume10Day: stock.averageDailyVolume10Day,
+    averageDailyVolume3Month: stock.averageDailyVolume3Month,
+    dividendsData: stock.dividendsData,
+    logoUrl: stock.logoUrl || stock.logourl,
+    data: history.map((item: HistoryItem) => ({
+      date: new Date(item.date * 1000).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+      fullDate: new Date(item.date * 1000).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+      timestamp: item.date * 1000,
+      open: item.open || 0,
+      high: item.high || 0,
+      low: item.low || 0,
+      close: item.close || 0,
+      volume: item.volume || 0,
+      adjustedClose: item.adjustedClose || item.close || 0,
+    })),
+  };
+
+  // Include fundamental data if modules were requested and data exists
+  if (modules) {
+    if (stock.summaryProfile) formattedData.summaryProfile = stock.summaryProfile;
+    if (stock.financialData) formattedData.financialData = stock.financialData;
+    if (stock.defaultKeyStatistics) formattedData.defaultKeyStatistics = stock.defaultKeyStatistics;
+    if (stock.incomeStatementHistory) formattedData.incomeStatementHistory = stock.incomeStatementHistory;
+    if (stock.balanceSheetHistory) formattedData.balanceSheetHistory = stock.balanceSheetHistory;
+    if (stock.cashflowStatementHistory) formattedData.cashflowHistory = stock.cashflowStatementHistory;
+    if (stock.cashflowHistory) formattedData.cashflowHistory = stock.cashflowHistory;
+    if (stock.calendarEvents) formattedData.calendarEvents = stock.calendarEvents;
+    if (stock.recommendationTrend) formattedData.recommendationTrend = stock.recommendationTrend;
+    if (stock.majorHolders) formattedData.majorHolders = stock.majorHolders;
+    if (stock.earningsHistory) formattedData.earningsHistory = stock.earningsHistory;
+  }
+
+  return formattedData;
+}
+
+async function fetchFromBRApi(symbol: string, range: string, interval: string, modules?: string | null) {
+  let url = `https://brapi.dev/api/quote/${symbol}?range=${range}&interval=${interval}&token=${BRAPI_TOKEN}`;
+  if (modules) {
+    url += `&modules=${modules}`;
+  }
+
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0',
+    },
+    next: { revalidate: modules ? 300 : 60 },
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text().catch(() => 'Unknown error');
+    throw new Error(`BRAPI ${res.status}: ${errorText}`);
+  }
+
+  const data = await res.json();
+
+  if (!data.results || !Array.isArray(data.results) || data.results.length === 0) {
+    throw new Error('No results from BRAPI');
+  }
+
+  return data.results[0];
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const symbol = searchParams.get('symbol');
@@ -25,94 +118,29 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // BRAPI endpoint para histórico e dados fundamentais
-    let url = `https://brapi.dev/api/quote/${symbol}?range=${range}&interval=${interval}`;
+    // Strategy 1: Try with modules (if requested)
     if (modules) {
-      url += `&modules=${modules}`;
+      try {
+        const stock = await fetchFromBRApi(symbol, range, interval, modules);
+        const formattedData = formatStockResponse(stock, modules);
+        cache.set(cacheKey, { data: formattedData, timestamp: Date.now() });
+        return NextResponse.json(formattedData);
+      } catch (moduleError) {
+        console.warn(`BRAPI modules request failed for ${symbol}, trying without modules:`, moduleError);
+        // Fall through to try without modules
+      }
     }
 
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0',
-        'Authorization': 'Bearer kAohDLSrNNS3JNZijP4voJ',
-      },
-      next: { revalidate: modules ? 300 : 60 },
-    });
-
-    if (!res.ok) {
-      throw new Error('BRAPI request failed');
+    // Strategy 2: Fetch without modules (always works for valid tickers)
+    try {
+      const stock = await fetchFromBRApi(symbol, range, interval);
+      const formattedData = formatStockResponse(stock, null);
+      cache.set(cacheKey, { data: formattedData, timestamp: Date.now() });
+      return NextResponse.json(formattedData);
+    } catch (basicError) {
+      console.error(`BRAPI basic request also failed for ${symbol}:`, basicError);
+      throw basicError;
     }
-
-    const data = await res.json();
-
-    if (!data.results || !Array.isArray(data.results) || data.results.length === 0) {
-      throw new Error('Invalid BRAPI response');
-    }
-
-    const stock = data.results[0];
-
-    // Extrair histórico de preços
-    const history = stock.historicalDataPrice || [];
-
-    interface HistoryItem {
-      date: number;
-      open?: number;
-      high?: number;
-      low?: number;
-      close?: number;
-      volume?: number;
-      adjustedClose?: number;
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const formattedData: Record<string, any> = {
-      symbol: stock.symbol,
-      name: stock.longName || stock.shortName || stock.symbol,
-      currentPrice: stock.regularMarketPrice || 0,
-      change: stock.regularMarketChange || 0,
-      changePercent: stock.regularMarketChangePercent || 0,
-      volume: stock.regularMarketVolume || 0,
-      marketCap: stock.marketCap,
-      high: stock.regularMarketDayHigh,
-      low: stock.regularMarketDayLow,
-      open: stock.regularMarketOpen,
-      previousClose: stock.regularMarketPreviousClose,
-      fiftyTwoWeekHigh: stock.fiftyTwoWeekHigh,
-      fiftyTwoWeekLow: stock.fiftyTwoWeekLow,
-      averageDailyVolume10Day: stock.averageDailyVolume10Day,
-      averageDailyVolume3Month: stock.averageDailyVolume3Month,
-      dividendsData: stock.dividendsData,
-      logoUrl: stock.logoUrl || stock.logourl,
-      data: history.map((item: HistoryItem) => ({
-        date: new Date(item.date * 1000).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-        fullDate: new Date(item.date * 1000).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-        timestamp: item.date * 1000,
-        open: item.open || 0,
-        high: item.high || 0,
-        low: item.low || 0,
-        close: item.close || 0,
-        volume: item.volume || 0,
-        adjustedClose: item.adjustedClose || item.close || 0,
-      })),
-    };
-
-    // Include fundamental data if modules were requested
-    if (modules) {
-      if (stock.summaryProfile) formattedData.summaryProfile = stock.summaryProfile;
-      if (stock.financialData) formattedData.financialData = stock.financialData;
-      if (stock.defaultKeyStatistics) formattedData.defaultKeyStatistics = stock.defaultKeyStatistics;
-      if (stock.incomeStatementHistory) formattedData.incomeStatementHistory = stock.incomeStatementHistory;
-      if (stock.balanceSheetHistory) formattedData.balanceSheetHistory = stock.balanceSheetHistory;
-      if (stock.cashflowStatementHistory) formattedData.cashflowHistory = stock.cashflowStatementHistory;
-      if (stock.cashflowHistory) formattedData.cashflowHistory = stock.cashflowHistory;
-      if (stock.calendarEvents) formattedData.calendarEvents = stock.calendarEvents;
-      if (stock.recommendationTrend) formattedData.recommendationTrend = stock.recommendationTrend;
-      if (stock.majorHolders) formattedData.majorHolders = stock.majorHolders;
-      if (stock.earningsHistory) formattedData.earningsHistory = stock.earningsHistory;
-    }
-
-    cache.set(cacheKey, { data: formattedData, timestamp: Date.now() });
-    return NextResponse.json(formattedData);
   } catch (error) {
     console.error('BRAPI quote error:', error);
     return NextResponse.json({ error: 'Failed to fetch stock data' }, { status: 500 });

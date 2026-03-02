@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const symbols = searchParams.get('symbols') || MAIN_STOCKS.join(',');
   const category = searchParams.get('category');
-  
+
   // Se categoria especificada, usar ações da categoria
   let symbolsToFetch = symbols;
   if (category && STOCKS_BY_CATEGORY[category as keyof typeof STOCKS_BY_CATEGORY]) {
@@ -72,28 +72,27 @@ export async function GET(request: NextRequest) {
 
   try {
     const symbolsArray = symbolsToFetch.split(',').filter(Boolean);
-    
+
     // Se tiver mais de 20 ações, fazer requisições em lote
     if (symbolsArray.length > 20) {
       const batches: string[][] = [];
       for (let i = 0; i < symbolsArray.length; i += 20) {
         batches.push(symbolsArray.slice(i, i + 20));
       }
-      
+
       const allStocks: StockData[] = [];
-      
+
       // Fazer requisições em lote (máximo 3 batches = 60 ações para não exceder rate limit)
       for (const batch of batches.slice(0, 3)) {
         try {
-          const url = `https://brapi.dev/api/quote/${batch.join(',')}`;
+          const url = `https://brapi.dev/api/quote/${batch.join(',')}?token=kAohDLSrNNS3JNZijP4voJ`;
           const res = await fetch(url, {
             headers: {
               'User-Agent': 'Mozilla/5.0',
-              'Authorization': 'Bearer kAohDLSrNNS3JNZijP4voJ',
             },
             next: { revalidate: 300 },
           });
-          
+
           if (res.ok) {
             const data = await res.json();
             if (data.results && Array.isArray(data.results)) {
@@ -107,13 +106,13 @@ export async function GET(request: NextRequest) {
           console.error('Batch error:', batchError);
           // Continuar com próximo batch mesmo se um falhar
         }
-        
+
         // Pequeno delay entre batches para não exceder rate limit
         if (batches.indexOf(batch) < batches.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 200));
         }
       }
-      
+
       if (allStocks.length > 0) {
         allStocks.sort((a, b) => b.volume - a.volume);
         cacheMap.set(cacheKey, { data: allStocks, timestamp: Date.now() });
@@ -126,12 +125,11 @@ export async function GET(request: NextRequest) {
     } else {
       // Código original para menos de 20 ações
       const limitedSymbols = symbolsArray.slice(0, 20).join(',');
-      const url = `https://brapi.dev/api/quote/${limitedSymbols}`;
+      const url = `https://brapi.dev/api/quote/${limitedSymbols}?token=kAohDLSrNNS3JNZijP4voJ`;
 
       const res = await fetch(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0',
-          'Authorization': 'Bearer kAohDLSrNNS3JNZijP4voJ',
         },
         next: { revalidate: 300 },
       });
@@ -141,7 +139,7 @@ export async function GET(request: NextRequest) {
       }
 
       const data = await res.json();
-      
+
       if (!data.results || !Array.isArray(data.results)) {
         throw new Error('Invalid BRAPI response');
       }

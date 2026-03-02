@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, lazy, Suspense, useCallback } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { Treemap, ResponsiveContainer } from 'recharts';
 import AppHeader from '@/components/AppHeader';
 import MarketTickerBar from '@/components/MarketTickerBar';
@@ -165,7 +165,6 @@ function IbovTreemap({ stocks }: { stocks: StockData[] }) {
 export default function StocksPage() {
   const [stocks, setStocks] = useState<StockData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [etfData, setEtfData] = useState<Array<{
     symbol: string; name: string; price: number; changePercent: number;
@@ -185,7 +184,6 @@ export default function StocksPage() {
         const data = await res.json();
         if (Array.isArray(data)) {
           setStocks(data);
-          setLastUpdate(new Date());
         }
       } catch {
         // Error handling
@@ -235,16 +233,7 @@ export default function StocksPage() {
   return (
     <div className="min-h-screen bg-[var(--bg)]">
       <MarketTickerBar />
-      <AppHeader>
-        {lastUpdate && (
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[var(--success-soft)] border border-[var(--success)]/20 rounded-lg">
-            <span className="inline-block w-2 h-2 bg-[var(--success)] rounded-full animate-pulse" />
-            <p className="text-xs font-medium text-[var(--success)]">
-              Atualizado h&aacute; {Math.floor((Date.now() - lastUpdate.getTime()) / 1000)}s
-            </p>
-          </div>
-        )}
-      </AppHeader>
+      <AppHeader />
 
       <main className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 pt-[140px] pb-8 space-y-6">
         {/* Page Title */}
@@ -272,11 +261,10 @@ export default function StocksPage() {
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                  selectedCategory === cat
-                    ? 'bg-[var(--accent)] text-[var(--text-inverse)] shadow-md'
-                    : 'bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${selectedCategory === cat
+                  ? 'bg-[var(--accent)] text-[var(--text-inverse)] shadow-md'
+                  : 'bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
+                  }`}
               >
                 {cat === 'all' ? 'Todas' : SECTOR_LABELS[cat] || cat.charAt(0).toUpperCase() + cat.slice(1)}
               </button>
@@ -395,11 +383,10 @@ export default function StocksPage() {
                               {sector.allSymbols.map((sym) => (
                                 <span
                                   key={sym}
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
-                                    sector.symbols.includes(sym)
-                                      ? 'bg-[var(--accent-soft)] border border-[var(--accent)]/30 text-[var(--accent)]'
-                                      : 'bg-[var(--surface)] border border-[var(--border)] text-[var(--text-muted)]'
-                                  }`}
+                                  className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${sector.symbols.includes(sym)
+                                    ? 'bg-[var(--accent-soft)] border border-[var(--accent)]/30 text-[var(--accent)]'
+                                    : 'bg-[var(--surface)] border border-[var(--border)] text-[var(--text-muted)]'
+                                    }`}
                                 >
                                   {sym}
                                 </span>
