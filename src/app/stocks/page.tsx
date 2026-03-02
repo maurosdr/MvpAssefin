@@ -55,7 +55,7 @@ function TreemapCell(props: {
   name?: string; changePercent?: number; price?: number; onClick?: () => void;
 }) {
   const { x = 0, y = 0, width = 0, height = 0, name, changePercent = 0, onClick } = props;
-  if (width < 20 || height < 16) return null;
+  if (width < 20 || height < 16 || !name) return null;
 
   const absChange = Math.abs(changePercent);
   const intensity = Math.min(absChange / 5, 1); // saturate at ±5%
