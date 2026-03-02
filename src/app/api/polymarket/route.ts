@@ -86,6 +86,30 @@ function parseOutcomes(market: PolymarketMarket): { name: string; price: number 
   }
 }
 
+function getYesPrice(market: PolymarketMarket): number {
+  try {
+    const prices = JSON.parse(market.outcomePrices || '[]');
+    const names = JSON.parse(market.outcomes || '["Yes", "No"]');
+    const yesIdx = names.findIndex((n: string) => n.toLowerCase() === 'yes');
+    return parseFloat(prices[yesIdx >= 0 ? yesIdx : 0] || '0');
+  } catch {
+    return 0;
+  }
+}
+
+function buildOutcomes(event: PolymarketEvent): { name: string; price: number }[] {
+  if (event.markets.length > 1) {
+    return event.markets
+      .map(market => ({
+        name: market.question,
+        price: getYesPrice(market),
+      }))
+      .filter(o => o.price > 0)
+      .sort((a, b) => b.price - a.price);
+  }
+  return parseOutcomes(event.markets[0]);
+}
+
 export async function GET() {
   try {
     const res = await fetch(
@@ -110,16 +134,15 @@ export async function GET() {
     const allMarkets: ParsedMarket[] = data
       .filter((e) => e.active && !e.closed && e.markets?.length > 0)
       .map((event) => {
-        const mainMarket = event.markets[0];
-        const outcomes = parseOutcomes(mainMarket);
+        const outcomes = buildOutcomes(event);
         const category = categorizeMarket(event.title);
 
         return {
           id: event.id,
           title: event.title,
           slug: event.slug,
-          volume: event.volume || mainMarket.volume || 0,
-          liquidity: event.liquidity || mainMarket.liquidity || 0,
+          volume: event.volume || event.markets[0].volume || 0,
+          liquidity: event.liquidity || event.markets[0].liquidity || 0,
           endDate: event.endDate,
           category,
           outcomes,
