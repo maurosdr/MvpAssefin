@@ -156,7 +156,7 @@ export default function CryptoDashboard() {
             <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
           </div>
         }>
-          <PolymarketCards />
+          <PolymarketCards filterCategories={['crypto']} />
         </Suspense>
         <Suspense fallback={
           <div className="modern-card p-8 flex items-center justify-center">

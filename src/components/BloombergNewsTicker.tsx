@@ -53,7 +53,7 @@ export default function BloombergNewsTicker() {
 
     // Delay para não competir com outras chamadas
     const timeout = setTimeout(fetchNews, 700);
-    const interval = setInterval(fetchNews, 1_800_000); // 30 minutes
+    const interval = setInterval(fetchNews, 120_000); // 2 minutes
     return () => {
       clearTimeout(timeout);
       clearInterval(interval);
@@ -89,7 +89,7 @@ export default function BloombergNewsTicker() {
           <div className="flex items-center gap-1.5">
             <span className="inline-block w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
             <span className="font-[family-name:var(--font-geist-mono)] text-[10px] text-[var(--text-muted)]">
-              LIVE 30m
+              LIVE 2m
             </span>
           </div>
         </div>

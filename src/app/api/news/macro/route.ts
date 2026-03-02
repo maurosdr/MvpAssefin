@@ -27,10 +27,30 @@ async function fetchRSSFeed(url: string): Promise<string | null> {
       next: { revalidate: 300 },
     });
     if (!res.ok) return null;
-    return await res.text();
+    const contentType = res.headers.get('content-type') || '';
+    const charsetMatch = contentType.match(/charset=([^\s;]+)/i);
+    const charset = charsetMatch ? charsetMatch[1] : 'utf-8';
+    const buffer = await res.arrayBuffer();
+    try {
+      return new TextDecoder(charset).decode(buffer);
+    } catch {
+      return new TextDecoder('utf-8').decode(buffer);
+    }
   } catch {
     return null;
   }
+}
+
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
 }
 
 function extractImageUrl(itemXml: string): string | undefined {
@@ -80,7 +100,7 @@ function parseRSSItems(xml: string, category: 'politics' | 'economy', source: st
     if (titleMatch && linkMatch) {
       items.push({
         id: `macro-${category}-${source}-${items.length}-${Date.now()}`,
-        title: titleMatch[1].trim().replace(/<!\[CDATA\[|\]\]>/g, ''),
+        title: decodeHtmlEntities(titleMatch[1].trim().replace(/<!\[CDATA\[|\]\]>/g, '')),
         source,
         url: linkMatch[1].trim().replace(/<!\[CDATA\[|\]\]>/g, ''),
         publishedAt: pubDateMatch ? pubDateMatch[1].trim() : new Date().toISOString(),
