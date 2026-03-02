@@ -62,7 +62,7 @@ export default function ExchangeFlowChart() {
           <div>
             <h3 className="section-title">Fluxo Cambial Estrangeiro</h3>
             <p className="text-xs text-[var(--text-muted)] mt-0.5">
-              Fonte: Banco Central do Brasil (SGS) &bull; USD milhoes
+              Fonte: Banco Central do Brasil (SGS) &bull; USD milhoes &bull; Acumulado mensal
             </p>
           </div>
         </div>
@@ -106,6 +106,7 @@ export default function ExchangeFlowChart() {
           <ComposedChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <XAxis
               dataKey="date"
+              type="category"
               tick={{ fill: '#6b7280', fontSize: 10 }}
               axisLine={false}
               tickLine={false}
