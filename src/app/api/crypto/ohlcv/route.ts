@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ccxt from 'ccxt';
 
-const binance = new ccxt.binance({ enableRateLimit: true });
-const coinbase = new ccxt.coinbase({ enableRateLimit: true });
+const binance = new ccxt.binance({ enableRateLimit: true, timeout: 10_000 });
+const coinbase = new ccxt.coinbase({ enableRateLimit: true, timeout: 10_000 });
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const exchanges: Record<string, any> = {
   binance,
@@ -18,6 +18,11 @@ const TIMEFRAME_MAP: Record<string, { tf: string; limit: number }> = {
   '1y': { tf: '1d', limit: 365 },
 };
 
+// Cache simples por combinação de símbolo/janela/exchange
+type CacheEntry = { data: unknown; timestamp: number };
+const cache = new Map<string, CacheEntry>();
+const CACHE_TTL = 10 * 1000; // 10 segundos
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const symbol = searchParams.get('symbol') || 'BTC/USDT';
@@ -26,6 +31,12 @@ export async function GET(request: NextRequest) {
 
   const config = TIMEFRAME_MAP[window] || TIMEFRAME_MAP['1m'];
   const exchange = exchanges[exchangeName] || exchanges.binance;
+
+  const cacheKey = `${exchangeName}:${symbol}:${window}`;
+  const cached = cache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return NextResponse.json(cached.data);
+  }
 
   try {
     const ohlcv = await exchange.fetchOHLCV(symbol, config.tf, undefined, config.limit);
@@ -40,14 +51,16 @@ export async function GET(request: NextRequest) {
       volume,
     }));
 
+    cache.set(cacheKey, { data, timestamp: Date.now() });
+
     return NextResponse.json(data);
   } catch (error: unknown) {
-    // If the selected exchange fails, try Binance as fallback
+    // If the selected exchange fails, try Binance as fallback (sem cache, pois já falhou)
     if (exchangeName !== 'binance') {
       try {
         const ohlcv = await exchanges.binance.fetchOHLCV(symbol, config.tf, undefined, config.limit);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data = ohlcv.map(([timestamp, open, high, low, close, volume]: any[]) => ({
+        const data = ohlcv.map(([timestamp, open, high, low, close, volume]: any[]) => ({
           timestamp,
           open,
           high,

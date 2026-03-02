@@ -1,0 +1,83 @@
+export const RI_SITES: Record<string, string> = {
+  // Blue Chips
+  PETR4: 'https://ri.petrobras.com.br',
+  PETR3: 'https://ri.petrobras.com.br',
+  VALE3: 'https://www.vale.com/pt/investors',
+  ITUB4: 'https://www.itau.com.br/relacoes-com-investidores',
+  ITUB3: 'https://www.itau.com.br/relacoes-com-investidores',
+  BBDC4: 'https://ri.bradesco.com.br',
+  BBDC3: 'https://ri.bradesco.com.br',
+  ABEV3: 'https://ri.ambev.com.br',
+  WEGE3: 'https://ri.weg.net',
+  RENT3: 'https://ri.localiza.com',
+  SUZB3: 'https://ri.suzano.com.br',
+  ELET3: 'https://ri.eletrobras.com',
+  ELET6: 'https://ri.eletrobras.com',
+  BBAS3: 'https://ri.bb.com.br',
+  RADL3: 'https://ri.raiadrogasil.com.br',
+  CMIG4: 'https://ri.cemig.com.br',
+  CMIG3: 'https://ri.cemig.com.br',
+  HAPV3: 'https://ri.hapvida.com.br',
+  VIVT3: 'https://ri.telefonicabrasil.com.br',
+  BRAP4: 'https://www.bradespar.com.br/ri',
+  KLBN11: 'https://ri.klabin.com.br',
+  UGPA3: 'https://ri.ultra.com.br',
+  TAEE11: 'https://ri.taesa.com.br',
+  CCRO3: 'https://ri.grupoccr.com.br',
+  CYRE3: 'https://ri.cyrela.com.br',
+  // Varejo
+  MGLU3: 'https://ri.magazineluiza.com.br',
+  VBBR3: 'https://ri.vibra.com.br',
+  LREN3: 'https://ri.lren.com.br',
+  ARZZ3: 'https://ri.arezzo.com.br',
+  CAML3: 'https://ri.camilalimentos.com.br',
+  GUAR3: 'https://ri.guararapes.com.br',
+  GUAR4: 'https://ri.guararapes.com.br',
+  NTCO3: 'https://ri.naturaeco.com',
+  SOMA3: 'https://ri.grupofashion.com.br',
+  // Bancos
+  SANB11: 'https://www.santander.com.br/ri',
+  SANB3: 'https://www.santander.com.br/ri',
+  SANB4: 'https://www.santander.com.br/ri',
+  BPAN4: 'https://ri.bancopan.com.br',
+  BRSR6: 'https://ri.banrisul.com.br',
+  BRSR3: 'https://ri.banrisul.com.br',
+  CRFB3: 'https://www.carrefour.com.br/ri',
+  PINE4: 'https://ri.pine.com.br',
+  PINE3: 'https://ri.pine.com.br',
+  // Energia
+  EQTL3: 'https://ri.equatorial.com.br',
+  CPLE6: 'https://ri.copel.com',
+  CPLE3: 'https://ri.copel.com',
+  ENBR3: 'https://www.edpbr.com.br/ri',
+  EGIE3: 'https://ri.engiebrasil.com.br',
+  ENGI11: 'https://ri.energisa.com.br',
+  ENEV3: 'https://ri.eneva.com.br',
+  // Mineração & Siderurgia
+  GGBR4: 'https://ri.gerdau.com.br',
+  GGBR3: 'https://ri.gerdau.com.br',
+  USIM5: 'https://ri.usiminas.com',
+  USIM3: 'https://ri.usiminas.com',
+  CSNA3: 'https://ri.csn.com.br',
+  GOAU4: 'https://ri.gerdau.com.br',
+  GOAU3: 'https://ri.gerdau.com.br',
+  CSAN3: 'https://ri.cosan.com.br',
+  FESA4: 'https://ri.ferbasa.com.br',
+  FESA3: 'https://ri.ferbasa.com.br',
+  // Petróleo
+  PRIO3: 'https://ri.priooil.com.br',
+  // Saúde
+  RDOR3: 'https://ri.rededorsaoluiz.com.br',
+  // Tecnologia
+  TOTS3: 'https://ri.totvs.com',
+  LWSA3: 'https://ri.locaweb.com.br',
+  CASH3: 'https://ri.meliuz.com.br',
+  STOC31: 'https://ir.stoneco.com',
+  // Outros
+  DXCO3: 'https://ri.dexco.com.br',
+  GMAT3: 'https://ri.grupomateus.com.br',
+};
+
+export function getRISite(symbol: string): string | null {
+  return RI_SITES[symbol.toUpperCase()] || null;
+}

@@ -56,7 +56,7 @@ export default function ExchangeLoginModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--bg)]/70 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[var(--bg)]/70 backdrop-blur-sm">
       <div className="bg-[var(--surface)] border border-gray-700 rounded-xl p-6 w-full max-w-md mx-4">
         {/* Header */}
         <div className="flex justify-between items-center mb-4">

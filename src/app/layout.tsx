@@ -5,6 +5,7 @@ import { BinanceProvider } from "@/context/BinanceContext";
 import { StopLossProvider } from "@/context/StopLossContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { ExchangeProvider } from "@/context/ExchangeContext";
+import SessionProvider from "@/components/SessionProvider";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -32,15 +33,17 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[var(--bg)] min-h-screen`}
       >
-        <ThemeProvider>
-          <ExchangeProvider>
-            <BinanceProvider>
-              <StopLossProvider>
-                {children}
-              </StopLossProvider>
-            </BinanceProvider>
-          </ExchangeProvider>
-        </ThemeProvider>
+        <SessionProvider>
+          <ThemeProvider>
+            <ExchangeProvider>
+              <BinanceProvider>
+                <StopLossProvider>
+                  {children}
+                </StopLossProvider>
+              </BinanceProvider>
+            </ExchangeProvider>
+          </ThemeProvider>
+        </SessionProvider>
       </body>
     </html>
   );

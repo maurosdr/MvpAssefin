@@ -256,34 +256,34 @@ export default function TechnicalChart({ symbol }: { symbol: string }) {
               />
 
               {/* Price area */}
-              <Area type="monotone" dataKey="close" stroke={isPositive ? '#22c55e' : '#ef4444'} strokeWidth={2} fill="url(#priceGrad)" />
+              <Area type="linear" dataKey="close" stroke={isPositive ? '#22c55e' : '#ef4444'} strokeWidth={2} fill="url(#priceGrad)" />
 
               {/* Bollinger Bands */}
               {activeIndicators.includes('bollinger') && (
                 <>
-                  <Line type="monotone" dataKey="bollingerUpper" stroke="#10b981" strokeWidth={1} dot={false} strokeDasharray="4 2" />
-                  <Line type="monotone" dataKey="bollingerMiddle" stroke="#10b981" strokeWidth={1} dot={false} opacity={0.5} />
-                  <Line type="monotone" dataKey="bollingerLower" stroke="#10b981" strokeWidth={1} dot={false} strokeDasharray="4 2" />
+                  <Line type="linear" dataKey="bollingerUpper" stroke="#10b981" strokeWidth={1} dot={false} strokeDasharray="4 2" />
+                  <Line type="linear" dataKey="bollingerMiddle" stroke="#10b981" strokeWidth={1} dot={false} opacity={0.5} />
+                  <Line type="linear" dataKey="bollingerLower" stroke="#10b981" strokeWidth={1} dot={false} strokeDasharray="4 2" />
                 </>
               )}
 
               {/* MA */}
               {activeIndicators.includes('ma') && (
-                <Line type="monotone" dataKey="ma20" stroke="#f59e0b" strokeWidth={2} dot={false} />
+                <Line type="linear" dataKey="ma20" stroke="#f59e0b" strokeWidth={2} dot={false} />
               )}
 
               {/* EMA */}
               {activeIndicators.includes('ema') && (
-                <Line type="monotone" dataKey="ema20" stroke="#8b5cf6" strokeWidth={2} dot={false} />
+                <Line type="linear" dataKey="ema20" stroke="#8b5cf6" strokeWidth={2} dot={false} />
               )}
 
               {/* Ichimoku */}
               {activeIndicators.includes('ichimoku') && (
                 <>
-                  <Line type="monotone" dataKey="ichimokuTenkan" stroke="#ef4444" strokeWidth={1} dot={false} />
-                  <Line type="monotone" dataKey="ichimokuKijun" stroke="#3b82f6" strokeWidth={1} dot={false} />
-                  <Area type="monotone" dataKey="ichimokuSenkouA" stroke="#06b6d4" strokeWidth={1} fill="url(#ichimokuCloud)" dot={false} />
-                  <Line type="monotone" dataKey="ichimokuSenkouB" stroke="#06b6d4" strokeWidth={1} dot={false} strokeDasharray="4 2" />
+                  <Line type="linear" dataKey="ichimokuTenkan" stroke="#ef4444" strokeWidth={1} dot={false} />
+                  <Line type="linear" dataKey="ichimokuKijun" stroke="#3b82f6" strokeWidth={1} dot={false} />
+                  <Area type="linear" dataKey="ichimokuSenkouA" stroke="#06b6d4" strokeWidth={1} fill="url(#ichimokuCloud)" dot={false} />
+                  <Line type="linear" dataKey="ichimokuSenkouB" stroke="#06b6d4" strokeWidth={1} dot={false} strokeDasharray="4 2" />
                 </>
               )}
             </ComposedChart>
@@ -312,8 +312,8 @@ export default function TechnicalChart({ symbol }: { symbol: string }) {
                   }}
                 />
                 <Bar dataKey="macdHistogram" fill="#ec4899" opacity={0.5} />
-                <Line type="monotone" dataKey="macd" stroke="#ec4899" strokeWidth={1.5} dot={false} />
-                <Line type="monotone" dataKey="macdSignal" stroke="#f59e0b" strokeWidth={1.5} dot={false} />
+                <Line type="linear" dataKey="macd" stroke="#ec4899" strokeWidth={1.5} dot={false} />
+                <Line type="linear" dataKey="macdSignal" stroke="#f59e0b" strokeWidth={1.5} dot={false} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>

@@ -13,10 +13,11 @@ interface StockData {
   low?: number;
   open?: number;
   previousClose?: number;
+  logoUrl?: string;
 }
 
-// Cache simples (5 minutos)
-let cache: { data: StockData[]; timestamp: number } | null = null;
+// Cache simples (5 minutos) - cache por categoria
+const cacheMap = new Map<string, { data: StockData[]; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000;
 
 export async function GET(request: NextRequest) {
@@ -30,9 +31,11 @@ export async function GET(request: NextRequest) {
     symbolsToFetch = STOCKS_BY_CATEGORY[category as keyof typeof STOCKS_BY_CATEGORY].join(',');
   }
 
-  // Verificar cache
-  if (cache && cache.data && Date.now() - cache.timestamp < CACHE_TTL) {
-    return NextResponse.json(cache.data);
+  // Verificar cache (incluir categoria na chave do cache)
+  const cacheKey = category || 'all';
+  const cached = cacheMap.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return NextResponse.json(cached.data);
   }
 
   interface BRAPIStock {
@@ -48,9 +51,11 @@ export async function GET(request: NextRequest) {
     regularMarketDayLow?: number;
     regularMarketOpen?: number;
     regularMarketPreviousClose?: number;
+    logourl?: string;
+    logoUrl?: string;
   }
 
-  const transformStock = (stock: BRAPIStock): StockData => ({
+  const transformStock = (stock: BRAPIStock): StockData & { logoUrl?: string } => ({
     symbol: stock.symbol,
     name: stock.longName || stock.shortName || stock.symbol,
     price: stock.regularMarketPrice || 0,
@@ -62,6 +67,7 @@ export async function GET(request: NextRequest) {
     low: stock.regularMarketDayLow,
     open: stock.regularMarketOpen,
     previousClose: stock.regularMarketPreviousClose,
+    logoUrl: stock.logoUrl || stock.logourl,
   });
 
   try {
@@ -110,7 +116,7 @@ export async function GET(request: NextRequest) {
       
       if (allStocks.length > 0) {
         allStocks.sort((a, b) => b.volume - a.volume);
-        cache = { data: allStocks, timestamp: Date.now() };
+        cacheMap.set(cacheKey, { data: allStocks, timestamp: Date.now() });
         return NextResponse.json(allStocks);
       } else {
         // Se nenhum batch retornou dados, usar fallback
@@ -143,7 +149,7 @@ export async function GET(request: NextRequest) {
       const stocks: StockData[] = data.results.map(transformStock);
       stocks.sort((a, b) => b.volume - a.volume);
 
-      cache = { data: stocks, timestamp: Date.now() };
+      cacheMap.set(cacheKey, { data: stocks, timestamp: Date.now() });
       return NextResponse.json(stocks);
     }
   } catch (error) {
