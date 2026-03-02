@@ -74,7 +74,9 @@ const categories: CategoryConfig[] = [
 ];
 
 function MarketCard({ market, config }: { market: Market; config: CategoryConfig }) {
-  const topOutcomes = market.outcomes.slice(0, 2);
+  const topOutcomes = [...market.outcomes]
+    .sort((a, b) => b.price - a.price)
+    .slice(0, 3);
 
   const formatVolume = (v: number) => {
     if (v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
@@ -107,11 +109,11 @@ function MarketCard({ market, config }: { market: Market; config: CategoryConfig
             <div className="flex items-center gap-2">
               <div className="w-16 h-1.5 bg-gray-700 rounded-full overflow-hidden">
                 <div
-                  className={`h-full rounded-full ${i === 0 ? 'bg-green-500' : 'bg-gray-500'}`}
+                  className={`h-full rounded-full ${i === 0 ? 'bg-green-500' : i === 1 ? 'bg-blue-500' : 'bg-gray-500'}`}
                   style={{ width: `${outcome.price * 100}%` }}
                 />
               </div>
-              <span className={`font-mono text-xs font-medium ${i === 0 ? 'text-green-400' : 'text-gray-400'}`}>
+              <span className={`font-mono text-xs font-medium ${i === 0 ? 'text-green-400' : i === 1 ? 'text-blue-400' : 'text-gray-400'}`}>
                 {(outcome.price * 100).toFixed(0)}%
               </span>
             </div>
