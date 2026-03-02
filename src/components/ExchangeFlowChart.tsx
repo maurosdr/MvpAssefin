@@ -109,6 +109,9 @@ export default function ExchangeFlowChart() {
               tick={{ fill: '#6b7280', fontSize: 10 }}
               axisLine={false}
               tickLine={false}
+              angle={-45}
+              textAnchor="end"
+              height={48}
             />
             <YAxis
               tick={{ fill: '#6b7280', fontSize: 10 }}

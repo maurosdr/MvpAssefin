@@ -31,10 +31,11 @@ async function fetchSGSSeries(code: number): Promise<SGSDataPoint[]> {
 }
 
 function parseDate(brDate: string): string {
-  // Convert dd/MM/yyyy to yyyy-MM-dd for sorting, then return dd/MM format for display
+  // BCB SGS 2325/2326 returns monthly data (day is always "01").
+  // Return MM/YYYY so x-axis labels are clearly distinct (e.g. "01/2025", "02/2025").
   const parts = brDate.split('/');
   if (parts.length === 3) {
-    return `${parts[0]}/${parts[1]}`;
+    return `${parts[1]}/${parts[2]}`; // MM/YYYY
   }
   return brDate;
 }
@@ -103,10 +104,10 @@ export async function GET() {
 function getFallbackData(): ExchangeFlowData[] {
   // Realistic recent data for Fluxo Cambial (USD millions)
   const dates = [
-    '20/01', '21/01', '22/01', '23/01', '24/01',
-    '27/01', '28/01', '29/01', '30/01', '31/01',
-    '03/02', '04/02', '05/02', '06/02', '07/02',
-    '10/02', '11/02', '12/02', '13/02', '14/02',
+    '03/2024', '04/2024', '05/2024', '06/2024', '07/2024',
+    '08/2024', '09/2024', '10/2024', '11/2024', '12/2024',
+    '01/2025', '02/2025', '03/2025', '04/2025', '05/2025',
+    '06/2025', '07/2025', '08/2025', '09/2025', '10/2025',
   ];
   return dates.map((date) => {
     const fin = Math.round((Math.random() - 0.4) * 3000);
