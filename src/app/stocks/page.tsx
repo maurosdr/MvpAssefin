@@ -33,7 +33,6 @@ const SECTOR_LABELS: Record<string, string> = {
   mining: 'Mineração & Siderurgia',
   tech: 'Tecnologia',
   fiis: 'FIIs',
-  bdrs: 'BDRs',
 };
 
 const MAIN_ETFS = [
