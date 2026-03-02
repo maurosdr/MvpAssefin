@@ -240,7 +240,7 @@ export default function StocksPage() {
       return {
         key, sector: SECTOR_LABELS[key] || key,
         avgChangePercent: avgChange, stockCount: sectorStocks.length,
-        totalVolume, symbols: sectorStocks.map((s) => s.symbol), allSymbols: symbols,
+        totalVolume, allSymbols: symbols,
       };
     })
     .sort((a, b) => b.avgChangePercent - a.avgChangePercent);
@@ -360,8 +360,7 @@ export default function StocksPage() {
                       {sectorPerformance.map((sector) => (
                         <tr
                           key={sector.key}
-                          className="hover:bg-[var(--surface-hover)] transition-colors cursor-pointer"
-                          onClick={() => setSelectedCategory(sector.key)}
+                          className="hover:bg-[var(--surface-hover)] transition-colors"
                         >
                           <td className="py-3 text-sm font-semibold text-[var(--text-primary)]">{sector.sector}</td>
                           <td className="py-3 text-xs text-[var(--text-secondary)]">
@@ -369,10 +368,7 @@ export default function StocksPage() {
                               {sector.allSymbols.map((sym) => (
                                 <span
                                   key={sym}
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${sector.symbols.includes(sym)
-                                    ? 'bg-[var(--accent-soft)] border border-[var(--accent)]/30 text-[var(--accent)]'
-                                    : 'bg-[var(--surface)] border border-[var(--border)] text-[var(--text-muted)]'
-                                    }`}
+                                  className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[var(--surface)] border border-[var(--border)] text-[var(--text-secondary)]"
                                 >
                                   {sym}
                                 </span>
