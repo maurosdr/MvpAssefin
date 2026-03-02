@@ -38,7 +38,6 @@ interface NewsArticle {
 export default function CryptoDashboard() {
   const [cryptos, setCryptos] = useState<CryptoData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [cryptoNews, setCryptoNews] = useState<NewsArticle[]>([]);
   const [newsLoading, setNewsLoading] = useState(true);
   const isFirstLoad = useRef(true);
@@ -46,14 +45,13 @@ export default function CryptoDashboard() {
   useEffect(() => {
     const fetchCryptos = async () => {
       try {
-        const res = await fetch('/api/crypto', { 
+        const res = await fetch('/api/crypto', {
           cache: 'no-store',
           next: { revalidate: 5 }
         });
         const data = await res.json();
         if (Array.isArray(data)) {
           setCryptos(data);
-          setLastUpdate(new Date());
         }
       } catch {
         // API fetch failed
@@ -80,7 +78,7 @@ export default function CryptoDashboard() {
         const data = await res.json();
         if (data.crypto && Array.isArray(data.crypto)) {
           // Mapear thumbnail para imageUrl
-          const mappedNews = data.crypto.map((item: { thumbnail?: string | null; [key: string]: unknown }) => ({
+          const mappedNews = data.crypto.map((item: { thumbnail?: string | null;[key: string]: unknown }) => ({
             ...item,
             imageUrl: item.thumbnail || undefined,
           }));
@@ -106,16 +104,7 @@ export default function CryptoDashboard() {
   return (
     <div className="min-h-screen bg-[var(--bg)]">
       <MarketTickerBar />
-      <AppHeader cryptos={cryptos}>
-        {lastUpdate && (
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[var(--success-soft)] border border-[var(--success)]/20 rounded-lg">
-            <span className="inline-block w-2 h-2 bg-[var(--success)] rounded-full animate-pulse" />
-            <p className="text-xs font-medium text-[var(--success)]">
-              Live updates every 5s
-            </p>
-          </div>
-        )}
-      </AppHeader>
+      <AppHeader cryptos={cryptos} />
 
       <main className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 pt-[140px] pb-8 space-y-6">
         {/* Layout 50/50: Featured News (Left) + Table (Right) */}
@@ -162,20 +151,20 @@ export default function CryptoDashboard() {
           </div>
         )}
 
-            <Suspense fallback={
-              <div className="modern-card p-8 flex items-center justify-center">
-                <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
-              </div>
-            }>
-              <PolymarketCards />
-            </Suspense>
-            <Suspense fallback={
-              <div className="modern-card p-8 flex items-center justify-center">
-                <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
-              </div>
-            }>
-              <BinancePortfolio />
-            </Suspense>
+        <Suspense fallback={
+          <div className="modern-card p-8 flex items-center justify-center">
+            <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+          </div>
+        }>
+          <PolymarketCards />
+        </Suspense>
+        <Suspense fallback={
+          <div className="modern-card p-8 flex items-center justify-center">
+            <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+          </div>
+        }>
+          <BinancePortfolio />
+        </Suspense>
       </main>
       <Footer />
     </div>

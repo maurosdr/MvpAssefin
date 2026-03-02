@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCryptoName, CRYPTO_NAMES } from '@/lib/crypto-names';
 import { MAIN_STOCKS, MAIN_ETFS, STOCK_NAMES } from '@/lib/stocks-data';
@@ -25,9 +25,11 @@ export default function AssetSearch({ cryptos, stocks }: AssetSearchProps) {
   const [suggestions, setSuggestions] = useState<SearchableAsset[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [apiSearching, setApiSearching] = useState(false);
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const apiSearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -40,14 +42,35 @@ export default function AssetSearch({ cryptos, stocks }: AssetSearchProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Search BRApi for stocks not in local list
+  const searchBRApi = useCallback(async (ticker: string): Promise<SearchableAsset[]> => {
+    try {
+      const res = await fetch(`/api/stocks/quote?symbol=${ticker}&range=1d&interval=1d`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      if (data.error || !data.symbol) return [];
+      return [{
+        symbol: data.symbol,
+        base: data.symbol,
+        name: data.name || data.symbol,
+        price: data.currentPrice || 0,
+        type: 'stock' as AssetType,
+      }];
+    } catch {
+      return [];
+    }
+  }, []);
+
   useEffect(() => {
     if (!query.trim()) {
       setSuggestions([]);
       setSelectedIndex(-1);
+      setApiSearching(false);
+      if (apiSearchTimerRef.current) clearTimeout(apiSearchTimerRef.current);
       return;
     }
 
-    const q = query.toUpperCase();
+    const q = query.toUpperCase().trim();
     const results: SearchableAsset[] = [];
 
     // Search cryptos
@@ -118,7 +141,32 @@ export default function AssetSearch({ cryptos, stocks }: AssetSearchProps) {
 
     setSuggestions(results.slice(0, 12));
     setSelectedIndex(-1);
-  }, [query, cryptos, stocks]);
+
+    // If no stock/ETF results found locally and query looks like a ticker (3-6 alphanumeric chars),
+    // try searching BRApi directly after a debounce
+    const hasLocalStockResults = stockResults.length > 0 || etfResults.length > 0;
+    const looksLikeTicker = /^[A-Z]{3,5}\d{1,2}$/.test(q);
+
+    if (apiSearchTimerRef.current) clearTimeout(apiSearchTimerRef.current);
+
+    if (!hasLocalStockResults && looksLikeTicker && q.length >= 4) {
+      setApiSearching(true);
+      apiSearchTimerRef.current = setTimeout(async () => {
+        const apiResults = await searchBRApi(q);
+        if (apiResults.length > 0) {
+          setSuggestions((prev) => {
+            // Avoid duplicates
+            const existing = new Set(prev.map((p) => p.base));
+            const newResults = apiResults.filter((r) => !existing.has(r.base));
+            return [...prev, ...newResults].slice(0, 12);
+          });
+        }
+        setApiSearching(false);
+      }, 400);
+    } else {
+      setApiSearching(false);
+    }
+  }, [query, cryptos, stocks, searchBRApi]);
 
   useEffect(() => {
     if (selectedIndex >= 0 && itemRefs.current[selectedIndex]) {
@@ -202,7 +250,7 @@ export default function AssetSearch({ cryptos, stocks }: AssetSearchProps) {
         />
       </div>
 
-      {showDropdown && suggestions.length > 0 && (
+      {showDropdown && (suggestions.length > 0 || apiSearching) && (
         <div className="absolute top-full mt-2 w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-xl z-50 overflow-hidden backdrop-blur-xl max-h-[400px] overflow-y-auto">
           {suggestions.map((s, idx) => {
             const badge = typeBadge(s.type);
@@ -213,11 +261,10 @@ export default function AssetSearch({ cryptos, stocks }: AssetSearchProps) {
                   itemRefs.current[idx] = el;
                 }}
                 onClick={() => handleSelect(s)}
-                className={`w-full px-4 py-3 flex items-center justify-between text-left transition-colors border-b border-[var(--border-subtle)] last:border-b-0 ${
-                  idx === selectedIndex
-                    ? 'bg-[var(--surface-hover)]'
-                    : 'hover:bg-[var(--surface-hover)]'
-                }`}
+                className={`w-full px-4 py-3 flex items-center justify-between text-left transition-colors border-b border-[var(--border-subtle)] last:border-b-0 ${idx === selectedIndex
+                  ? 'bg-[var(--surface-hover)]'
+                  : 'hover:bg-[var(--surface-hover)]'
+                  }`}
               >
                 <div className="flex flex-col">
                   <span className="text-[var(--text-primary)] font-semibold text-sm">
@@ -244,6 +291,12 @@ export default function AssetSearch({ cryptos, stocks }: AssetSearchProps) {
               </button>
             );
           })}
+          {apiSearching && (
+            <div className="px-4 py-3 flex items-center gap-3 text-[var(--text-muted)]">
+              <div className="w-4 h-4 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+              <span className="text-xs">Buscando na B3...</span>
+            </div>
+          )}
         </div>
       )}
     </div>

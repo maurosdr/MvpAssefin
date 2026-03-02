@@ -44,7 +44,7 @@ export default function MarketsPage() {
         setLoading(false);
       }
     };
-    
+
     fetchNews();
   }, []);
 

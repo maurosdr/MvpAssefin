@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, lazy, Suspense, useCallback } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { Treemap, ResponsiveContainer } from 'recharts';
 import AppHeader from '@/components/AppHeader';
 import MarketTickerBar from '@/components/MarketTickerBar';
@@ -33,7 +33,6 @@ const SECTOR_LABELS: Record<string, string> = {
   mining: 'Mineração & Siderurgia',
   tech: 'Tecnologia',
   fiis: 'FIIs',
-  bdrs: 'BDRs',
 };
 
 const MAIN_ETFS = [
@@ -55,7 +54,7 @@ function TreemapCell(props: {
   name?: string; changePercent?: number; price?: number; onClick?: () => void;
 }) {
   const { x = 0, y = 0, width = 0, height = 0, name, changePercent = 0, onClick } = props;
-  if (width < 20 || height < 16) return null;
+  if (width < 20 || height < 16 || !name) return null;
 
   const absChange = Math.abs(changePercent);
   const intensity = Math.min(absChange / 5, 1); // saturate at ±5%
@@ -164,8 +163,8 @@ function IbovTreemap({ stocks }: { stocks: StockData[] }) {
 // ─── Main Page ────────────────────────────────────────────────────────
 export default function StocksPage() {
   const [stocks, setStocks] = useState<StockData[]>([]);
+  const [allStocks, setAllStocks] = useState<StockData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [etfData, setEtfData] = useState<Array<{
     symbol: string; name: string; price: number; changePercent: number;
@@ -185,7 +184,6 @@ export default function StocksPage() {
         const data = await res.json();
         if (Array.isArray(data)) {
           setStocks(data);
-          setLastUpdate(new Date());
         }
       } catch {
         // Error handling
@@ -197,6 +195,20 @@ export default function StocksPage() {
     const interval = setInterval(fetchStocks, 60000);
     return () => clearInterval(interval);
   }, [selectedCategory]);
+
+  // Always fetch all stocks for sector performance (independent of category filter)
+  useEffect(() => {
+    const fetchAllStocks = async () => {
+      try {
+        const res = await fetch('/api/stocks', { cache: 'no-store' });
+        const data = await res.json();
+        if (Array.isArray(data)) setAllStocks(data);
+      } catch { /* noop */ }
+    };
+    fetchAllStocks();
+    const interval = setInterval(fetchAllStocks, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const fetchETFs = async () => {
@@ -216,10 +228,10 @@ export default function StocksPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Sector performance (computed from all loaded stocks)
+  // Sector performance always uses all stocks, regardless of the active category filter
   const sectorPerformance = Object.entries(STOCKS_BY_CATEGORY)
     .map(([key, symbols]) => {
-      const sectorStocks = stocks.filter((s) => symbols.includes(s.symbol));
+      const sectorStocks = allStocks.filter((s) => symbols.includes(s.symbol));
       const avgChange = sectorStocks.length > 0
         ? sectorStocks.reduce((sum, s) => sum + s.changePercent, 0) / sectorStocks.length
         : 0;
@@ -227,7 +239,7 @@ export default function StocksPage() {
       return {
         key, sector: SECTOR_LABELS[key] || key,
         avgChangePercent: avgChange, stockCount: sectorStocks.length,
-        totalVolume, symbols: sectorStocks.map((s) => s.symbol), allSymbols: symbols,
+        totalVolume, allSymbols: symbols,
       };
     })
     .sort((a, b) => b.avgChangePercent - a.avgChangePercent);
@@ -235,16 +247,7 @@ export default function StocksPage() {
   return (
     <div className="min-h-screen bg-[var(--bg)]">
       <MarketTickerBar />
-      <AppHeader>
-        {lastUpdate && (
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[var(--success-soft)] border border-[var(--success)]/20 rounded-lg">
-            <span className="inline-block w-2 h-2 bg-[var(--success)] rounded-full animate-pulse" />
-            <p className="text-xs font-medium text-[var(--success)]">
-              Atualizado h&aacute; {Math.floor((Date.now() - lastUpdate.getTime()) / 1000)}s
-            </p>
-          </div>
-        )}
-      </AppHeader>
+      <AppHeader />
 
       <main className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 pt-[140px] pb-8 space-y-6">
         {/* Page Title */}
@@ -272,11 +275,10 @@ export default function StocksPage() {
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                  selectedCategory === cat
-                    ? 'bg-[var(--accent)] text-[var(--text-inverse)] shadow-md'
-                    : 'bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${selectedCategory === cat
+                  ? 'bg-[var(--accent)] text-[var(--text-inverse)] shadow-md'
+                  : 'bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
+                  }`}
               >
                 {cat === 'all' ? 'Todas' : SECTOR_LABELS[cat] || cat.charAt(0).toUpperCase() + cat.slice(1)}
               </button>
@@ -293,37 +295,8 @@ export default function StocksPage() {
           </div>
         ) : (
           <>
-            {/* ── 1st: Stocks Table + Indices ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <StocksTable data={stocks} />
-              </div>
-              <div className="lg:col-span-1">
-                <div className="modern-card">
-                  <div className="flex items-center gap-2 mb-4 pb-4 border-b border-[var(--border)]">
-                    <div className="w-1 h-6 bg-[var(--accent)] rounded-full" />
-                    <h3 className="section-title">Indices B3</h3>
-                  </div>
-                  <div className="space-y-4">
-                    {[
-                      { label: 'IBOVESPA', value: '120.450', pct: 65 },
-                      { label: 'IFIX', value: '3.245', pct: 45 },
-                      { label: 'SMALL11', value: '2.890', pct: 55 },
-                    ].map((idx) => (
-                      <div key={idx.label}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs text-[var(--text-muted)]">{idx.label}</span>
-                          <span className="data-value text-[var(--text-primary)] font-bold">{idx.value}</span>
-                        </div>
-                        <div className="w-full h-1 bg-[var(--surface)] rounded-full overflow-hidden">
-                          <div className="h-full bg-gradient-to-r from-[var(--success)] to-[var(--accent)]" style={{ width: `${idx.pct}%` }} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* ── 1st: Stocks Table ── */}
+            <StocksTable data={stocks} />
 
             {/* ── 2nd: ETFs ── */}
             {etfData.length > 0 && (
@@ -365,7 +338,7 @@ export default function StocksPage() {
             </Suspense>
 
             {/* ── 6th: Sector Performance ── */}
-            {stocks.length > 0 && (
+            {allStocks.length > 0 && (
               <div className="modern-card">
                 <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[var(--border)]">
                   <div className="w-1 h-6 bg-[var(--accent)] rounded-full" />
@@ -386,8 +359,7 @@ export default function StocksPage() {
                       {sectorPerformance.map((sector) => (
                         <tr
                           key={sector.key}
-                          className="hover:bg-[var(--surface-hover)] transition-colors cursor-pointer"
-                          onClick={() => setSelectedCategory(sector.key)}
+                          className="hover:bg-[var(--surface-hover)] transition-colors"
                         >
                           <td className="py-3 text-sm font-semibold text-[var(--text-primary)]">{sector.sector}</td>
                           <td className="py-3 text-xs text-[var(--text-secondary)]">
@@ -395,11 +367,7 @@ export default function StocksPage() {
                               {sector.allSymbols.map((sym) => (
                                 <span
                                   key={sym}
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
-                                    sector.symbols.includes(sym)
-                                      ? 'bg-[var(--accent-soft)] border border-[var(--accent)]/30 text-[var(--accent)]'
-                                      : 'bg-[var(--surface)] border border-[var(--border)] text-[var(--text-muted)]'
-                                  }`}
+                                  className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[var(--surface)] border border-[var(--border)] text-[var(--text-secondary)]"
                                 >
                                   {sym}
                                 </span>
