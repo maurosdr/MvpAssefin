@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   AreaChart,
   Area,
@@ -27,42 +27,76 @@ export default function PortfolioReturnsChart({ positions, cryptoSymbols = [], o
   const [backtestData, setBacktestData] = useState<PortfolioHistoryPoint[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchBacktest = useCallback(async () => {
+  // Refs so the fetch function always sees latest values without being a dep
+  const positionsRef = useRef(positions);
+  const cryptoRef = useRef(cryptoSymbols);
+  const onDataRef = useRef(onBacktestData);
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => { positionsRef.current = positions; }, [positions]);
+  useEffect(() => { cryptoRef.current = cryptoSymbols; }, [cryptoSymbols]);
+  useEffect(() => { onDataRef.current = onBacktestData; }, [onBacktestData]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => { abortRef.current?.abort(); };
+  }, []);
+
+  const fetchBacktest = useCallback(async (range: BacktestRange) => {
+    // Cancel any in-flight request
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
+    const curPositions = positionsRef.current;
+    const curCrypto = cryptoRef.current;
+
     const allSymbols: string[] = [];
     const allTypes: string[] = [];
     const allWeights: number[] = [];
 
-    // Add stock/etf/bdr positions
-    const stockPositions = positions.filter(
-      (p) => p.type !== 'prediction' && p.type !== 'crypto'
-    );
-    for (const p of stockPositions) {
-      allSymbols.push(p.symbol);
-      allTypes.push(p.type);
-      allWeights.push(p.quantity * p.entryPrice);
+    // Stock/ETF/BDR positions
+    for (const p of curPositions) {
+      if (p.type !== 'prediction' && p.type !== 'crypto') {
+        allSymbols.push(p.symbol);
+        allTypes.push(p.type);
+        allWeights.push(p.quantity * p.entryPrice);
+      }
     }
 
-    // Add crypto positions
-    for (const sym of cryptoSymbols) {
+    // Crypto positions
+    for (const sym of curCrypto) {
       allSymbols.push(sym);
       allTypes.push('crypto');
-      allWeights.push(1); // Equal weight for crypto if no value info
+      allWeights.push(1);
     }
 
-    if (allSymbols.length === 0) return;
+    if (allSymbols.length === 0) {
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     try {
       const params = new URLSearchParams({
         symbols: allSymbols.join(','),
         types: allTypes.join(','),
-        range: backtestRange === '3mo' ? '3mo' : backtestRange === '6mo' ? '6mo' : backtestRange === '2y' ? '2y' : '1y',
+        range,
       });
 
-      const res = await fetch(`/api/portfolio/historical?${params}`);
-      if (!res.ok) return;
+      const res = await fetch(`/api/portfolio/historical?${params}`, {
+        signal: ctrl.signal,
+      });
+
+      if (ctrl.signal.aborted) return;
+      if (!res.ok) {
+        setLoading(false);
+        return;
+      }
 
       const data = await res.json();
+      if (ctrl.signal.aborted) return;
+
       const { dates, prices } = data as {
         dates: string[];
         prices: Record<string, (number | null)[]>;
@@ -78,23 +112,33 @@ export default function PortfolioReturnsChart({ positions, cryptoSymbols = [], o
         .filter((s) => s.prices.length > 0 && s.prices.some((p) => p > 0));
 
       const history = buildPortfolioHistory(dates, positionSeries);
-      setBacktestData(history);
-      onBacktestData?.(history);
-    } catch {
-      // Backtest fetch failed
-    } finally {
-      setLoading(false);
-    }
-  }, [positions, cryptoSymbols, backtestRange]);
 
+      if (!ctrl.signal.aborted) {
+        setBacktestData(history);
+        onDataRef.current?.(history);
+      }
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') return; // intentional cancel
+      // Actual error: stop loading
+    } finally {
+      if (!ctrl.signal.aborted) setLoading(false);
+    }
+  }, []); // stable: reads from refs, no external deps
+
+  // Trigger fetch only when backtestEnabled or backtestRange changes
   useEffect(() => {
     if (backtestEnabled) {
-      fetchBacktest();
+      fetchBacktest(backtestRange);
+    } else {
+      // Disable: cancel any in-flight request and clear data
+      abortRef.current?.abort();
+      setBacktestData([]);
+      setLoading(false);
+      onDataRef.current?.([]);
     }
   }, [backtestEnabled, backtestRange, fetchBacktest]);
 
-  const chartData = backtestEnabled ? backtestData : [];
-  const hasData = chartData.length > 0;
+  const hasData = backtestData.length > 0;
 
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-6">
@@ -121,7 +165,7 @@ export default function PortfolioReturnsChart({ positions, cryptoSymbols = [], o
             </div>
           )}
           <button
-            onClick={() => setBacktestEnabled(!backtestEnabled)}
+            onClick={() => setBacktestEnabled((v) => !v)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
               backtestEnabled
                 ? 'bg-[var(--accent)] text-[var(--text-inverse)]'
@@ -136,7 +180,10 @@ export default function PortfolioReturnsChart({ positions, cryptoSymbols = [], o
       <div className="h-64">
         {loading ? (
           <div className="h-full flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+              <span className="text-xs text-[var(--text-muted)]">Carregando dados históricos...</span>
+            </div>
           </div>
         ) : !backtestEnabled ? (
           <div className="h-full flex items-center justify-center text-[var(--text-muted)] text-sm">
@@ -148,7 +195,7 @@ export default function PortfolioReturnsChart({ positions, cryptoSymbols = [], o
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData}>
+            <AreaChart data={backtestData}>
               <defs>
                 <linearGradient id="returnGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />

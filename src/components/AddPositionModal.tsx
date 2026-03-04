@@ -8,9 +8,20 @@ import { AssetCategory } from '@/types/portfolio';
 const BDRS = [
   'ROXO34', 'M1TA34', 'AAPL34', 'AMZO34', 'GOGL34',
   'MSFT34', 'TSLA34', 'NVDC34', 'NFLX34', 'DISB34',
+  'VISA34', 'JPMC34', 'BERK34', 'JNJB34', 'WEGE34',
 ];
 
-type TabType = 'stocks' | 'etfs' | 'bdrs' | 'prediction';
+type TabType = 'assets' | 'prediction';
+
+const ETF_SET = new Set(MAIN_ETFS);
+const BDR_SET = new Set(BDRS);
+const ALL_SYMBOLS = [...MAIN_STOCKS, ...MAIN_ETFS, ...BDRS];
+
+function getCategoryForSymbol(symbol: string): AssetCategory {
+  if (ETF_SET.has(symbol)) return 'etf';
+  if (BDR_SET.has(symbol)) return 'bdr';
+  return 'stock';
+}
 
 export default function AddPositionModal({
   open,
@@ -20,7 +31,7 @@ export default function AddPositionModal({
   onClose: () => void;
 }) {
   const { addPosition } = usePortfolio();
-  const [tab, setTab] = useState<TabType>('stocks');
+  const [tab, setTab] = useState<TabType>('assets');
   const [search, setSearch] = useState('');
   const [selectedSymbol, setSelectedSymbol] = useState('');
   const [quantity, setQuantity] = useState('');
@@ -35,20 +46,21 @@ export default function AddPositionModal({
 
   if (!open) return null;
 
-  const tabConfig: { id: TabType; label: string; symbols: string[]; category: AssetCategory }[] = [
-    { id: 'stocks', label: 'Ações', symbols: MAIN_STOCKS, category: 'stock' },
-    { id: 'etfs', label: 'ETFs', symbols: MAIN_ETFS, category: 'etf' },
-    { id: 'bdrs', label: 'BDRs', symbols: BDRS, category: 'bdr' },
-    { id: 'prediction', label: 'Pred. Markets', symbols: [], category: 'prediction' },
-  ];
-
-  const currentTab = tabConfig.find((t) => t.id === tab)!;
-
-  const filteredSymbols = currentTab.symbols.filter((s) => {
+  const filteredSymbols = ALL_SYMBOLS.filter((s) => {
     const q = search.toUpperCase();
+    if (!q) return false;
     const name = STOCK_NAMES[s] || '';
     return s.includes(q) || name.toUpperCase().includes(q);
   });
+
+  const resetForm = () => {
+    setSelectedSymbol('');
+    setQuantity('');
+    setEntryPrice('');
+    setMarketName('');
+    setSearch('');
+    setError('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,12 +87,12 @@ export default function AddPositionModal({
         });
       } else {
         if (!selectedSymbol || !entryPrice || !quantity) {
-          setError('Preencha todos os campos.');
+          setError('Selecione um ativo e preencha todos os campos.');
           setSaving(false);
           return;
         }
 
-        // Fetch current price
+        // Fetch current price from BrAPI
         let currentPrice: number | undefined;
         try {
           const res = await fetch(
@@ -91,11 +103,11 @@ export default function AddPositionModal({
             currentPrice = data.currentPrice;
           }
         } catch {
-          // Current price fetch failed, continue without it
+          // Current price fetch failed, proceed without it
         }
 
         addPosition({
-          type: currentTab.category,
+          type: getCategoryForSymbol(selectedSymbol),
           symbol: selectedSymbol,
           name: STOCK_NAMES[selectedSymbol] || selectedSymbol,
           entryDate,
@@ -105,12 +117,7 @@ export default function AddPositionModal({
         });
       }
 
-      // Reset form
-      setSelectedSymbol('');
-      setQuantity('');
-      setEntryPrice('');
-      setMarketName('');
-      setSearch('');
+      resetForm();
       onClose();
     } catch {
       setError('Erro ao adicionar posição.');
@@ -133,16 +140,17 @@ export default function AddPositionModal({
           </button>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs — just 2 */}
         <div className="flex gap-1 mb-5 bg-gray-800/50 rounded-lg p-1">
-          {tabConfig.map((t) => (
+          {([
+            { id: 'assets' as TabType, label: 'Ativos' },
+            { id: 'prediction' as TabType, label: 'Prediction Markets' },
+          ]).map((t) => (
             <button
               key={t.id}
               onClick={() => {
                 setTab(t.id);
-                setSearch('');
-                setSelectedSymbol('');
-                setError('');
+                resetForm();
               }}
               className={`flex-1 px-3 py-2 rounded-md text-xs font-medium transition-all ${
                 tab === t.id
@@ -192,10 +200,9 @@ export default function AddPositionModal({
               </div>
             </>
           ) : (
-            <>
-              {/* Symbol Search */}
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Ativo</label>
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Ativo</label>
+              <div className="relative">
                 <input
                   type="text"
                   value={selectedSymbol || search}
@@ -204,12 +211,27 @@ export default function AddPositionModal({
                     setSelectedSymbol('');
                   }}
                   className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-[var(--text)] placeholder-gray-500 focus:outline-none focus:border-[var(--accent)]"
-                  placeholder="Buscar por código ou nome..."
+                  placeholder="Buscar ação, ETF ou BDR..."
+                  autoComplete="off"
                   required
                 />
-                {search && !selectedSymbol && filteredSymbols.length > 0 && (
-                  <div className="mt-1 bg-gray-800 border border-gray-600 rounded-lg max-h-40 overflow-y-auto">
-                    {filteredSymbols.slice(0, 10).map((s) => (
+                {/* Badge showing asset category when selected */}
+                {selectedSymbol && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--text-muted)] bg-gray-700 px-2 py-0.5 rounded">
+                    {getCategoryForSymbol(selectedSymbol).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              {search && !selectedSymbol && filteredSymbols.length > 0 && (
+                <div className="mt-1 bg-gray-800 border border-gray-600 rounded-lg max-h-44 overflow-y-auto z-10 relative">
+                  {filteredSymbols.slice(0, 12).map((s) => {
+                    const cat = getCategoryForSymbol(s);
+                    const catColors: Record<string, string> = {
+                      etf: 'text-blue-400',
+                      bdr: 'text-purple-400',
+                      stock: 'text-green-400',
+                    };
+                    return (
                       <button
                         key={s}
                         type="button"
@@ -217,23 +239,33 @@ export default function AddPositionModal({
                           setSelectedSymbol(s);
                           setSearch('');
                         }}
-                        className="w-full text-left px-4 py-2 hover:bg-gray-700 text-sm transition-colors"
+                        className="w-full text-left px-4 py-2.5 hover:bg-gray-700 text-sm transition-colors flex items-center justify-between"
                       >
-                        <span className="font-medium text-[var(--text)]">{s}</span>
-                        <span className="text-gray-400 ml-2">{STOCK_NAMES[s] || ''}</span>
+                        <div>
+                          <span className="font-semibold text-[var(--text)]">{s}</span>
+                          <span className="text-gray-400 ml-2 text-xs">{STOCK_NAMES[s] || ''}</span>
+                        </div>
+                        <span className={`text-xs font-medium ${catColors[cat] || 'text-gray-400'}`}>
+                          {cat.toUpperCase()}
+                        </span>
                       </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </>
+                    );
+                  })}
+                </div>
+              )}
+              {search && !selectedSymbol && filteredSymbols.length === 0 && (
+                <p className="text-xs text-[var(--text-muted)] mt-1 px-1">
+                  Nenhum ativo encontrado. Verifique o código (ex: PETR4, BOVA11, AAPL34).
+                </p>
+              )}
+            </div>
           )}
 
           {/* Common fields */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm text-gray-400 mb-1">
-                {tab === 'prediction' ? 'Preço (centavos)' : 'Preço de Entrada (R$)'}
+                {tab === 'prediction' ? 'Preço de Entrada ($)' : 'Preço de Entrada (R$)'}
               </label>
               <input
                 type="number"
