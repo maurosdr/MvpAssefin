@@ -5,6 +5,8 @@ import { BinanceProvider } from "@/context/BinanceContext";
 import { StopLossProvider } from "@/context/StopLossContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { ExchangeProvider } from "@/context/ExchangeContext";
+import { PredictionMarketProvider } from "@/context/PredictionMarketContext";
+import { PortfolioProvider } from "@/context/PortfolioContext";
 import SessionProvider from "@/components/SessionProvider";
 
 const geistSans = localFont({
@@ -36,11 +38,15 @@ export default function RootLayout({
         <SessionProvider>
           <ThemeProvider>
             <ExchangeProvider>
-              <BinanceProvider>
-                <StopLossProvider>
-                  {children}
-                </StopLossProvider>
-              </BinanceProvider>
+              <PredictionMarketProvider>
+                <PortfolioProvider>
+                  <BinanceProvider>
+                    <StopLossProvider>
+                      {children}
+                    </StopLossProvider>
+                  </BinanceProvider>
+                </PortfolioProvider>
+              </PredictionMarketProvider>
             </ExchangeProvider>
           </ThemeProvider>
         </SessionProvider>

@@ -6,6 +6,7 @@ import AssetSearch from '@/components/AssetSearch';
 import BinanceLoginModal from '@/components/BinanceLoginModal';
 import { useExchange } from '@/context/ExchangeContext';
 import { useTheme } from '@/context/ThemeContext';
+import { usePredictionMarkets } from '@/context/PredictionMarketContext';
 import { useState, useRef, useEffect } from 'react';
 
 interface SearchableCrypto {
@@ -34,7 +35,9 @@ export default function AppHeader({
   const { data: session, status } = useSession();
   const { connectedExchanges } = useExchange();
   const { theme, toggleTheme } = useTheme();
-  const connected = connectedExchanges.length > 0;
+  const { enabledCount: predictionCount } = usePredictionMarkets();
+  const totalConnections = connectedExchanges.length + predictionCount;
+  const connected = totalConnections > 0;
   const [showModal, setShowModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -79,6 +82,7 @@ export default function AppHeader({
   const navItems = [
     { label: 'Crypto', path: '/crypto', icon: '📊' },
     { label: 'Ações', path: '/stocks', icon: '📈' },
+    { label: 'Portfolio', path: '/portfolio', icon: '💼' },
     { label: 'Markets', path: '/markets', icon: '📰' },
   ];
 
@@ -307,8 +311,8 @@ export default function AppHeader({
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span className="hidden sm:inline">{connectedExchanges.length}/2 Connected</span>
-                    <span className="sm:hidden">{connectedExchanges.length}/2</span>
+                    <span className="hidden sm:inline">{totalConnections}/4 Connected</span>
+                    <span className="sm:hidden">{totalConnections}/4</span>
                   </>
                 ) : (
                   <>
