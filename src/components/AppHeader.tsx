@@ -119,14 +119,14 @@ export default function AppHeader({
               </div>
 
               {/* Desktop Navigation */}
-              <nav className="hidden xl:flex items-center gap-1 flex-shrink-0">
+              <nav className="hidden md:flex items-center gap-0.5 flex-shrink-0">
                 {navItems.map((item) => {
                   const isActive = pathname.startsWith(item.path);
                   return (
                     <button
                       key={item.path}
                       onClick={() => router.push(item.path)}
-                      className={`relative px-6 py-3 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                      className={`relative px-3 lg:px-5 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
                         isActive
                           ? 'text-[var(--text-primary)]'
                           : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
@@ -145,7 +145,7 @@ export default function AppHeader({
               </nav>
 
               {/* Children (like live indicator) */}
-              {children && <div className="hidden lg:block flex-shrink-0">{children}</div>}
+              {children && <div className="hidden xl:block flex-shrink-0">{children}</div>}
             </div>
 
             {/* Center Section: Search */}
@@ -186,11 +186,11 @@ export default function AppHeader({
 
               {/* User Menu or Login/Signup Buttons */}
               {status === 'loading' ? (
-                <div className="hidden lg:flex items-center gap-2">
+                <div className="hidden md:flex items-center gap-2">
                   <div className="w-10 h-10 rounded-full bg-[var(--surface)] border border-[var(--border)] animate-pulse" />
                 </div>
               ) : session?.user ? (
-                <div className="hidden lg:block relative" ref={userMenuRef}>
+                <div className="hidden md:block relative" ref={userMenuRef}>
                   <button
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
                     className="flex items-center gap-3 px-3 py-2 rounded-xl bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--accent)]/50 hover:bg-[var(--surface-hover)] transition-all group"
@@ -281,7 +281,7 @@ export default function AppHeader({
                   )}
                 </div>
               ) : (
-                <div className="hidden lg:flex items-center gap-2">
+                <div className="hidden md:flex items-center gap-2">
                   <button
                     onClick={() => router.push('/login')}
                     className="px-4 py-2.5 rounded-lg font-semibold text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all"
@@ -328,7 +328,7 @@ export default function AppHeader({
               {/* Mobile Menu Toggle */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="lg:hidden p-2.5 rounded-lg bg-[var(--surface)] border border-[var(--border)] hover:bg-[var(--surface-hover)] transition-all"
+                className="md:hidden p-2.5 rounded-lg bg-[var(--surface)] border border-[var(--border)] hover:bg-[var(--surface-hover)] transition-all"
                 aria-label="Toggle menu"
               >
                 {mobileMenuOpen ? (
@@ -346,7 +346,7 @@ export default function AppHeader({
 
           {/* Mobile Menu */}
           {mobileMenuOpen && (
-            <div className="lg:hidden border-t border-[var(--border)] py-4 space-y-3 animate-in slide-in-from-top">
+            <div className="md:hidden border-t border-[var(--border)] py-4 space-y-3 animate-in slide-in-from-top">
               {/* Mobile Search */}
               <div className="px-2">
                 <AssetSearch cryptos={cryptos} stocks={stocks} />
