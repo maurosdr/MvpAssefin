@@ -55,7 +55,7 @@ export default function CorrelationMatrix({ data, weights }: Props) {
   const headerFontSize = n <= 8 ? 10 : 9;
 
   return (
-    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-6">
+    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-6 flex flex-col">
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-[var(--text-muted)] uppercase tracking-wider">
           Correlograma
@@ -102,13 +102,13 @@ export default function CorrelationMatrix({ data, weights }: Props) {
       )}
 
       {isEmpty ? (
-        <div className="h-40 flex items-center justify-center text-[var(--text-muted)] text-sm">
+        <div className="flex-1 min-h-0 flex items-center justify-center text-[var(--text-muted)] text-sm">
           Dados insuficientes para calcular correlações
         </div>
       ) : (
-        <>
+        <div className="flex flex-col flex-1 min-h-0">
           {/* Color scale legend */}
-          <div className="flex items-center gap-2 mb-3 text-[10px] text-[var(--text-muted)]">
+          <div className="flex items-center gap-2 mb-3 text-[10px] text-[var(--text-muted)] shrink-0">
             <span style={{ color: '#ef4444' }}>−1</span>
             <div
               className="flex-1 h-1.5 rounded"
@@ -119,7 +119,7 @@ export default function CorrelationMatrix({ data, weights }: Props) {
           </div>
 
           {/* Scrollable grid */}
-          <div className="overflow-auto">
+          <div className="flex-1 min-h-0 overflow-auto">
             <div
               className="grid gap-0.5 w-full"
               style={{
@@ -185,7 +185,7 @@ export default function CorrelationMatrix({ data, weights }: Props) {
               ))}
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
