@@ -50,6 +50,49 @@ export function calculatePearsonCorrelation(a: number[], b: number[]): number {
 }
 
 /**
+ * Portfolio-wide correlation: weighted average of all pairwise correlations.
+ * weights[i] corresponds to symbols[i] weight (already normalized or not — we normalize internally).
+ * Returns a value in [-1, 1]. Also returns qualitative label and diversification score.
+ */
+export function calculatePortfolioCorrelation(
+  matrix: number[][],
+  weights: number[]
+): { value: number; label: string; diversification: number } {
+  const n = matrix.length;
+  if (n < 2) return { value: 0, label: 'N/A', diversification: 1 };
+
+  const wTotal = weights.reduce((a, b) => a + b, 0) || 1;
+  const w = weights.map((x) => x / wTotal);
+
+  // Weighted average pairwise correlation: Σ(wi*wj*ρij) / Σ(wi*wj) for i≠j
+  let sumWC = 0;
+  let sumW = 0;
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      if (i !== j) {
+        const ww = w[i] * w[j];
+        sumWC += ww * (matrix[i]?.[j] ?? 0);
+        sumW += ww;
+      }
+    }
+  }
+  const value = sumW > 0 ? sumWC / sumW : 0;
+
+  // Effective number of assets (Markowitz diversification): 1 / Σ(wi²) — compared to corr-adjusted
+  const hhi = w.reduce((s, wi) => s + wi * wi, 0);
+  const effectiveN = hhi > 0 ? 1 / hhi : n;
+  const diversification = Math.min(1, effectiveN / n);
+
+  let label: string;
+  if (value < 0.2) label = 'Baixa — carteira bem diversificada';
+  else if (value < 0.5) label = 'Moderada — diversificação razoável';
+  else if (value < 0.75) label = 'Alta — ativos andam juntos';
+  else label = 'Muito Alta — pouca diversificação';
+
+  return { value, label, diversification };
+}
+
+/**
  * Build an NxN Pearson correlation matrix from daily return series
  */
 export function calculateCorrelationMatrix(

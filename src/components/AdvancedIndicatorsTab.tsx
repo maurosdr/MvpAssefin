@@ -29,6 +29,8 @@ interface Props {
 interface AnalyticsData {
   frontier: EfficientFrontierPoint[];
   correlation: CorrelationResult;
+  /** Weights aligned to correlation.labels order */
+  correlationWeights: number[];
   brinson: BrinsonItem[];
   waterfall: WaterfallItem[];
 }
@@ -143,6 +145,7 @@ export default function AdvancedIndicatorsTab({ positions, manualPositions, cryp
         setAnalytics({
           frontier: [],
           correlation: { labels: [], matrix: [] },
+          correlationWeights: [],
           brinson: [],
           waterfall: [],
         });
@@ -165,14 +168,16 @@ export default function AdvancedIndicatorsTab({ positions, manualPositions, cryp
         }
       }
 
-      // Run all four calculations in parallel (all synchronous/CPU-bound)
+      // Run all four calculations (all synchronous/CPU-bound)
       const frontier = generateEfficientFrontier(validSymbols, returnSeries, portfolioWeights, 500);
       const correlation = calculateCorrelationMatrix(validSymbols, returnSeries);
+      // Weights array aligned to correlation.labels (= validSymbols)
+      const correlationWeights = validSymbols.map((sym) => portfolioWeights[sym] ?? 0);
       const brinson = calculateBrinsonAttribution(validSymbols, portfolioWeights, returnSeries);
       const waterfall = calculateReturnContributions(validSymbols, portfolioWeights, returnSeries);
 
       if (!ctrl.signal.aborted) {
-        setAnalytics({ frontier, correlation, brinson, waterfall });
+        setAnalytics({ frontier, correlation, correlationWeights, brinson, waterfall });
       }
     } catch (e) {
       if ((e as Error).name === 'AbortError') return;
@@ -243,7 +248,7 @@ export default function AdvancedIndicatorsTab({ positions, manualPositions, cryp
       ) : analytics && (analytics.frontier.length > 0 || analytics.correlation.labels.length > 0) ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           <EfficientFrontierChart points={analytics.frontier} />
-          <CorrelationMatrix data={analytics.correlation} />
+          <CorrelationMatrix data={analytics.correlation} weights={analytics.correlationWeights} />
           <BrinsonAttributionChart data={analytics.brinson} />
           <ReturnWaterfallChart items={analytics.waterfall} />
         </div>
