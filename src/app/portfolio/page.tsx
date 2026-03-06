@@ -10,6 +10,7 @@ import PortfolioReturnsChart from '@/components/PortfolioReturnsChart';
 import PortfolioDrawdownChart from '@/components/PortfolioDrawdownChart';
 import PortfolioVolatilityChart from '@/components/PortfolioVolatilityChart';
 import PortfolioPositionsTable from '@/components/PortfolioPositionsTable';
+import AdvancedIndicatorsTab from '@/components/AdvancedIndicatorsTab';
 import { usePortfolio } from '@/context/PortfolioContext';
 import { useExchange } from '@/context/ExchangeContext';
 import { usePredictionMarkets } from '@/context/PredictionMarketContext';
@@ -28,6 +29,7 @@ export default function PortfolioPage() {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [backtestData, setBacktestData] = useState<PortfolioHistoryPoint[]>([]);
+  const [activeTab, setActiveTab] = useState<'carteira' | 'indicadores'>('carteira');
 
   // Refresh prices on mount
   useEffect(() => {
@@ -187,53 +189,84 @@ export default function PortfolioPage() {
           </button>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
-          <StatCard
-            label="Valor Total"
-            value={formatCurrency(totalPortfolioValue, allChartPositions.some((p) => p.type === 'crypto'))}
-            color="text-[var(--text)]"
-          />
-          <StatCard
-            label="Rentabilidade"
-            value={`${stats.totalReturnPct >= 0 ? '+' : ''}${stats.totalReturnPct.toFixed(2)}%`}
-            subValue={formatCurrency(stats.totalReturn, false)}
-            color={stats.totalReturnPct >= 0 ? 'text-green-400' : 'text-red-400'}
-          />
-          <StatCard
-            label="Volatilidade"
-            value={stats.volatility > 0 ? `${stats.volatility.toFixed(2)}%` : '—'}
-            color="text-[var(--accent)]"
-          />
-          <StatCard
-            label="Sharpe Ratio"
-            value={stats.sharpeRatio !== 0 ? stats.sharpeRatio.toFixed(2) : '—'}
-            color={stats.sharpeRatio > 0 ? 'text-green-400' : stats.sharpeRatio < 0 ? 'text-red-400' : 'text-[var(--text-muted)]'}
-          />
-          <StatCard
-            label="Max Drawdown"
-            value={stats.maxDrawdown > 0 ? `-${stats.maxDrawdown.toFixed(2)}%` : '—'}
-            color="text-red-400"
-          />
+        {/* Tab Bar */}
+        <div className="flex gap-0 border-b border-[var(--border)] mb-6">
+          {(['carteira', 'indicadores'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-5 py-2.5 text-sm font-semibold transition-all border-b-2 -mb-px ${
+                activeTab === tab
+                  ? 'border-[var(--accent)] text-[var(--text)]'
+                  : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)]'
+              }`}
+            >
+              {tab === 'carteira' ? 'Carteira' : 'Indicadores Avançados'}
+            </button>
+          ))}
         </div>
 
-        {/* Charts Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
-          <PortfolioConcentrationChart positions={allChartPositions} />
-          <PortfolioReturnsChart
-            positions={manualPositions}
+        {/* ── Carteira Tab ── */}
+        {activeTab === 'carteira' && (
+          <>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
+              <StatCard
+                label="Valor Total"
+                value={formatCurrency(totalPortfolioValue, allChartPositions.some((p) => p.type === 'crypto'))}
+                color="text-[var(--text)]"
+              />
+              <StatCard
+                label="Rentabilidade"
+                value={`${stats.totalReturnPct >= 0 ? '+' : ''}${stats.totalReturnPct.toFixed(2)}%`}
+                subValue={formatCurrency(stats.totalReturn, false)}
+                color={stats.totalReturnPct >= 0 ? 'text-green-400' : 'text-red-400'}
+              />
+              <StatCard
+                label="Volatilidade"
+                value={stats.volatility > 0 ? `${stats.volatility.toFixed(2)}%` : '—'}
+                color="text-[var(--accent)]"
+              />
+              <StatCard
+                label="Sharpe Ratio"
+                value={stats.sharpeRatio !== 0 ? stats.sharpeRatio.toFixed(2) : '—'}
+                color={stats.sharpeRatio > 0 ? 'text-green-400' : stats.sharpeRatio < 0 ? 'text-red-400' : 'text-[var(--text-muted)]'}
+              />
+              <StatCard
+                label="Max Drawdown"
+                value={stats.maxDrawdown > 0 ? `-${stats.maxDrawdown.toFixed(2)}%` : '—'}
+                color="text-red-400"
+              />
+            </div>
+
+            {/* Charts Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
+              <PortfolioConcentrationChart positions={allChartPositions} />
+              <PortfolioReturnsChart
+                positions={manualPositions}
+                cryptoSymbols={cryptoSymbols}
+                onBacktestData={setBacktestData}
+              />
+              <PortfolioDrawdownChart data={backtestData} />
+              <PortfolioVolatilityChart data={backtestData} />
+            </div>
+
+            {/* Positions Table */}
+            <PortfolioPositionsTable
+              positions={allChartPositions}
+              onRemove={handleRemove}
+            />
+          </>
+        )}
+
+        {/* ── Indicadores Avançados Tab ── */}
+        {activeTab === 'indicadores' && (
+          <AdvancedIndicatorsTab
+            positions={allChartPositions}
+            manualPositions={manualPositions}
             cryptoSymbols={cryptoSymbols}
-            onBacktestData={setBacktestData}
           />
-          <PortfolioDrawdownChart data={backtestData} />
-          <PortfolioVolatilityChart data={backtestData} />
-        </div>
-
-        {/* Positions Table */}
-        <PortfolioPositionsTable
-          positions={allChartPositions}
-          onRemove={handleRemove}
-        />
+        )}
 
         {priceLoading && (
           <div className="fixed bottom-4 right-4 bg-[var(--surface)] border border-[var(--border)] rounded-lg px-4 py-2 shadow-lg flex items-center gap-2">
