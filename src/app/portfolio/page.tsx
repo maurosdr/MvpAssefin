@@ -10,6 +10,7 @@ import PortfolioReturnsChart from '@/components/PortfolioReturnsChart';
 import PortfolioDrawdownChart from '@/components/PortfolioDrawdownChart';
 import PortfolioVolatilityChart from '@/components/PortfolioVolatilityChart';
 import PortfolioPositionsTable from '@/components/PortfolioPositionsTable';
+import AdvancedIndicatorsTab from '@/components/AdvancedIndicatorsTab';
 import { usePortfolio } from '@/context/PortfolioContext';
 import { useExchange } from '@/context/ExchangeContext';
 import { usePredictionMarkets } from '@/context/PredictionMarketContext';
@@ -28,6 +29,7 @@ export default function PortfolioPage() {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [backtestData, setBacktestData] = useState<PortfolioHistoryPoint[]>([]);
+  const [activeTab, setActiveTab] = useState<'carteira' | 'indicadores'>('carteira');
 
   // Refresh prices on mount
   useEffect(() => {
@@ -187,53 +189,98 @@ export default function PortfolioPage() {
           </button>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
-          <StatCard
-            label="Valor Total"
-            value={formatCurrency(totalPortfolioValue, allChartPositions.some((p) => p.type === 'crypto'))}
-            color="text-[var(--text)]"
-          />
-          <StatCard
-            label="Rentabilidade"
-            value={`${stats.totalReturnPct >= 0 ? '+' : ''}${stats.totalReturnPct.toFixed(2)}%`}
-            subValue={formatCurrency(stats.totalReturn, false)}
-            color={stats.totalReturnPct >= 0 ? 'text-green-400' : 'text-red-400'}
-          />
-          <StatCard
-            label="Volatilidade"
-            value={stats.volatility > 0 ? `${stats.volatility.toFixed(2)}%` : '—'}
-            color="text-[var(--accent)]"
-          />
-          <StatCard
-            label="Sharpe Ratio"
-            value={stats.sharpeRatio !== 0 ? stats.sharpeRatio.toFixed(2) : '—'}
-            color={stats.sharpeRatio > 0 ? 'text-green-400' : stats.sharpeRatio < 0 ? 'text-red-400' : 'text-[var(--text-muted)]'}
-          />
-          <StatCard
-            label="Max Drawdown"
-            value={stats.maxDrawdown > 0 ? `-${stats.maxDrawdown.toFixed(2)}%` : '—'}
-            color="text-red-400"
-          />
+        {/* Tab Bar — same pill style as crypto detail page */}
+        <div className="flex items-center gap-2 bg-[var(--surface)]/60 border border-[var(--border)] rounded-2xl p-1.5 overflow-x-auto mb-6 sticky top-[120px] z-30 backdrop-blur-sm">
+          {(
+            [
+              { id: 'carteira', label: 'Carteira', icon: (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                </svg>
+              )},
+              { id: 'indicadores', label: 'Indicadores Avançados', icon: (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              )},
+            ] as const
+          ).map(({ id, label, icon }) => (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium text-sm transition-all whitespace-nowrap ${
+                activeTab === id
+                  ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20'
+                  : 'text-gray-400 hover:text-[var(--text)] hover:bg-gray-800/50'
+              }`}
+            >
+              {icon}
+              {label}
+            </button>
+          ))}
         </div>
 
-        {/* Charts Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
-          <PortfolioConcentrationChart positions={allChartPositions} />
-          <PortfolioReturnsChart
-            positions={manualPositions}
+        {/* ── Carteira Tab ── */}
+        {activeTab === 'carteira' && (
+          <>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
+              <StatCard
+                label="Valor Total"
+                value={formatCurrency(totalPortfolioValue, allChartPositions.some((p) => p.type === 'crypto'))}
+                color="text-[var(--text)]"
+              />
+              <StatCard
+                label="Rentabilidade"
+                value={`${stats.totalReturnPct >= 0 ? '+' : ''}${stats.totalReturnPct.toFixed(2)}%`}
+                subValue={formatCurrency(stats.totalReturn, false)}
+                color={stats.totalReturnPct >= 0 ? 'text-green-400' : 'text-red-400'}
+              />
+              <StatCard
+                label="Volatilidade"
+                value={stats.volatility > 0 ? `${stats.volatility.toFixed(2)}%` : '—'}
+                color="text-[var(--accent)]"
+              />
+              <StatCard
+                label="Sharpe Ratio"
+                value={stats.sharpeRatio !== 0 ? stats.sharpeRatio.toFixed(2) : '—'}
+                color={stats.sharpeRatio > 0 ? 'text-green-400' : stats.sharpeRatio < 0 ? 'text-red-400' : 'text-[var(--text-muted)]'}
+              />
+              <StatCard
+                label="Max Drawdown"
+                value={stats.maxDrawdown > 0 ? `-${stats.maxDrawdown.toFixed(2)}%` : '—'}
+                color="text-red-400"
+              />
+            </div>
+
+            {/* Charts Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
+              <PortfolioConcentrationChart positions={allChartPositions} />
+              <PortfolioReturnsChart
+                positions={manualPositions}
+                cryptoSymbols={cryptoSymbols}
+                onBacktestData={setBacktestData}
+              />
+              <PortfolioDrawdownChart data={backtestData} />
+              <PortfolioVolatilityChart data={backtestData} />
+            </div>
+
+            {/* Positions Table */}
+            <PortfolioPositionsTable
+              positions={allChartPositions}
+              onRemove={handleRemove}
+            />
+          </>
+        )}
+
+        {/* ── Indicadores Avançados Tab ── */}
+        {activeTab === 'indicadores' && (
+          <AdvancedIndicatorsTab
+            positions={allChartPositions}
+            manualPositions={manualPositions}
             cryptoSymbols={cryptoSymbols}
-            onBacktestData={setBacktestData}
           />
-          <PortfolioDrawdownChart data={backtestData} />
-          <PortfolioVolatilityChart data={backtestData} />
-        </div>
-
-        {/* Positions Table */}
-        <PortfolioPositionsTable
-          positions={allChartPositions}
-          onRemove={handleRemove}
-        />
+        )}
 
         {priceLoading && (
           <div className="fixed bottom-4 right-4 bg-[var(--surface)] border border-[var(--border)] rounded-lg px-4 py-2 shadow-lg flex items-center gap-2">
