@@ -21,13 +21,21 @@ interface Props {
 
 type BacktestRange = '3mo' | '6mo' | '1y' | '2y';
 
+function getRangeForDate(dateStr: string): BacktestRange {
+  const diffDays = Math.ceil((Date.now() - new Date(dateStr).getTime()) / 86_400_000);
+  if (diffDays <= 90) return '3mo';
+  if (diffDays <= 180) return '6mo';
+  if (diffDays <= 365) return '1y';
+  return '2y';
+}
+
 export default function PortfolioReturnsChart({ positions, cryptoSymbols = [], onBacktestData }: Props) {
   const [backtestEnabled, setBacktestEnabled] = useState(false);
   const [backtestRange, setBacktestRange] = useState<BacktestRange>('1y');
   const [backtestData, setBacktestData] = useState<PortfolioHistoryPoint[]>([]);
   const [loading, setLoading] = useState(false);
+  const [sincePurchaseDate, setSincePurchaseDate] = useState<string | null>(null);
 
-  // Refs so the fetch function always sees latest values without being a dep
   const positionsRef = useRef(positions);
   const cryptoRef = useRef(cryptoSymbols);
   const onDataRef = useRef(onBacktestData);
@@ -37,25 +45,19 @@ export default function PortfolioReturnsChart({ positions, cryptoSymbols = [], o
   useEffect(() => { cryptoRef.current = cryptoSymbols; }, [cryptoSymbols]);
   useEffect(() => { onDataRef.current = onBacktestData; }, [onBacktestData]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => { abortRef.current?.abort(); };
   }, []);
 
-  const fetchBacktest = useCallback(async (range: BacktestRange) => {
-    // Cancel any in-flight request
-    abortRef.current?.abort();
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
+  // ── helpers ────────────────────────────────────────────────────────────────
 
+  function buildPositionArrays() {
     const curPositions = positionsRef.current;
     const curCrypto = cryptoRef.current;
-
     const allSymbols: string[] = [];
     const allTypes: string[] = [];
     const allWeights: number[] = [];
 
-    // Stock/ETF/BDR positions
     for (const p of curPositions) {
       if (p.type !== 'prediction' && p.type !== 'crypto') {
         allSymbols.push(p.symbol);
@@ -63,90 +65,115 @@ export default function PortfolioReturnsChart({ positions, cryptoSymbols = [], o
         allWeights.push(p.quantity * p.entryPrice);
       }
     }
-
-    // Crypto positions
     for (const sym of curCrypto) {
       allSymbols.push(sym);
       allTypes.push('crypto');
       allWeights.push(1);
     }
+    return { allSymbols, allTypes, allWeights };
+  }
 
-    if (allSymbols.length === 0) {
-      setLoading(false);
-      return;
-    }
+  async function doFetch(range: BacktestRange, startDate: string | null, ctrl: AbortController) {
+    const { allSymbols, allTypes, allWeights } = buildPositionArrays();
+    if (allSymbols.length === 0) { setLoading(false); return; }
 
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        symbols: allSymbols.join(','),
-        types: allTypes.join(','),
-        range,
-      });
-
-      const res = await fetch(`/api/portfolio/historical?${params}`, {
-        signal: ctrl.signal,
-      });
+      const params = new URLSearchParams({ symbols: allSymbols.join(','), types: allTypes.join(','), range });
+      const res = await fetch(`/api/portfolio/historical?${params}`, { signal: ctrl.signal });
 
       if (ctrl.signal.aborted) return;
-      if (!res.ok) {
-        setLoading(false);
-        return;
-      }
+      if (!res.ok) { setLoading(false); return; }
 
       const data = await res.json();
       if (ctrl.signal.aborted) return;
 
-      const { dates, prices } = data as {
-        dates: string[];
-        prices: Record<string, (number | null)[]>;
-      };
+      const { dates, prices } = data as { dates: string[]; prices: Record<string, (number | null)[]> };
+
+      // Slice to startDate if provided
+      const sliceIdx = startDate ? Math.max(0, dates.findIndex((d: string) => d >= startDate)) : 0;
+      const filteredDates: string[] = dates.slice(sliceIdx);
 
       const totalWeight = allWeights.reduce((a, b) => a + b, 0) || 1;
       const positionSeries = allSymbols
         .map((sym, i) => ({
           symbol: sym,
-          prices: (prices[sym] || []).map((p: number | null) => p ?? 0),
+          prices: ((prices[sym] || []).slice(sliceIdx)).map((p: number | null) => p ?? 0),
           weight: allWeights[i] / totalWeight,
         }))
         .filter((s) => s.prices.length > 0 && s.prices.some((p) => p > 0));
 
-      const history = buildPortfolioHistory(dates, positionSeries);
+      const history = buildPortfolioHistory(filteredDates, positionSeries);
 
       if (!ctrl.signal.aborted) {
         setBacktestData(history);
         onDataRef.current?.(history);
       }
     } catch (e) {
-      if ((e as Error).name === 'AbortError') return; // intentional cancel
-      // Actual error: stop loading
+      if ((e as Error).name === 'AbortError') return;
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, []); // stable: reads from refs, no external deps
+  }
 
-  // Trigger fetch only when backtestEnabled or backtestRange changes
+  // ── fetch callbacks ────────────────────────────────────────────────────────
+
+  const fetchBacktest = useCallback(async (range: BacktestRange) => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setSincePurchaseDate(null);
+    await doFetch(range, null, ctrl);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fetchSincePurchase = useCallback(async () => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
+    // Find earliest entry date among non-prediction / non-crypto manual positions
+    const entryDates = positionsRef.current
+      .filter((p) => p.type !== 'prediction' && p.type !== 'crypto' && p.entryDate)
+      .map((p) => p.entryDate)
+      .sort();
+
+    const earliestDate = entryDates[0] ?? null;
+    const range = earliestDate ? getRangeForDate(earliestDate) : '1y';
+    setSincePurchaseDate(earliestDate);
+    await doFetch(range, earliestDate, ctrl);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── trigger ────────────────────────────────────────────────────────────────
+
   useEffect(() => {
     if (backtestEnabled) {
       fetchBacktest(backtestRange);
     } else {
-      // Disable: cancel any in-flight request and clear data
-      abortRef.current?.abort();
-      setBacktestData([]);
-      setLoading(false);
-      onDataRef.current?.([]);
+      fetchSincePurchase();
     }
-  }, [backtestEnabled, backtestRange, fetchBacktest]);
+  }, [backtestEnabled, backtestRange, fetchBacktest, fetchSincePurchase]);
 
   const hasData = backtestData.length > 0;
+
+  // Format date for badge
+  const sinceDateLabel = sincePurchaseDate
+    ? new Date(sincePurchaseDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    : null;
 
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold text-[var(--text-muted)] uppercase tracking-wider">
-          Rentabilidade do Portfolio
-        </h3>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <h3 className="text-sm font-semibold text-[var(--text-muted)] uppercase tracking-wider shrink-0">
+            Rentabilidade do Portfolio
+          </h3>
+          {!backtestEnabled && sinceDateLabel && hasData && (
+            <span className="text-[10px] text-[var(--text-muted)] bg-[var(--bg-elevated)] border border-[var(--border)] px-2 py-0.5 rounded-full shrink-0">
+              Desde {sinceDateLabel}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
           {backtestEnabled && (
             <div className="flex gap-1">
               {(['3mo', '6mo', '1y', '2y'] as BacktestRange[]).map((r) => (
@@ -185,13 +212,9 @@ export default function PortfolioReturnsChart({ positions, cryptoSymbols = [], o
               <span className="text-xs text-[var(--text-muted)]">Carregando dados históricos...</span>
             </div>
           </div>
-        ) : !backtestEnabled ? (
-          <div className="h-full flex items-center justify-center text-[var(--text-muted)] text-sm">
-            Ative o Backtest para visualizar a rentabilidade histórica
-          </div>
         ) : !hasData ? (
           <div className="h-full flex items-center justify-center text-[var(--text-muted)] text-sm">
-            Adicione posições para realizar o backtest
+            Adicione posições para visualizar a rentabilidade
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">

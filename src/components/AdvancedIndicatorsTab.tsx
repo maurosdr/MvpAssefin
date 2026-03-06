@@ -6,12 +6,14 @@ import {
   calculateSimpleReturns,
   calculateCorrelationMatrix,
   generateEfficientFrontier,
+  generateBlackLittermanAllocation,
   calculateBrinsonAttribution,
   calculateReturnContributions,
   EfficientFrontierPoint,
   CorrelationResult,
   BrinsonItem,
   WaterfallItem,
+  BlackLittermanAllocation,
 } from '@/lib/portfolio-calculations';
 import EfficientFrontierChart from './EfficientFrontierChart';
 import CorrelationMatrix from './CorrelationMatrix';
@@ -33,6 +35,7 @@ interface AnalyticsData {
   correlationWeights: number[];
   brinson: BrinsonItem[];
   waterfall: WaterfallItem[];
+  blAllocation: BlackLittermanAllocation | null;
 }
 
 const WINDOW_LABELS: Record<AnalysisWindow, string> = {
@@ -93,8 +96,10 @@ export default function AdvancedIndicatorsTab({ positions, manualPositions, cryp
       setAnalytics({
         frontier: [],
         correlation: { labels: [], matrix: [] },
+        correlationWeights: [],
         brinson: [],
         waterfall: [],
+        blAllocation: null,
       });
       return;
     }
@@ -148,6 +153,7 @@ export default function AdvancedIndicatorsTab({ positions, manualPositions, cryp
           correlationWeights: [],
           brinson: [],
           waterfall: [],
+          blAllocation: null,
         });
         setLoading(false);
         return;
@@ -168,16 +174,16 @@ export default function AdvancedIndicatorsTab({ positions, manualPositions, cryp
         }
       }
 
-      // Run all four calculations (all synchronous/CPU-bound)
+      // Run all calculations (synchronous/CPU-bound)
       const frontier = generateEfficientFrontier(validSymbols, returnSeries, portfolioWeights, 500);
       const correlation = calculateCorrelationMatrix(validSymbols, returnSeries);
-      // Weights array aligned to correlation.labels (= validSymbols)
       const correlationWeights = validSymbols.map((sym) => portfolioWeights[sym] ?? 0);
       const brinson = calculateBrinsonAttribution(validSymbols, portfolioWeights, returnSeries);
       const waterfall = calculateReturnContributions(validSymbols, portfolioWeights, returnSeries);
+      const blAllocation = generateBlackLittermanAllocation(validSymbols, returnSeries, portfolioWeights, frontier);
 
       if (!ctrl.signal.aborted) {
-        setAnalytics({ frontier, correlation, correlationWeights, brinson, waterfall });
+        setAnalytics({ frontier, correlation, correlationWeights, brinson, waterfall, blAllocation });
       }
     } catch (e) {
       if ((e as Error).name === 'AbortError') return;
@@ -246,11 +252,19 @@ export default function AdvancedIndicatorsTab({ positions, manualPositions, cryp
           </button>
         </div>
       ) : analytics && (analytics.frontier.length > 0 || analytics.correlation.labels.length > 0) ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-          <EfficientFrontierChart points={analytics.frontier} />
-          <CorrelationMatrix data={analytics.correlation} weights={analytics.correlationWeights} />
-          <BrinsonAttributionChart data={analytics.brinson} />
-          <ReturnWaterfallChart items={analytics.waterfall} />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+          <div className="lg:col-span-2">
+            <EfficientFrontierChart points={analytics.frontier} blAllocation={analytics.blAllocation ?? undefined} />
+          </div>
+          <div className="lg:col-span-1">
+            <CorrelationMatrix data={analytics.correlation} weights={analytics.correlationWeights} />
+          </div>
+          <div className="lg:col-span-2">
+            <BrinsonAttributionChart data={analytics.brinson} />
+          </div>
+          <div className="lg:col-span-1">
+            <ReturnWaterfallChart items={analytics.waterfall} />
+          </div>
         </div>
       ) : analytics ? (
         <div className="flex flex-col items-center justify-center py-20 text-[var(--text-muted)]">
