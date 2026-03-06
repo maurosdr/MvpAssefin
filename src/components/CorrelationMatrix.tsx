@@ -121,9 +121,9 @@ export default function CorrelationMatrix({ data, weights }: Props) {
           {/* Scrollable grid */}
           <div className="overflow-auto">
             <div
-              className="inline-grid gap-0.5"
+              className="grid gap-0.5 w-full"
               style={{
-                gridTemplateColumns: `auto repeat(${n}, ${cellPx}px)`,
+                gridTemplateColumns: `auto repeat(${n}, minmax(${cellPx}px, 1fr))`,
               }}
             >
               {/* Top-left empty */}
@@ -133,7 +133,7 @@ export default function CorrelationMatrix({ data, weights }: Props) {
                 <div
                   key={`ch-${lbl}`}
                   className="text-center font-semibold text-[var(--text-muted)] pb-1 flex items-end justify-center"
-                  style={{ fontSize: headerFontSize, height: cellPx + 4 }}
+                  style={{ fontSize: headerFontSize, minHeight: cellPx + 4 }}
                   title={lbl}
                 >
                   <span
@@ -155,7 +155,7 @@ export default function CorrelationMatrix({ data, weights }: Props) {
                   <div
                     key={`rh-${rowLbl}`}
                     className="flex items-center justify-end pr-1.5 font-semibold text-[var(--text-muted)] whitespace-nowrap"
-                    style={{ fontSize: headerFontSize, height: cellPx }}
+                    style={{ fontSize: headerFontSize, minHeight: cellPx }}
                     title={rowLbl}
                   >
                     {trunc(rowLbl, n > 8 ? 5 : 7)}
@@ -171,8 +171,9 @@ export default function CorrelationMatrix({ data, weights }: Props) {
                           backgroundColor: corrToRgb(val),
                           color: cellTextColor(val),
                           fontSize,
-                          width: cellPx,
-                          height: cellPx,
+                          aspectRatio: '1',
+                          minWidth: cellPx,
+                          minHeight: cellPx,
                         }}
                         title={`${rowLbl} × ${colLbl}: ${val.toFixed(3)}`}
                       >

@@ -8,6 +8,7 @@ export interface EfficientFrontierPoint {
   sharpe: number;
   isCurrent?: boolean;
   isMaxSharpe?: boolean;
+  weights?: Record<string, number>;
 }
 
 export interface BrinsonItem {
@@ -156,14 +157,18 @@ export function generateEfficientFrontier(
     const rawWeights = symbols.map(() => Math.random());
     const sum = rawWeights.reduce((a, b) => a + b, 0);
     const weights = rawWeights.map((w) => w / sum);
-    points.push(portfolioStats(weights));
+    const weightsMap: Record<string, number> = {};
+    symbols.forEach((sym, i) => { weightsMap[sym] = weights[i]; });
+    points.push({ ...portfolioStats(weights), weights: weightsMap });
   }
 
   // Current portfolio point
   const cwTotal = symbols.reduce((s, sym) => s + (currentWeights[sym] ?? 0), 0) || 1;
   const cwNorm = symbols.map((sym) => (currentWeights[sym] ?? 0) / cwTotal);
+  const cwMap: Record<string, number> = {};
+  symbols.forEach((sym, i) => { cwMap[sym] = cwNorm[i]; });
   const currentStats = portfolioStats(cwNorm);
-  points.push({ ...currentStats, isCurrent: true });
+  points.push({ ...currentStats, isCurrent: true, weights: cwMap });
 
   // Mark max Sharpe point among simulations
   let maxSharpeIdx = 0;

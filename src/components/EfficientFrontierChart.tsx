@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   ScatterChart,
   Scatter,
@@ -25,11 +26,18 @@ function sharpeColor(sharpe: number): string {
 }
 
 export default function EfficientFrontierChart({ points }: Props) {
+  const [selectedPoint, setSelectedPoint] = useState<EfficientFrontierPoint | null>(null);
+
   const simulated = points.filter((p) => !p.isCurrent && !p.isMaxSharpe);
   const current = points.filter((p) => p.isCurrent);
   const maxSharpe = points.filter((p) => p.isMaxSharpe);
 
   const isEmpty = points.length === 0;
+
+  const handleClick = (data: unknown) => {
+    const p = data as EfficientFrontierPoint;
+    if (p && typeof p.risk === 'number') setSelectedPoint(p);
+  };
 
   const CustomTooltip = ({
     active,
@@ -55,9 +63,21 @@ export default function EfficientFrontierChart({ points }: Props) {
         <p className="text-[var(--text-muted)]">
           Sharpe: <span className="text-[var(--text)] font-medium">{p.sharpe.toFixed(2)}</span>
         </p>
+        <p className="text-[var(--text-muted)] mt-1 italic">Clique para ver alocação</p>
       </div>
     );
   };
+
+  const popupLabel = selectedPoint?.isCurrent
+    ? '⭐ Carteira Atual'
+    : selectedPoint?.isMaxSharpe
+    ? '🏆 Maior Sharpe'
+    : 'Portfólio Simulado';
+
+  const allocationEntries = selectedPoint?.weights
+    ? Object.entries(selectedPoint.weights)
+        .sort((a, b) => b[1] - a[1])
+    : [];
 
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-6">
@@ -88,55 +108,130 @@ export default function EfficientFrontierChart({ points }: Props) {
         </div>
       )}
 
-      <div className="h-64">
+      <div className="h-64 relative">
         {isEmpty ? (
           <div className="h-full flex items-center justify-center text-[var(--text-muted)] text-sm">
             Dados insuficientes para calcular a fronteira eficiente
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <ScatterChart margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis
-                type="number"
-                dataKey="risk"
-                name="Risco"
-                tick={{ fill: 'var(--text-muted)', fontSize: 10 }}
-                tickFormatter={(v: number) => `${v.toFixed(0)}%`}
-                label={{ value: 'Risco (Vol. Anual)', position: 'insideBottom', offset: -2, fill: 'var(--text-muted)', fontSize: 10 }}
-              />
-              <YAxis
-                type="number"
-                dataKey="annReturn"
-                name="Retorno"
-                tick={{ fill: 'var(--text-muted)', fontSize: 10 }}
-                tickFormatter={(v: number) => `${v.toFixed(0)}%`}
-              />
-              <ReferenceLine y={0} stroke="var(--border)" strokeDasharray="4 4" />
-              <Tooltip content={<CustomTooltip />} />
+          <>
+            <ResponsiveContainer width="100%" height="100%">
+              <ScatterChart margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis
+                  type="number"
+                  dataKey="risk"
+                  name="Risco"
+                  tick={{ fill: 'var(--text-muted)', fontSize: 10 }}
+                  tickFormatter={(v: number) => `${v.toFixed(0)}%`}
+                  label={{ value: 'Risco (Vol. Anual)', position: 'insideBottom', offset: -2, fill: 'var(--text-muted)', fontSize: 10 }}
+                />
+                <YAxis
+                  type="number"
+                  dataKey="annReturn"
+                  name="Retorno"
+                  tick={{ fill: 'var(--text-muted)', fontSize: 10 }}
+                  tickFormatter={(v: number) => `${v.toFixed(0)}%`}
+                />
+                <ReferenceLine y={0} stroke="var(--border)" strokeDasharray="4 4" />
+                <Tooltip content={<CustomTooltip />} />
 
-              {/* Simulated portfolios */}
-              <Scatter data={simulated} name="Simulações" opacity={0.7}>
-                {simulated.map((p, i) => (
-                  <Cell key={i} fill={sharpeColor(p.sharpe)} />
-                ))}
-              </Scatter>
+                {/* Simulated portfolios */}
+                <Scatter data={simulated} name="Simulações" opacity={0.7} onClick={handleClick} style={{ cursor: 'pointer' }}>
+                  {simulated.map((p, i) => (
+                    <Cell key={i} fill={sharpeColor(p.sharpe)} />
+                  ))}
+                </Scatter>
 
-              {/* Max Sharpe */}
-              <Scatter data={maxSharpe} name="Máx. Sharpe" opacity={1}>
-                {maxSharpe.map((_, i) => (
-                  <Cell key={i} fill="#22c55e" r={8} />
-                ))}
-              </Scatter>
+                {/* Max Sharpe */}
+                <Scatter data={maxSharpe} name="Máx. Sharpe" opacity={1} onClick={handleClick} style={{ cursor: 'pointer' }}>
+                  {maxSharpe.map((_, i) => (
+                    <Cell key={i} fill="#22c55e" r={8} />
+                  ))}
+                </Scatter>
 
-              {/* Current portfolio */}
-              <Scatter data={current} name="Atual" opacity={1}>
-                {current.map((_, i) => (
-                  <Cell key={i} fill="var(--accent)" r={8} />
-                ))}
-              </Scatter>
-            </ScatterChart>
-          </ResponsiveContainer>
+                {/* Current portfolio */}
+                <Scatter data={current} name="Atual" opacity={1} onClick={handleClick} style={{ cursor: 'pointer' }}>
+                  {current.map((_, i) => (
+                    <Cell key={i} fill="var(--accent)" r={8} />
+                  ))}
+                </Scatter>
+              </ScatterChart>
+            </ResponsiveContainer>
+
+            {/* Allocation popup */}
+            {selectedPoint && (
+              <div
+                className="absolute inset-0 z-20 flex items-center justify-center p-3"
+                style={{ background: 'rgba(0,0,0,0.45)' }}
+                onClick={() => setSelectedPoint(null)}
+              >
+                <div
+                  className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 shadow-2xl w-full max-w-[240px]"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-bold text-[var(--text)]">{popupLabel}</p>
+                    <button
+                      onClick={() => setSelectedPoint(null)}
+                      className="text-[var(--text-muted)] hover:text-[var(--text)] text-sm leading-none px-1"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {/* Metrics */}
+                  <div className="flex gap-3 mb-3 text-[10px]">
+                    <div className="flex-1 text-center">
+                      <div className="text-[var(--text-muted)]">Risco</div>
+                      <div className="font-semibold text-[var(--text)]">{selectedPoint.risk.toFixed(1)}%</div>
+                    </div>
+                    <div className="flex-1 text-center">
+                      <div className="text-[var(--text-muted)]">Retorno</div>
+                      <div className={`font-semibold ${selectedPoint.annReturn >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {selectedPoint.annReturn >= 0 ? '+' : ''}{selectedPoint.annReturn.toFixed(1)}%
+                      </div>
+                    </div>
+                    <div className="flex-1 text-center">
+                      <div className="text-[var(--text-muted)]">Sharpe</div>
+                      <div className="font-semibold" style={{ color: sharpeColor(selectedPoint.sharpe) }}>
+                        {selectedPoint.sharpe.toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Allocation bars */}
+                  {allocationEntries.length > 0 && (
+                    <>
+                      <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">
+                        Alocação
+                      </div>
+                      <div className="space-y-1.5">
+                        {allocationEntries.map(([sym, w]) => (
+                          <div key={sym}>
+                            <div className="flex justify-between text-[10px] mb-0.5">
+                              <span className="text-[var(--text)] font-medium truncate max-w-[120px]">{sym}</span>
+                              <span className="text-[var(--text-muted)] ml-2">{(w * 100).toFixed(1)}%</span>
+                            </div>
+                            <div className="h-1 rounded-full bg-[var(--bg-elevated)] overflow-hidden">
+                              <div
+                                className="h-full rounded-full"
+                                style={{
+                                  width: `${w * 100}%`,
+                                  background: 'var(--accent)',
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
