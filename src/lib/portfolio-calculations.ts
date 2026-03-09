@@ -8,6 +8,7 @@ export interface EfficientFrontierPoint {
   sharpe: number;
   isCurrent?: boolean;
   isMaxSharpe?: boolean;
+  weights?: Record<string, number>;
 }
 
 export interface BrinsonItem {
@@ -156,14 +157,18 @@ export function generateEfficientFrontier(
     const rawWeights = symbols.map(() => Math.random());
     const sum = rawWeights.reduce((a, b) => a + b, 0);
     const weights = rawWeights.map((w) => w / sum);
-    points.push(portfolioStats(weights));
+    const weightsMap: Record<string, number> = {};
+    symbols.forEach((sym, i) => { weightsMap[sym] = weights[i]; });
+    points.push({ ...portfolioStats(weights), weights: weightsMap });
   }
 
   // Current portfolio point
   const cwTotal = symbols.reduce((s, sym) => s + (currentWeights[sym] ?? 0), 0) || 1;
   const cwNorm = symbols.map((sym) => (currentWeights[sym] ?? 0) / cwTotal);
+  const cwMap: Record<string, number> = {};
+  symbols.forEach((sym, i) => { cwMap[sym] = cwNorm[i]; });
   const currentStats = portfolioStats(cwNorm);
-  points.push({ ...currentStats, isCurrent: true });
+  points.push({ ...currentStats, isCurrent: true, weights: cwMap });
 
   // Mark max Sharpe point among simulations
   let maxSharpeIdx = 0;
@@ -410,4 +415,110 @@ export function buildPortfolioHistory(
     drawdown: drawdowns[i],
     volatility: i > 0 ? rollingVol[i - 1] || 0 : 0,
   }));
+}
+
+// ─── Black-Litterman ─────────────────────────────────────────────────────────
+
+export interface BlackLittermanAllocation {
+  /** BL-optimal portfolio weights (max BL-Sharpe via Monte Carlo) */
+  bl: Record<string, number>;
+  /** Markowitz max-Sharpe weights (extracted from efficient frontier) */
+  maxSharpe: Record<string, number>;
+  /** Current portfolio weights (normalized) */
+  current: Record<string, number>;
+}
+
+/**
+ * Simplified Black-Litterman allocation without external views.
+ *
+ * Uses the average of implied equilibrium returns (CAPM with equal-weight market)
+ * and historical mean returns as the BL posterior — equivalent to the P=I, Ω=τΣ
+ * closed-form solution with τ=1. Then finds the max-BL-Sharpe portfolio via Monte
+ * Carlo and returns all three allocations (BL optimal, Markowitz max Sharpe, current).
+ */
+export function generateBlackLittermanAllocation(
+  symbols: string[],
+  returnSeries: Record<string, number[]>,
+  currentWeights: Record<string, number>,
+  frontier: EfficientFrontierPoint[],
+  delta = 2.5,
+  annualRiskFreeRate = 0.1375,
+  nSimulations = 500
+): BlackLittermanAllocation | null {
+  const n = symbols.length;
+  if (n < 2) return null;
+
+  const seriesArrays = symbols.map((s) => returnSeries[s] ?? []);
+  const minLen = Math.min(...seriesArrays.map((s) => s.length));
+  if (minLen < 20) return null;
+
+  const aligned = seriesArrays.map((s) => s.slice(0, minLen));
+
+  // Daily means
+  const means = aligned.map((s) => s.reduce((a, b) => a + b, 0) / minLen);
+
+  // Daily covariance matrix
+  const cov: number[][] = Array.from({ length: n }, (_, i) =>
+    Array.from({ length: n }, (_, j) => {
+      let s = 0;
+      for (let t = 0; t < minLen; t++) {
+        s += (aligned[i][t] - means[i]) * (aligned[j][t] - means[j]);
+      }
+      return s / (minLen - 1);
+    })
+  );
+
+  // Equal market weights → implied equilibrium returns (annualized fraction)
+  const wMkt = Array(n).fill(1 / n);
+  const pi = Array.from({ length: n }, (_, i) =>
+    delta * wMkt.reduce((s, wj, j) => s + wj * cov[i][j], 0) * 252
+  );
+
+  // Historical mean returns annualized
+  const muAnn = means.map((m) => m * 252);
+
+  // BL posterior: average of equilibrium and historical
+  const blReturns = pi.map((p, i) => (p + muAnn[i]) / 2);
+
+  // Portfolio BL-Sharpe given weights
+  const portBlSharpe = (weights: number[]): number => {
+    const blRet = weights.reduce((s, w, i) => s + w * blReturns[i], 0) * 100;
+    let variance = 0;
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        variance += weights[i] * weights[j] * cov[i][j] * 252;
+      }
+    }
+    const risk = Math.sqrt(variance) * 100;
+    return risk > 0 ? (blRet - annualRiskFreeRate * 100) / risk : 0;
+  };
+
+  // Monte Carlo to find max BL-Sharpe portfolio
+  let bestSharpe = -Infinity;
+  let bestWeights: number[] = wMkt;
+  for (let sim = 0; sim < nSimulations; sim++) {
+    const raw = Array.from({ length: n }, () => Math.random());
+    const sum = raw.reduce((a, b) => a + b, 0);
+    const w = raw.map((v) => v / sum);
+    const sh = portBlSharpe(w);
+    if (sh > bestSharpe) {
+      bestSharpe = sh;
+      bestWeights = w;
+    }
+  }
+
+  // BL optimal allocation
+  const blMap: Record<string, number> = {};
+  symbols.forEach((sym, i) => { blMap[sym] = bestWeights[i]; });
+
+  // Markowitz max-Sharpe weights from frontier
+  const maxSharpePoint = frontier.find((p) => p.isMaxSharpe);
+  const maxSharpeMap: Record<string, number> = maxSharpePoint?.weights ?? {};
+
+  // Current weights normalized
+  const cwTotal = symbols.reduce((s, sym) => s + (currentWeights[sym] ?? 0), 0) || 1;
+  const currentMap: Record<string, number> = {};
+  symbols.forEach((sym) => { currentMap[sym] = (currentWeights[sym] ?? 0) / cwTotal; });
+
+  return { bl: blMap, maxSharpe: maxSharpeMap, current: currentMap };
 }
