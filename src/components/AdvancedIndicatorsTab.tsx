@@ -9,16 +9,19 @@ import {
   generateBlackLittermanAllocation,
   calculateBrinsonAttribution,
   calculateReturnContributions,
+  calculateVaR,
   EfficientFrontierPoint,
   CorrelationResult,
   BrinsonItem,
   WaterfallItem,
   BlackLittermanAllocation,
+  VaRResult,
 } from '@/lib/portfolio-calculations';
 import EfficientFrontierChart from './EfficientFrontierChart';
 import CorrelationMatrix from './CorrelationMatrix';
 import BrinsonAttributionChart from './BrinsonAttributionChart';
 import ReturnWaterfallChart from './ReturnWaterfallChart';
+import VaRCard from './VaRCard';
 
 type AnalysisWindow = '1mo' | '3mo' | '6mo' | '1y' | '2y';
 
@@ -36,6 +39,7 @@ interface AnalyticsData {
   brinson: BrinsonItem[];
   waterfall: WaterfallItem[];
   blAllocation: BlackLittermanAllocation | null;
+  var: VaRResult | null;
 }
 
 const WINDOW_LABELS: Record<AnalysisWindow, string> = {
@@ -100,6 +104,7 @@ export default function AdvancedIndicatorsTab({ positions, manualPositions, cryp
         brinson: [],
         waterfall: [],
         blAllocation: null,
+        var: null,
       });
       return;
     }
@@ -181,9 +186,10 @@ export default function AdvancedIndicatorsTab({ positions, manualPositions, cryp
       const brinson = calculateBrinsonAttribution(validSymbols, portfolioWeights, returnSeries);
       const waterfall = calculateReturnContributions(validSymbols, portfolioWeights, returnSeries);
       const blAllocation = generateBlackLittermanAllocation(validSymbols, returnSeries, portfolioWeights, frontier);
+      const varResult = calculateVaR(validSymbols, returnSeries, portfolioWeights);
 
       if (!ctrl.signal.aborted) {
-        setAnalytics({ frontier, correlation, correlationWeights, brinson, waterfall, blAllocation });
+        setAnalytics({ frontier, correlation, correlationWeights, brinson, waterfall, blAllocation, var: varResult });
       }
     } catch (e) {
       if ((e as Error).name === 'AbortError') return;
@@ -265,6 +271,11 @@ export default function AdvancedIndicatorsTab({ positions, manualPositions, cryp
           <div className="lg:col-span-1">
             <ReturnWaterfallChart items={analytics.waterfall} />
           </div>
+          {analytics.var && (
+            <div className="lg:col-span-3">
+              <VaRCard data={analytics.var} />
+            </div>
+          )}
         </div>
       ) : analytics ? (
         <div className="flex flex-col items-center justify-center py-20 text-[var(--text-muted)]">

@@ -522,3 +522,124 @@ export function generateBlackLittermanAllocation(
 
   return { bl: blMap, maxSharpe: maxSharpeMap, current: currentMap };
 }
+
+// ─── Value at Risk ────────────────────────────────────────────────────────────
+
+export interface VaRContribution {
+  symbol: string;
+  weight: number;
+  /** Average loss contribution on tail days (positive = loss, %) */
+  varContrib: number;
+}
+
+export interface VaRResult {
+  /** Historical 1-day VaR at 95% (positive % loss) */
+  historical95: number;
+  /** Historical 1-day VaR at 99% */
+  historical99: number;
+  /** Parametric (delta-normal) 1-day VaR at 95% */
+  parametric95: number;
+  /** Parametric 1-day VaR at 99% */
+  parametric99: number;
+  /** Conditional VaR / Expected Shortfall at 95% */
+  cvar95: number;
+  /** CVaR at 99% */
+  cvar99: number;
+  /** 10-day VaR via √T scaling of historical95 */
+  tenDay95: number;
+  /** 10-day VaR via √T scaling of historical99 */
+  tenDay99: number;
+  /** Portfolio daily returns as % (for histogram) */
+  portReturns: number[];
+  /** Per-asset VaR contribution (component VaR, historical method) */
+  contributions: VaRContribution[];
+}
+
+/**
+ * Computes historical, parametric and conditional VaR for the portfolio.
+ * Uses daily returns and the weighted portfolio return series.
+ */
+export function calculateVaR(
+  symbols: string[],
+  returnSeries: Record<string, number[]>,
+  portfolioWeights: Record<string, number>
+): VaRResult | null {
+  const n = symbols.length;
+  if (n === 0) return null;
+
+  // Normalize weights
+  const wTotal = symbols.reduce((s, sym) => s + (portfolioWeights[sym] ?? 0), 0) || 1;
+  const w = symbols.map((sym) => (portfolioWeights[sym] ?? 0) / wTotal);
+
+  // Align return series
+  const series = symbols.map((sym) => returnSeries[sym] ?? []);
+  const minLen = Math.min(...series.map((s) => s.length));
+  if (minLen < 20) return null;
+
+  const aligned = series.map((s) => s.slice(0, minLen));
+
+  // Portfolio daily returns (fractional)
+  const portFrac: number[] = [];
+  for (let t = 0; t < minLen; t++) {
+    let r = 0;
+    for (let i = 0; i < n; i++) r += w[i] * (aligned[i][t] ?? 0);
+    portFrac.push(r);
+  }
+
+  // Sort ascending
+  const sorted = [...portFrac].sort((a, b) => a - b);
+  const T = sorted.length;
+
+  // Historical VaR
+  const idx95 = Math.floor(T * 0.05);
+  const idx99 = Math.max(0, Math.floor(T * 0.01));
+  const hist95 = -(sorted[idx95] ?? 0) * 100;
+  const hist99 = -(sorted[idx99] ?? 0) * 100;
+
+  // CVaR (Expected Shortfall): mean of worst tail losses
+  const cvar95 = idx95 > 0
+    ? -(sorted.slice(0, idx95).reduce((a, b) => a + b, 0) / idx95) * 100
+    : hist95;
+  const tailLen99 = Math.max(1, idx99);
+  const cvar99 = -(sorted.slice(0, tailLen99).reduce((a, b) => a + b, 0) / tailLen99) * 100;
+
+  // Parametric VaR (delta-normal)
+  const mean = portFrac.reduce((a, b) => a + b, 0) / T;
+  const variance = portFrac.reduce((s, r) => s + (r - mean) ** 2, 0) / (T - 1);
+  const sigma = Math.sqrt(variance);
+  const param95 = -(mean - 1.6449 * sigma) * 100;
+  const param99 = -(mean - 2.3263 * sigma) * 100;
+
+  // 10-day scaling (Basel √T rule)
+  const tenDay95 = hist95 * Math.sqrt(10);
+  const tenDay99 = hist99 * Math.sqrt(10);
+
+  // Component VaR (historical): for tail days, average each asset's contribution
+  const varThreshold = sorted[idx95] ?? 0;
+  const tailDayIndices = portFrac
+    .map((r, i) => ({ r, i }))
+    .filter(({ r }) => r <= varThreshold);
+
+  const contributions: VaRContribution[] = symbols
+    .map((sym, si) => {
+      const tailContribs = tailDayIndices.map(({ i }) => w[si] * (aligned[si][i] ?? 0));
+      const avgContrib = tailContribs.length > 0
+        ? tailContribs.reduce((a, b) => a + b, 0) / tailContribs.length
+        : 0;
+      return { symbol: sym, weight: w[si], varContrib: -avgContrib * 100 };
+    })
+    .sort((a, b) => b.varContrib - a.varContrib);
+
+  return {
+    historical95: hist95,
+    historical99: hist99,
+    parametric95: param95,
+    parametric99: param99,
+    cvar95,
+    cvar99,
+    tenDay95,
+    tenDay99,
+    portReturns: portFrac.map((r) => +(r * 100).toFixed(3)),
+    contributions,
+  };
+}
