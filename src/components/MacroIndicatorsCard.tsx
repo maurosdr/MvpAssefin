@@ -12,6 +12,7 @@ interface MacroCountryData {
   inflation: MacroMetric;
   unemployment: MacroMetric;
   interestRate: MacroMetric;
+  gdp: MacroMetric;
 }
 
 interface MacroIndicatorsResponse {
@@ -76,6 +77,7 @@ export default function MacroIndicatorsCard() {
             <MetricRow label={data.us.inflation.label} value={data.us.inflation.value} />
             <MetricRow label={data.us.unemployment.label} value={data.us.unemployment.value} />
             <MetricRow label={data.us.interestRate.label} value={data.us.interestRate.value} />
+            {data.us.gdp && <MetricRow label={data.us.gdp.label} value={data.us.gdp.value} />}
           </div>
 
           {/* BR Column */}
@@ -87,6 +89,7 @@ export default function MacroIndicatorsCard() {
             <MetricRow label={data.br.inflation.label} value={data.br.inflation.value} />
             <MetricRow label={data.br.unemployment.label} value={data.br.unemployment.value} />
             <MetricRow label={data.br.interestRate.label} value={data.br.interestRate.value} />
+            {data.br.gdp && <MetricRow label={data.br.gdp.label} value={data.br.gdp.value} />}
           </div>
         </div>
       ) : (
