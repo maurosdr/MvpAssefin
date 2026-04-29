@@ -3,6 +3,7 @@ import { getStockName } from '@/lib/stocks-data';
 import { getRISite } from '@/lib/ri-sites';
 
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN!;
+const BRAPI_TOKEN = process.env.BRAPI_TOKEN || '';
 const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID!;
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN!;
 
@@ -61,7 +62,7 @@ function normalizeBrazilianNumber(num: string): string {
 
 async function fetchStockFromBrapi(symbol: string) {
   const res = await fetch(`https://brapi.dev/api/quote/${symbol}`, {
-    headers: { Authorization: 'Bearer kAohDLSrNNS3JNZijP4voJ' },
+    headers: { Authorization: `Bearer ${BRAPI_TOKEN}` },
   });
   if (!res.ok) return null;
   const data = await res.json();

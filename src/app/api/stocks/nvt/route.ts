@@ -17,7 +17,7 @@ import { NextRequest, NextResponse } from 'next/server';
 let cache: { data: unknown; timestamp: number; key: string } | null = null;
 const CACHE_TTL = 30 * 60 * 1000;
 
-const BRAPI_TOKEN = 'kAohDLSrNNS3JNZijP4voJ';
+const BRAPI_TOKEN = process.env.BRAPI_TOKEN || '';
 
 // ---------------------------------------------------------------------------
 // Fetch daily historical data from BRAPI

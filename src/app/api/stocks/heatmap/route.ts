@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // Uses BRAPI weekly data to calculate the 200-week SMA and monthly % change.
 // ---------------------------------------------------------------------------
 
-const BRAPI_TOKEN = 'kAohDLSrNNS3JNZijP4voJ';
+const BRAPI_TOKEN = process.env.BRAPI_TOKEN || '';
 
 // Cache: 30-minute TTL
 let cache: { data: unknown; timestamp: number; key: string } | null = null;

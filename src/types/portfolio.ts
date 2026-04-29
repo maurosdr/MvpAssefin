@@ -1,5 +1,18 @@
 export type AssetCategory = 'crypto' | 'stock' | 'etf' | 'bdr' | 'fii' | 'prediction';
 
+export interface Trade {
+  id: string;
+  type: AssetCategory;
+  symbol: string;
+  name: string;
+  operation: 'buy' | 'sell';
+  date: string;
+  quantity: number;
+  price: number;
+  total: number;
+  notes?: string;
+}
+
 export interface ManualPosition {
   id: string;
   type: AssetCategory;

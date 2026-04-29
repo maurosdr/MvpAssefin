@@ -119,14 +119,14 @@ export default function AppHeader({
               </div>
 
               {/* Desktop Navigation */}
-              <nav className="hidden md:flex items-center gap-0.5 flex-shrink-0">
+              <nav className="hidden md:flex items-center gap-0 flex-shrink-0">
                 {navItems.map((item) => {
                   const isActive = pathname.startsWith(item.path);
                   return (
                     <button
                       key={item.path}
                       onClick={() => router.push(item.path)}
-                      className={`relative px-3 lg:px-5 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
+                      className={`relative px-2 lg:px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
                         isActive
                           ? 'text-[var(--text-primary)]'
                           : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
@@ -297,10 +297,10 @@ export default function AppHeader({
                 </div>
               )}
 
-              {/* Connect Button */}
+              {/* APIs Button */}
               <button
                 onClick={() => setShowModal(true)}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold text-sm transition-all whitespace-nowrap border ${
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-semibold text-sm transition-all whitespace-nowrap border ${
                   connected
                     ? 'bg-[var(--success-soft)] text-[var(--success)] border-[var(--success)]/30 hover:bg-[var(--success-soft)] hover:border-[var(--success)]/50'
                     : 'bg-[var(--accent-soft)] text-[var(--accent)] border-[var(--accent)]/30 hover:bg-[var(--accent-soft)] hover:border-[var(--accent)]/50'
@@ -311,16 +311,14 @@ export default function AppHeader({
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span className="hidden sm:inline">{totalConnections}/4 Connected</span>
-                    <span className="sm:hidden">{totalConnections}/4</span>
+                    <span>{totalConnections}/4 APIs</span>
                   </>
                 ) : (
                   <>
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 2L6.5 7.5 12 13l5.5-5.5L12 2zm0 22l5.5-5.5L12 13l-5.5 5.5L12 24zm-10-10l5.5 5.5L13 12 7.5 6.5 2 12zm20 0l-5.5-5.5L11 12l5.5 5.5L22 12z" />
                     </svg>
-                    <span className="hidden sm:inline">Connect Exchange</span>
-                    <span className="sm:hidden">Connect</span>
+                    <span>APIs</span>
                   </>
                 )}
               </button>

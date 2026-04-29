@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MAIN_STOCKS, STOCKS_BY_CATEGORY, getStockName } from '@/lib/stocks-data';
 
+const BRAPI_TOKEN = process.env.BRAPI_TOKEN || '';
+
 interface StockData {
   symbol: string;
   name: string;
@@ -85,7 +87,7 @@ export async function GET(request: NextRequest) {
       // Fazer requisições em lote (máximo 4 batches = 80 ações para não exceder rate limit)
       for (const batch of batches.slice(0, 4)) {
         try {
-          const url = `https://brapi.dev/api/quote/${batch.join(',')}?token=kAohDLSrNNS3JNZijP4voJ`;
+          const url = `https://brapi.dev/api/quote/${batch.join(',')}?token=${BRAPI_TOKEN}`;
           const res = await fetch(url, {
             headers: {
               'User-Agent': 'Mozilla/5.0',
@@ -125,7 +127,7 @@ export async function GET(request: NextRequest) {
     } else {
       // Código original para menos de 20 ações
       const limitedSymbols = symbolsArray.slice(0, 20).join(',');
-      const url = `https://brapi.dev/api/quote/${limitedSymbols}?token=kAohDLSrNNS3JNZijP4voJ`;
+      const url = `https://brapi.dev/api/quote/${limitedSymbols}?token=${BRAPI_TOKEN}`;
 
       const res = await fetch(url, {
         headers: {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ccxt from 'ccxt';
 
-const BRAPI_TOKEN = 'kAohDLSrNNS3JNZijP4voJ';
+const BRAPI_TOKEN = process.env.BRAPI_TOKEN || '';
 
 const binance = new ccxt.binance({ enableRateLimit: true, timeout: 10_000 });
 

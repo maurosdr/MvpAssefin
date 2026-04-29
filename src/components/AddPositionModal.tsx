@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { usePortfolio } from '@/context/PortfolioContext';
+import { useTrades } from '@/context/TradesContext';
 import { MAIN_STOCKS, MAIN_ETFS, STOCK_NAMES } from '@/lib/stocks-data';
 import { AssetCategory } from '@/types/portfolio';
 
@@ -31,7 +32,10 @@ export default function AddPositionModal({
   onClose: () => void;
 }) {
   const { addPosition } = usePortfolio();
+  const { addTrade } = useTrades();
+
   const [tab, setTab] = useState<TabType>('assets');
+  const [operation, setOperation] = useState<'buy' | 'sell'>('buy');
   const [search, setSearch] = useState('');
   const [selectedSymbol, setSelectedSymbol] = useState('');
   const [quantity, setQuantity] = useState('');
@@ -62,6 +66,10 @@ export default function AddPositionModal({
     setError('');
   };
 
+  const qty = parseFloat(quantity);
+  const px = parseFloat(entryPrice);
+  const total = (qty || 0) * (px || 0);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -75,16 +83,31 @@ export default function AddPositionModal({
           return;
         }
 
-        addPosition({
+        // Register trade
+        addTrade({
           type: 'prediction',
           symbol: side,
           name: marketName,
-          entryDate,
-          entryPrice: parseFloat(entryPrice),
+          operation,
+          date: entryDate,
           quantity: parseFloat(quantity),
-          side,
-          market: marketName,
+          price: parseFloat(entryPrice),
+          total: parseFloat(quantity) * parseFloat(entryPrice),
         });
+
+        // Only add position on buy
+        if (operation === 'buy') {
+          addPosition({
+            type: 'prediction',
+            symbol: side,
+            name: marketName,
+            entryDate,
+            entryPrice: parseFloat(entryPrice),
+            quantity: parseFloat(quantity),
+            side,
+            market: marketName,
+          });
+        }
       } else {
         if (!selectedSymbol || !entryPrice || !quantity) {
           setError('Selecione um ativo e preencha todos os campos.');
@@ -92,46 +115,67 @@ export default function AddPositionModal({
           return;
         }
 
-        // Fetch current price from BrAPI
-        let currentPrice: number | undefined;
-        try {
-          const res = await fetch(
-            `/api/stocks/quote?symbol=${selectedSymbol}&range=1d&interval=1d`
-          );
-          if (res.ok) {
-            const data = await res.json();
-            currentPrice = data.currentPrice;
-          }
-        } catch {
-          // Current price fetch failed, proceed without it
-        }
+        const assetType = getCategoryForSymbol(selectedSymbol);
+        const assetName = STOCK_NAMES[selectedSymbol] || selectedSymbol;
 
-        addPosition({
-          type: getCategoryForSymbol(selectedSymbol),
+        // Register trade always
+        addTrade({
+          type: assetType,
           symbol: selectedSymbol,
-          name: STOCK_NAMES[selectedSymbol] || selectedSymbol,
-          entryDate,
-          entryPrice: parseFloat(entryPrice),
+          name: assetName,
+          operation,
+          date: entryDate,
           quantity: parseFloat(quantity),
-          currentPrice,
+          price: parseFloat(entryPrice),
+          total: parseFloat(quantity) * parseFloat(entryPrice),
         });
+
+        // Only add position on buy
+        if (operation === 'buy') {
+          let currentPrice: number | undefined;
+          try {
+            const res = await fetch(
+              `/api/stocks/quote?symbol=${selectedSymbol}&range=1d&interval=1d`
+            );
+            if (res.ok) {
+              const data = await res.json();
+              currentPrice = data.currentPrice;
+            }
+          } catch {
+            // proceed without current price
+          }
+
+          addPosition({
+            type: assetType,
+            symbol: selectedSymbol,
+            name: assetName,
+            entryDate,
+            entryPrice: parseFloat(entryPrice),
+            quantity: parseFloat(quantity),
+            currentPrice,
+          });
+        }
       }
 
       resetForm();
       onClose();
     } catch {
-      setError('Erro ao adicionar posição.');
+      setError('Erro ao registrar operação.');
     } finally {
       setSaving(false);
     }
   };
+
+  const isBuy = operation === 'buy';
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[var(--bg)]/70 backdrop-blur-sm">
       <div className="bg-[var(--surface)] border border-gray-700 rounded-xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-[var(--text)]">Adicionar Posição</h2>
+          <h2 className="text-xl font-bold text-[var(--text)]">
+            {isBuy ? 'Adicionar Posição' : 'Registrar Venda'}
+          </h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-[var(--text)] text-2xl leading-none"
@@ -140,7 +184,27 @@ export default function AddPositionModal({
           </button>
         </div>
 
-        {/* Tabs — just 2 */}
+        {/* Buy / Sell toggle */}
+        <div className="grid grid-cols-2 gap-2 mb-5">
+          {(['buy', 'sell'] as const).map((op) => (
+            <button
+              key={op}
+              type="button"
+              onClick={() => { setOperation(op); setError(''); }}
+              className={`py-2.5 rounded-xl font-bold text-sm transition-all ${
+                operation === op
+                  ? op === 'buy'
+                    ? 'bg-green-500 text-white shadow-lg shadow-green-500/20'
+                    : 'bg-red-500 text-white shadow-lg shadow-red-500/20'
+                  : 'bg-gray-800 border border-gray-700 text-gray-400 hover:text-[var(--text)]'
+              }`}
+            >
+              {op === 'buy' ? '↑ Compra' : '↓ Venda'}
+            </button>
+          ))}
+        </div>
+
+        {/* Asset type tabs */}
         <div className="flex gap-1 mb-5 bg-gray-800/50 rounded-lg p-1">
           {([
             { id: 'assets' as TabType, label: 'Ativos' },
@@ -215,7 +279,6 @@ export default function AddPositionModal({
                   autoComplete="off"
                   required
                 />
-                {/* Badge showing asset category when selected */}
                 {selectedSymbol && (
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--text-muted)] bg-gray-700 px-2 py-0.5 rounded">
                     {getCategoryForSymbol(selectedSymbol).toUpperCase()}
@@ -265,7 +328,7 @@ export default function AddPositionModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm text-gray-400 mb-1">
-                {tab === 'prediction' ? 'Preço de Entrada ($)' : 'Preço de Entrada (R$)'}
+                {tab === 'prediction' ? 'Preço ($)' : `Preço ${isBuy ? 'de Entrada' : 'de Venda'} (R$)`}
               </label>
               <input
                 type="number"
@@ -295,8 +358,20 @@ export default function AddPositionModal({
             </div>
           </div>
 
+          {/* Total preview */}
+          {total > 0 && (
+            <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-[var(--bg)] border border-[var(--border)]">
+              <span className="text-xs text-[var(--text-muted)]">Total</span>
+              <span className="font-bold text-[var(--text)]">
+                R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+          )}
+
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Data de Entrada</label>
+            <label className="block text-sm text-gray-400 mb-1">
+              {isBuy ? 'Data de Entrada' : 'Data de Venda'}
+            </label>
             <input
               type="date"
               value={entryDate}
@@ -306,14 +381,28 @@ export default function AddPositionModal({
             />
           </div>
 
+          {!isBuy && (
+            <p className="text-xs text-[var(--text-muted)] bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2">
+              A venda será registrada no histórico de Operações. A posição na carteira permanece e pode ser removida manualmente.
+            </p>
+          )}
+
           {error && <p className="text-red-400 text-sm">{error}</p>}
 
           <button
             type="submit"
             disabled={saving}
-            className="w-full py-3 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--text-inverse)] font-bold rounded-lg transition-colors disabled:opacity-50"
+            className={`w-full py-3 font-bold rounded-lg transition-colors disabled:opacity-50 ${
+              isBuy
+                ? 'bg-green-500 hover:bg-green-400 text-white'
+                : 'bg-red-500 hover:bg-red-400 text-white'
+            }`}
           >
-            {saving ? 'Adicionando...' : 'Adicionar Posição'}
+            {saving
+              ? 'Registrando...'
+              : isBuy
+              ? 'Adicionar Posição'
+              : 'Registrar Venda'}
           </button>
         </form>
       </div>
