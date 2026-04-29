@@ -5,7 +5,7 @@ const cache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_TTL = 60 * 1000;
 const FUNDAMENTAL_CACHE_TTL = 5 * 60 * 1000;
 
-const BRAPI_TOKEN = 'kAohDLSrNNS3JNZijP4voJ';
+const BRAPI_TOKEN = process.env.BRAPI_TOKEN || '';
 
 interface HistoryItem {
   date: number;

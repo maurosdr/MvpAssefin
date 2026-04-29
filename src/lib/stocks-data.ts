@@ -16,12 +16,9 @@ export const MAIN_STOCKS = [
   // FIIs (Fundos Imobiliários)
   'HGLG11', 'XPML11', 'KNRI11', 'HGRU11', 'VISC11', 'XPLG11', 'BTLG11', 'RBRF11',
   // Tecnologia & Telecom
-  'TOTS3', 'LWSA3', 'CASH3', 'STOC31',
+  'TOTS3', 'POSI3', 'INTB3',
   // Outros setores
   'PRIO3', 'RDOR3', 'DXCO3', 'FESA4', 'GMAT3', 'ENEV3',
-  // BDRs (Brazilian Depositary Receipts)
-  'ROXO34', 'M1TA34', 'AAPL34', 'AMZO34', 'GOGL34',
-  'MSFT34', 'TSLA34', 'NVDC34', 'NFLX34', 'DISB34',
 ];
 
 // ETFs da B3
@@ -67,16 +64,7 @@ export const STOCKS_BY_CATEGORY = {
     'VALE3', 'GGBR4', 'GGBR3', 'USIM5', 'USIM3', 'CSNA3',
     'GOAU4', 'GOAU3', 'CSAN3', 'FESA4', 'FESA3', 'BRAP4',
   ],
-  tech: ['TOTS3', 'LWSA3', 'CASH3', 'STOC31'],
-  bdrs: ['ROXO34', 'M1TA34', 'AAPL34', 'AMZO34', 'GOGL34', 'MSFT34', 'TSLA34', 'NVDC34', 'NFLX34', 'DISB34'],
-  etfs: [
-    'BOVA11', 'IVVB11', 'SMAL11', 'BRAX11', 'PIBB11',
-    'IMAB11', 'IRFM11', 'FIXA11', 'B5P211',
-    'FIND11', 'MATB11', 'DIVO11', 'BBSD11', 'GOVE11',
-    'SPXI11', 'NASD11', 'EURP11', 'XINA11', 'HASH11',
-    'GOLD11', 'BITH11', 'ETHE11', 'QBTC11',
-    'SMAC11', 'NDIV11', 'BOVV11', 'ISUS11',
-  ],
+  tech: ['TOTS3', 'POSI3', 'INTB3'],
 };
 
 // Mapeamento de nomes das ações

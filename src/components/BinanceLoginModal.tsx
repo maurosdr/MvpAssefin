@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useExchange, ExchangeName } from '@/context/ExchangeContext';
+import { usePredictionMarkets } from '@/context/PredictionMarketContext';
 
 const EXCHANGE_OPTIONS: { id: ExchangeName; label: string; color: string }[] = [
   { id: 'binance', label: 'Binance', color: 'yellow' },
@@ -16,6 +17,7 @@ export default function ExchangeLoginModal({
   onClose: () => void;
 }) {
   const { exchanges, connect, disconnect, connectedExchanges } = useExchange();
+  const { kalshiEnabled, polymarketEnabled, toggleKalshi, togglePolymarket } = usePredictionMarkets();
   const [selectedExchange, setSelectedExchange] = useState<ExchangeName>('binance');
   const [apiKey, setApiKey] = useState('');
   const [secret, setSecret] = useState('');
@@ -67,7 +69,7 @@ export default function ExchangeLoginModal({
         </div>
 
         {/* Connection Status Summary */}
-        <div className="flex items-center gap-3 mb-5">
+        <div className="flex flex-wrap items-center gap-2 mb-5">
           {EXCHANGE_OPTIONS.map((ex) => {
             const isConn = exchanges[ex.id].connected;
             return (
@@ -85,6 +87,23 @@ export default function ExchangeLoginModal({
               </div>
             );
           })}
+          {[
+            { id: 'kalshi' as const, label: 'Kalshi', enabled: kalshiEnabled },
+            { id: 'polymarket' as const, label: 'Polymarket', enabled: polymarketEnabled },
+          ].map((pm) => (
+            <div
+              key={pm.id}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium ${
+                pm.enabled
+                  ? 'bg-green-900/30 border-green-700/50 text-green-400'
+                  : 'bg-gray-800/50 border-gray-700/50 text-[var(--text-muted)]'
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${pm.enabled ? 'bg-green-500' : 'bg-gray-600'}`} />
+              {pm.label}
+              {pm.enabled && <span className="text-green-600">&#10003;</span>}
+            </div>
+          ))}
         </div>
 
         {/* Just connected notice */}
@@ -182,13 +201,60 @@ export default function ExchangeLoginModal({
           </form>
         )}
 
-        {/* Done button when at least one connected */}
-        {connectedExchanges.length > 0 && (
+        {/* Prediction Markets Section */}
+        <div className="mt-5 pt-5 border-t border-gray-700">
+          <h3 className="text-sm font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3">
+            Prediction Markets
+          </h3>
+          <div className="space-y-3">
+            {[
+              { id: 'polymarket' as const, label: 'Polymarket', desc: 'Mercados de previsão descentralizados', enabled: polymarketEnabled, toggle: togglePolymarket, color: 'purple' },
+              { id: 'kalshi' as const, label: 'Kalshi', desc: 'Mercados de previsão regulamentados (CFTC)', enabled: kalshiEnabled, toggle: toggleKalshi, color: 'blue' },
+            ].map((pm) => (
+              <div
+                key={pm.id}
+                className="flex items-center justify-between p-3 rounded-lg bg-gray-800/50 border border-gray-700/50"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${
+                    pm.color === 'purple'
+                      ? 'bg-purple-500/20 text-purple-400'
+                      : 'bg-blue-500/20 text-blue-400'
+                  }`}>
+                    {pm.label[0]}
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-[var(--text)]">{pm.label}</div>
+                    <div className="text-xs text-[var(--text-muted)]">{pm.desc}</div>
+                  </div>
+                </div>
+                <button
+                  onClick={pm.toggle}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${
+                    pm.enabled ? 'bg-green-500' : 'bg-gray-600'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
+                      pm.enabled ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+            ))}
+          </div>
+          <p className="text-[var(--text-muted)] text-xs mt-2">
+            APIs publicas - sem necessidade de chave API.
+          </p>
+        </div>
+
+        {/* Done button */}
+        {(connectedExchanges.length > 0 || kalshiEnabled || polymarketEnabled) && (
           <button
             onClick={onClose}
             className="w-full mt-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg font-medium text-sm transition-colors border border-gray-700"
           >
-            {allConnected ? 'Done' : 'Done (connect more later)'}
+            {allConnected && kalshiEnabled && polymarketEnabled ? 'Done' : 'Done (connect more later)'}
           </button>
         )}
       </div>

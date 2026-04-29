@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MAIN_STOCKS, STOCKS_BY_CATEGORY, getStockName } from '@/lib/stocks-data';
 
+const BRAPI_TOKEN = process.env.BRAPI_TOKEN || '';
+
 interface StockData {
   symbol: string;
   name: string;
@@ -82,10 +84,10 @@ export async function GET(request: NextRequest) {
 
       const allStocks: StockData[] = [];
 
-      // Fazer requisições em lote (máximo 3 batches = 60 ações para não exceder rate limit)
-      for (const batch of batches.slice(0, 3)) {
+      // Fazer requisições em lote (máximo 4 batches = 80 ações para não exceder rate limit)
+      for (const batch of batches.slice(0, 4)) {
         try {
-          const url = `https://brapi.dev/api/quote/${batch.join(',')}?token=kAohDLSrNNS3JNZijP4voJ`;
+          const url = `https://brapi.dev/api/quote/${batch.join(',')}?token=${BRAPI_TOKEN}`;
           const res = await fetch(url, {
             headers: {
               'User-Agent': 'Mozilla/5.0',
@@ -125,7 +127,7 @@ export async function GET(request: NextRequest) {
     } else {
       // Código original para menos de 20 ações
       const limitedSymbols = symbolsArray.slice(0, 20).join(',');
-      const url = `https://brapi.dev/api/quote/${limitedSymbols}?token=kAohDLSrNNS3JNZijP4voJ`;
+      const url = `https://brapi.dev/api/quote/${limitedSymbols}?token=${BRAPI_TOKEN}`;
 
       const res = await fetch(url, {
         headers: {
@@ -212,26 +214,14 @@ function getFallbackStocks(): StockData[] {
     BTLG11: 94.20,
     RBRF11: 96.80,
     TOTS3: 32.40,
-    LWSA3: 8.90,
-    CASH3: 2.10,
-    STOC31: 12.40,
+    POSI3: 6.80,
+    INTB3: 38.50,
     PRIO3: 24.80,
     RDOR3: 28.60,
     DXCO3: 9.20,
     FESA4: 18.40,
     GMAT3: 22.80,
     ENEV3: 12.60,
-    // BDRs
-    ROXO34: 12.50,
-    M1TA34: 85.20,
-    AAPL34: 52.40,
-    AMZO34: 38.90,
-    GOGL34: 45.60,
-    MSFT34: 78.30,
-    TSLA34: 42.10,
-    NVDC34: 92.80,
-    NFLX34: 68.50,
-    DISB34: 28.40,
   };
 
   // Retornar 20 ações em vez de 8

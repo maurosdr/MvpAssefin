@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+const BRAPI_TOKEN = process.env.BRAPI_TOKEN || '';
+
 interface CurrencyData {
   pair: string;
   name: string;
@@ -54,7 +56,7 @@ export async function GET() {
     const res = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0',
-        'Authorization': 'Bearer kAohDLSrNNS3JNZijP4voJ',
+        'Authorization': `Bearer ${BRAPI_TOKEN}`,
       },
       next: { revalidate: 300 },
     });
