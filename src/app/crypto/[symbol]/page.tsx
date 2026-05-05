@@ -8,6 +8,7 @@ import TradeIdeas from '@/components/TradeIdeas';
 import AppHeader from '@/components/AppHeader';
 import MarketTickerBar from '@/components/MarketTickerBar';
 import StopLossTrackingCard from '@/components/StopLossTrackingCard';
+import AgentSidebar from '@/components/AgentSidebar';
 import { useExchange } from '@/context/ExchangeContext';
 // BinanceLoginModal is now managed by AppHeader
 import { getCryptoName } from '@/lib/crypto-names';
@@ -365,6 +366,24 @@ export default function CryptoDetailPage() {
         )}
       </main>
 
+      <AgentSidebar
+        skill="crypto"
+        contextKey={symbol}
+        title={`Crypto Analyst — ${symbol}`}
+        context={{
+          asset: symbol,
+          name: getCryptoName(symbol),
+          stats,
+          userPosition: bookEntry
+            ? {
+                totalAmount: bookEntry.totalAmount,
+                totalUsdValue: bookEntry.totalUsdValue,
+                exchanges: bookEntry.exchanges,
+              }
+            : null,
+          connectedExchanges,
+        }}
+      />
     </div>
   );
 }

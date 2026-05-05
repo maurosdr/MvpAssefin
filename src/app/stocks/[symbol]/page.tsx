@@ -8,6 +8,7 @@ import { getStockLogoUrl, getStockInitials } from '@/lib/stock-logos';
 import { MAIN_STOCKS, STOCK_NAMES } from '@/lib/stocks-data';
 import { calculateSMA, calculateEMA } from '@/lib/indicators';
 import StockTradeIdeas from '@/components/StockTradeIdeas';
+import AgentSidebar from '@/components/AgentSidebar';
 import {
   Area,
   AreaChart,
@@ -269,6 +270,41 @@ export default function StockDetailPage() {
         )}
         {activeTab === 'valuation' && <ValuacaoTab stock={stock} />}
       </main>
+
+      <AgentSidebar
+        skill="equity"
+        contextKey={symbol}
+        title={`Equity Research — ${symbol}`}
+        context={{
+          symbol: stock.symbol,
+          name: stock.name,
+          quote: {
+            currentPrice: stock.currentPrice,
+            change: stock.change,
+            changePercent: stock.changePercent,
+            volume: stock.volume,
+            marketCap: stock.marketCap,
+            high: stock.high,
+            low: stock.low,
+            open: stock.open,
+            previousClose: stock.previousClose,
+            fiftyTwoWeekHigh: stock.fiftyTwoWeekHigh,
+            fiftyTwoWeekLow: stock.fiftyTwoWeekLow,
+            averageDailyVolume3Month: stock.averageDailyVolume3Month,
+          },
+          summaryProfile: stock.summaryProfile,
+          financialData: stock.financialData,
+          defaultKeyStatistics: stock.defaultKeyStatistics,
+          incomeStatementHistory: stock.incomeStatementHistory,
+          balanceSheetHistory: stock.balanceSheetHistory,
+          cashflowHistory: stock.cashflowHistory,
+          calendarEvents: stock.calendarEvents,
+          recommendationTrend: stock.recommendationTrend,
+          majorHolders: stock.majorHolders,
+          earningsHistory: stock.earningsHistory,
+          dividendsData: stock.dividendsData,
+        }}
+      />
     </div>
   );
 }
