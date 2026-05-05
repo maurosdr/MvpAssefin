@@ -1,45 +1,59 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { TickerItem } from '@/app/api/market/ticker/route';
 
-interface MarketData {
-  symbol: string;
-  price: number;
-  change: number;
-  changePercent: number;
+function formatPrice(item: TickerItem): string {
+  if (item.type === 'index' && item.currency === 'BRL') {
+    // IBOV — sem casas decimais, sem símbolo
+    return item.price.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+  }
+  if (item.type === 'stock') {
+    // Ações B3 em R$
+    return `R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+  // USD (S&P, Nasdaq, BTC)
+  return `$${item.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function TickerEntry({ item }: { item: TickerItem }) {
+  const up = item.changePercent >= 0;
+  return (
+    <div className="flex items-center gap-3 shrink-0">
+      <span className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">
+        {item.symbol}
+      </span>
+      <span className="text-xs font-mono font-semibold text-[var(--text-primary)]">
+        {formatPrice(item)}
+      </span>
+      <span className={`text-xs font-bold ${up ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+        {up ? '▲' : '▼'} {Math.abs(item.changePercent).toFixed(2)}%
+      </span>
+    </div>
+  );
 }
 
 export default function MarketTickerBar() {
-  const [marketData, setMarketData] = useState<MarketData[]>([]);
+  const [items, setItems] = useState<TickerItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch('/api/crypto', { 
-          cache: 'no-store',
-          next: { revalidate: 5 }
-        });
+        const res = await fetch('/api/market/ticker', { cache: 'no-store' });
         const data = await res.json();
-        if (Array.isArray(data)) {
-          const topMarkets = data.slice(0, 8).map((c: { base: string; price: number; changePercent24h: number }) => ({
-            symbol: c.base,
-            price: c.price,
-            change: c.changePercent24h || 0,
-            changePercent: c.changePercent24h || 0,
-          }));
-          setMarketData(topMarkets);
+        if (Array.isArray(data) && data.length > 0) {
+          setItems(data);
         }
       } catch {
-        // Error handling
+        // silent
       } finally {
         setLoading(false);
       }
     };
 
-    // Delay inicial para não competir com outras chamadas
     const timeout = setTimeout(fetchData, 100);
-    const interval = setInterval(fetchData, 5000);
+    const interval = setInterval(fetchData, 30_000);
     return () => {
       clearTimeout(timeout);
       clearInterval(interval);
@@ -59,44 +73,11 @@ export default function MarketTickerBar() {
       <div className="absolute inset-0 bg-gradient-to-r from-[var(--bg-elevated)] via-transparent to-[var(--bg-elevated)] z-10 pointer-events-none" />
       <div className="flex items-center h-full animate-scroll">
         <div className="flex items-center gap-8 px-6 whitespace-nowrap">
-          {marketData.map((market, idx) => (
-            <div key={`${market.symbol}-${idx}`} className="flex items-center gap-3">
-              <span className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">
-                {market.symbol}/USD
-              </span>
-              <span className="text-xs font-mono font-semibold text-[var(--text-primary)]">
-                ${market.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-              <span
-                className={`text-xs font-bold ${
-                  market.change >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'
-                }`}
-              >
-                {market.change >= 0 ? '▲' : '▼'} {Math.abs(market.changePercent).toFixed(2)}%
-              </span>
-            </div>
-          ))}
+          {items.map((item, i) => <TickerEntry key={`a-${i}`} item={item} />)}
           {/* Duplicate for seamless loop */}
-          {marketData.map((market, idx) => (
-            <div key={`dup-${market.symbol}-${idx}`} className="flex items-center gap-3">
-              <span className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">
-                {market.symbol}/USD
-              </span>
-              <span className="text-xs font-mono font-semibold text-[var(--text-primary)]">
-                ${market.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-              <span
-                className={`text-xs font-bold ${
-                  market.change >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'
-                }`}
-              >
-                {market.change >= 0 ? '▲' : '▼'} {Math.abs(market.changePercent).toFixed(2)}%
-              </span>
-            </div>
-          ))}
+          {items.map((item, i) => <TickerEntry key={`b-${i}`} item={item} />)}
         </div>
       </div>
     </div>
   );
 }
-
