@@ -367,7 +367,6 @@ export default function AppHeader({
                           : 'text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]'
                       }`}
                     >
-                      <span className="text-lg">{item.icon}</span>
                       <span>{item.label}</span>
                     </button>
                   );

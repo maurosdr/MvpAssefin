@@ -40,6 +40,15 @@ export default function EfficientFrontierChart({ points, blAllocation }: Props) 
 
   const isEmpty = points.length === 0;
 
+  const allRisks = points.map(p => p.risk);
+  const minRisk = allRisks.length > 0 ? Math.min(...allRisks) : 0;
+  const maxRisk = allRisks.length > 0 ? Math.max(...allRisks) : 100;
+  const riskPad = (maxRisk - minRisk) * 0.08 || 1;
+  const xDomain: [number, number] = [
+    parseFloat(Math.max(0, minRisk - riskPad).toFixed(2)),
+    parseFloat((maxRisk + riskPad).toFixed(2)),
+  ];
+
   const handleClick = (data: unknown) => {
     const p = data as EfficientFrontierPoint;
     if (p && typeof p.risk === 'number') setSelectedPoint(p);
@@ -92,7 +101,7 @@ export default function EfficientFrontierChart({ points, blAllocation }: Props) 
     : 'Black-Litterman — alocação ótima com retornos de equilíbrio';
 
   return (
-    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-6">
+    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-6 h-full flex flex-col">
       {/* Header */}
       <div className="flex items-start justify-between mb-4 gap-3">
         <div className="min-w-0">
@@ -143,7 +152,7 @@ export default function EfficientFrontierChart({ points, blAllocation }: Props) 
             </div>
           )}
 
-          <div className="h-64 relative">
+          <div className="flex-1 min-h-0 relative">
             {isEmpty ? (
               <div className="h-full flex items-center justify-center text-[var(--text-muted)] text-sm">
                 Dados insuficientes para calcular a fronteira eficiente
@@ -154,8 +163,9 @@ export default function EfficientFrontierChart({ points, blAllocation }: Props) 
                   <ScatterChart margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                     <XAxis type="number" dataKey="risk" name="Risco"
+                      domain={xDomain}
                       tick={{ fill: 'var(--text-muted)', fontSize: 10 }}
-                      tickFormatter={(v: number) => `${v.toFixed(0)}%`}
+                      tickFormatter={(v: number) => `${v.toFixed(1)}%`}
                       label={{ value: 'Risco (Vol. Anual)', position: 'insideBottom', offset: -2, fill: 'var(--text-muted)', fontSize: 10 }}
                     />
                     <YAxis type="number" dataKey="annReturn" name="Retorno"
@@ -235,7 +245,7 @@ export default function EfficientFrontierChart({ points, blAllocation }: Props) 
 
       {/* ── Black-Litterman mode ── */}
       {model === 'blacklitterman' && (
-        <div className="h-64">
+        <div className="flex-1 min-h-0">
           {!blAllocation ? (
             <div className="h-full flex items-center justify-center text-[var(--text-muted)] text-sm">
               Dados insuficientes para o modelo Black-Litterman
