@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
     cache = { data: result, timestamp: Date.now(), key: cacheKey };
     return NextResponse.json(result);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
+    const message = error instanceof Error ? error.message : 'Erro desconhecido';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

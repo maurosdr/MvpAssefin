@@ -21,7 +21,7 @@ export function loadSkill(id: SkillId): string {
 }
 
 export const SKILL_LABEL: Record<SkillId, string> = {
-  crypto: 'Crypto Analyst',
-  equity: 'Equity Research',
-  portfolio: 'Portfolio Manager',
+  crypto: 'Analista Cripto',
+  equity: 'Analista de Ações',
+  portfolio: 'Gestor de Carteira',
 };

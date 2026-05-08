@@ -271,7 +271,7 @@ export default function EfficientFrontierChart({ points, blAllocation }: Props) 
                   width={58}
                 />
                 <Tooltip
-                  formatter={(v: number, name: string) => [`${v.toFixed(1)}%`, name]}
+                  formatter={(v: number | undefined, name: string | undefined) => [`${(v ?? 0).toFixed(1)}%`, name ?? '']}
                   contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11 }}
                 />
                 <Legend wrapperStyle={{ fontSize: 11 }} />

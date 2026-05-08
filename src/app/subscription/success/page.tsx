@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import AppHeader from '@/components/AppHeader';
 import MarketTickerBar from '@/components/MarketTickerBar';
 
-export default function SubscriptionSuccessPage() {
+function SubscriptionSuccessInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const planId = searchParams.get('plan');
@@ -79,6 +79,20 @@ export default function SubscriptionSuccessPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function SubscriptionSuccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center">
+          <div className="w-12 h-12 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <SubscriptionSuccessInner />
+    </Suspense>
   );
 }
 

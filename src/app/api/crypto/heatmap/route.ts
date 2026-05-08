@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     const ohlcv = await exchange.fetchOHLCV(symbol, '1w', undefined, 1000);
 
     if (!ohlcv || ohlcv.length === 0) {
-      return NextResponse.json({ error: 'No data available' }, { status: 404 });
+      return NextResponse.json({ error: 'Nenhum dado disponível' }, { status: 404 });
     }
 
     const weeklyCloses = ohlcv.map(([timestamp, , , , close]) => ({
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
     cache = { data, timestamp: Date.now(), key: cacheKey };
     return NextResponse.json(data);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
+    const message = error instanceof Error ? error.message : 'Erro desconhecido';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

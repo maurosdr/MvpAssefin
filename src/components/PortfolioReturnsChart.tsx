@@ -199,7 +199,7 @@ export default function PortfolioReturnsChart({ positions, cryptoSymbols = [], o
                 : 'bg-gray-800 text-[var(--text-secondary)] border border-[var(--border)]'
             }`}
           >
-            Backtest {backtestEnabled ? 'ON' : 'OFF'}
+            Backtest {backtestEnabled ? 'Ligado' : 'Desligado'}
           </button>
         </div>
       </div>

@@ -29,7 +29,7 @@ export async function GET() {
 
     cache = { rate, timestamp: Date.now() };
     return NextResponse.json({ rate });
-  } catch (error) {
+  } catch {
     // Fallback to a reasonable default if BCB API is unreachable
     const fallbackRate = cache?.rate ?? 14.25;
     return NextResponse.json({ rate: fallbackRate, fallback: true });

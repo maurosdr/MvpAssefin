@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  LineChart,
   Line,
   XAxis,
   YAxis,
@@ -77,7 +76,7 @@ function StockHeatmapCard({ symbol, currentPrice }: { symbol: string; currentPri
   const fetchData = useCallback(async () => {
     try {
       const res = await fetch(`/api/stocks/heatmap?symbol=${encodeURIComponent(symbol)}`);
-      if (!res.ok) throw new Error('Failed to fetch heatmap data');
+      if (!res.ok) throw new Error('Falha ao buscar dados do heatmap');
       const result: HeatmapDataPoint[] = await res.json();
       if (Array.isArray(result) && result.length > 0) {
         setData(result);
@@ -85,7 +84,7 @@ function StockHeatmapCard({ symbol, currentPrice }: { symbol: string; currentPri
       }
       setLastUpdate(new Date());
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data');
+      setError(err instanceof Error ? err.message : 'Falha ao carregar dados');
     } finally {
       setLoading(false);
     }
@@ -119,17 +118,17 @@ function StockHeatmapCard({ symbol, currentPrice }: { symbol: string; currentPri
                 d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
               />
             </svg>
-            200 Week Moving Average Heatmap
+            Heatmap da Média Móvel de 200 Semanas
           </h3>
           {lastUpdate && (
             <span className="text-[10px] text-gray-600 flex items-center gap-1">
               <span className="inline-block w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-              Weekly data
+              Dados semanais
             </span>
           )}
         </div>
         <p className="text-[var(--text-muted)] text-sm mb-4">
-          Shows 200w MA vs {symbol} Price with dots showing % monthly increase of 200w MA
+          Compara a MM 200s vs o preço de {symbol}; os pontos mostram a variação mensal (%) da MM 200s
         </p>
 
         {loading ? (
@@ -315,7 +314,7 @@ function StockNVTSignalCard({ symbol, currentPrice }: { symbol: string; currentP
   const fetchData = useCallback(async () => {
     try {
       const res = await fetch(`/api/stocks/nvt?symbol=${encodeURIComponent(symbol)}`);
-      if (!res.ok) throw new Error('Failed to fetch NVT data');
+      if (!res.ok) throw new Error('Falha ao buscar dados de NVT');
       const result = await res.json();
       if (result.data && Array.isArray(result.data) && result.data.length > 0) {
         setData(result.data);
@@ -323,7 +322,7 @@ function StockNVTSignalCard({ symbol, currentPrice }: { symbol: string; currentP
       }
       setLastUpdate(new Date());
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load NVT data');
+      setError(err instanceof Error ? err.message : 'Falha ao carregar dados de NVT');
     } finally {
       setLoading(false);
     }

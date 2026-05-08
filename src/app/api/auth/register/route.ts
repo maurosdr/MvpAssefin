@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createUser, getUserByEmail } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { rateLimit } from '@/lib/rate-limit';
+import { isProd } from '@/lib/env';
 
 // Forçar Node.js runtime para suportar bcrypt
 export const runtime = 'nodejs';
@@ -52,6 +54,10 @@ const registerSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const rl = rateLimit(request, { key: 'auth_register_post', limit: 8, windowMs: 60_000 });
+  if (!rl.ok) {
+    return NextResponse.json({ error: 'Muitas requisições' }, { status: 429 });
+  }
   try {
     const body = await request.json();
 
@@ -70,7 +76,7 @@ export async function POST(request: NextRequest) {
     const existingUser = await getUserByEmail(email);
     if (existingUser) {
       return NextResponse.json(
-        { error: 'Este email já está cadastrado' },
+        { error: isProd() ? 'Não foi possível criar a conta com os dados informados' : 'Este email já está cadastrado' },
         { status: 400 }
       );
     }
@@ -83,7 +89,7 @@ export async function POST(request: NextRequest) {
       });
       if (existingCPF) {
         return NextResponse.json(
-          { error: 'Este CPF já está cadastrado' },
+          { error: isProd() ? 'Não foi possível criar a conta com os dados informados' : 'Este CPF já está cadastrado' },
           { status: 400 }
         );
       }

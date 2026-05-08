@@ -1,17 +1,24 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { auth } from '@/auth';
 import ccxt from 'ccxt';
+import { decryptJson } from '@/lib/crypto-cookie';
 
 export async function GET() {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 });
+    }
+
     const cookieStore = await cookies();
     const encoded = cookieStore.get('binance_keys')?.value;
 
     if (!encoded) {
-      return NextResponse.json({ error: 'Not connected to Binance' }, { status: 401 });
+      return NextResponse.json({ error: 'Binance não conectada' }, { status: 401 });
     }
 
-    const { apiKey, secret } = JSON.parse(Buffer.from(encoded, 'base64').toString());
+    const { apiKey, secret } = decryptJson<{ apiKey: string; secret: string }>(encoded);
 
     const exchange = new ccxt.binance({
       apiKey,
@@ -54,7 +61,7 @@ export async function GET() {
 
     return NextResponse.json({ positions, totalValue });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
+    const message = error instanceof Error ? error.message : 'Erro desconhecido';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

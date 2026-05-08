@@ -4,6 +4,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import AssetSearch from '@/components/AssetSearch';
 import BinanceLoginModal from '@/components/BinanceLoginModal';
+import BrandLogo from '@/components/BrandLogo';
 import { useExchange } from '@/context/ExchangeContext';
 import { useTheme } from '@/context/ThemeContext';
 import { usePredictionMarkets } from '@/context/PredictionMarketContext';
@@ -80,10 +81,10 @@ export default function AppHeader({
   };
 
   const navItems = [
-    { label: 'Crypto', path: '/crypto', icon: '📊' },
+    { label: 'Cripto', path: '/crypto', icon: '📊' },
     { label: 'Ações', path: '/stocks', icon: '📈' },
-    { label: 'Portfolio', path: '/portfolio', icon: '💼' },
-    { label: 'Markets', path: '/markets', icon: '📰' },
+    { label: 'Carteira', path: '/portfolio', icon: '💼' },
+    { label: 'Mercados', path: '/markets', icon: '📰' },
   ];
 
   return (
@@ -96,25 +97,10 @@ export default function AppHeader({
               {/* Logo */}
               <div
                 className="flex items-center gap-2 sm:gap-3 cursor-pointer group flex-shrink-0 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
-                onClick={() => router.push('/crypto')}
+                onClick={() => router.push('/')}
               >
                 <div className="hidden sm:block">
-                  <div className="relative">
-                    <div className="text-xl sm:text-2xl font-black leading-none tracking-tight">
-                      <span className="relative inline-block">
-                        <span className="bg-gradient-to-r from-[var(--accent)] via-[var(--accent-strong)] to-[var(--accent)] bg-clip-text text-transparent bg-[length:200%_auto] animate-shimmer">
-                          ASSEFIN
-                        </span>
-                        <span className="absolute inset-0 bg-gradient-to-r from-[var(--accent)] via-[var(--accent-strong)] to-[var(--accent)] bg-clip-text text-transparent opacity-0 group-hover:opacity-30 blur-[2px] transition-opacity duration-500">
-                          ASSEFIN
-                        </span>
-                      </span>
-                    </div>
-                    <div className="absolute -bottom-1 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[var(--accent)] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 transform scale-x-0 group-hover:scale-x-100 origin-center" />
-                  </div>
-                  <div className="text-[9px] sm:text-[10px] font-bold text-[var(--text-muted)] leading-none mt-1.5 sm:mt-2 uppercase tracking-[0.2em] opacity-70 group-hover:opacity-100 group-hover:text-[var(--accent)] transition-all duration-300">
-                    MARKETS
-                  </div>
+                  <BrandLogo className="group" />
                 </div>
               </div>
 
@@ -159,7 +145,7 @@ export default function AppHeader({
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="2xl:hidden p-2 sm:p-2.5 rounded-lg bg-[var(--surface)] border border-[var(--border)] hover:bg-[var(--surface-hover)] transition-all"
-                aria-label="Toggle search"
+                aria-label="Alternar busca"
               >
                 <svg className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--text-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -170,8 +156,8 @@ export default function AppHeader({
               <button
                 onClick={toggleTheme}
                 className="p-2 sm:p-2.5 rounded-lg bg-[var(--surface)] border border-[var(--border)] hover:bg-[var(--surface-hover)] transition-all hover:scale-105 active:scale-95"
-                aria-label="Toggle theme"
-                title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+                aria-label="Alternar tema"
+                title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
               >
                 {theme === 'dark' ? (
                   <svg className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--text-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -327,7 +313,7 @@ export default function AppHeader({
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="md:hidden p-2.5 rounded-lg bg-[var(--surface)] border border-[var(--border)] hover:bg-[var(--surface-hover)] transition-all"
-                aria-label="Toggle menu"
+                aria-label="Alternar menu"
               >
                 {mobileMenuOpen ? (
                   <svg className="w-5 h-5 text-[var(--text-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">

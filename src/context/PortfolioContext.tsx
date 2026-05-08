@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { ManualPosition, AssetCategory } from '@/types/portfolio';
+import { ManualPosition } from '@/types/portfolio';
 
 interface PortfolioContextType {
   positions: ManualPosition[];

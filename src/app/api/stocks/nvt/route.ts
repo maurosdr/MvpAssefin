@@ -42,12 +42,10 @@ async function fetchDailyHistory(symbol: string): Promise<{
 
   const json = await res.json();
   const stock = json?.results?.[0];
-  if (!stock) throw new Error('No stock data from BRAPI');
+  if (!stock) throw new Error('Sem dados da ação (BRAPI)');
 
   const history: { date: number; close?: number; volume?: number; open?: number; high?: number; low?: number }[] =
     stock.historicalDataPrice || [];
-
-  const marketCap: number | null = stock.marketCap ?? null;
 
   return history
     .filter((h) => h.close && h.close > 0 && h.volume && h.volume > 0)
@@ -199,7 +197,7 @@ export async function GET(request: NextRequest) {
     cache = { data: result, timestamp: Date.now(), key: cacheKey };
     return NextResponse.json(result);
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Unknown error';
+    const msg = error instanceof Error ? error.message : 'Erro desconhecido';
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

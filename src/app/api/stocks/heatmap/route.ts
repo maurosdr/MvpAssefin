@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
 
     const json = await res.json();
     const stock = json?.results?.[0];
-    if (!stock) throw new Error('No stock data');
+    if (!stock) throw new Error('Sem dados da ação');
 
     const history: { date: number; close?: number }[] =
       stock.historicalDataPrice || [];
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
     cache = { data, timestamp: Date.now(), key: cacheKey };
     return NextResponse.json(data);
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Unknown error';
+    const msg = error instanceof Error ? error.message : 'Erro desconhecido';
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

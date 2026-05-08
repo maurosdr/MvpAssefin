@@ -24,6 +24,13 @@ const geistMono = localFont({
 export const metadata: Metadata = {
   title: "Assefin - Global Markets & News",
   description: "Global news, prediction markets, crypto prices, and portfolio tracking",
+  icons: {
+    icon: [
+      { url: "/icon", type: "image/png" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+    shortcut: ["/icon"],
+  },
 };
 
 export default function RootLayout({

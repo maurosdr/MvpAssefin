@@ -192,7 +192,7 @@ export default function PortfolioPage() {
         </div>
 
         {/* Tab Bar — same pill style as crypto detail page */}
-        <div className="flex items-center gap-2 bg-[var(--surface)]/60 border border-[var(--border)] rounded-2xl p-1.5 overflow-x-auto mb-6 sticky top-[120px] z-30 backdrop-blur-sm">
+        <div className="flex items-center gap-2 bg-[var(--surface)]/60 border border-[var(--border)] rounded-2xl p-1.5 overflow-x-auto mb-6">
           {(
             [
               { id: 'carteira', label: 'Carteira', icon: (
@@ -305,7 +305,7 @@ export default function PortfolioPage() {
 
       <AgentSidebar
         skill="portfolio"
-        title="Portfolio Manager"
+        title="Gestor de Carteira"
         contextKey="portfolio-page"
         context={{
           totals: {

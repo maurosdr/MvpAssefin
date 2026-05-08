@@ -149,8 +149,12 @@ export default function VaRCard({ data }: Props) {
                 />
                 <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 9 }} width={24} />
                 <Tooltip
-                  formatter={(v: number) => [v, 'Dias']}
-                  labelFormatter={(l: number) => `Retorno: ${l > 0 ? '+' : ''}${l.toFixed(2)}%`}
+                  formatter={(v: number | undefined) => [v ?? 0, 'Dias']}
+                  labelFormatter={(l: unknown) => {
+                    const n = typeof l === 'number' ? l : Number(l);
+                    const safe = Number.isFinite(n) ? n : 0;
+                    return `Retorno: ${safe > 0 ? '+' : ''}${safe.toFixed(2)}%`;
+                  }}
                   contentStyle={{
                     background: 'var(--bg-elevated)',
                     border: '1px solid var(--border)',
@@ -224,8 +228,8 @@ export default function VaRCard({ data }: Props) {
                     width={52}
                   />
                   <Tooltip
-                    formatter={(v: number, name: string) => [
-                      `${v.toFixed(3)}%`,
+                    formatter={(v: number | undefined, name: string | undefined) => [
+                      `${(v ?? 0).toFixed(3)}%`,
                       name === 'contrib' ? 'Contribuição VaR' : 'Peso',
                     ]}
                     contentStyle={{

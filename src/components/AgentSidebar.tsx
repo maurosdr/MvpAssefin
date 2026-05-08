@@ -24,7 +24,7 @@ interface AgentSidebarProps {
 
 const SKILL_META: Record<AgentSkill, { title: string; subtitle: string; greeting: string; suggestions: string[] }> = {
   crypto: {
-    title: 'Crypto Analyst',
+    title: 'Analista Cripto',
     subtitle: 'Análise de mercado cripto',
     greeting:
       'Olá! Sou o analista de cripto. Vejo o ativo desta página em tempo real (preço, volume, RSI, MA, volatilidade) e suas posições conectadas. Pode me perguntar sobre o ativo ou sobre como ele se encaixa na sua carteira.',
@@ -35,7 +35,7 @@ const SKILL_META: Record<AgentSkill, { title: string; subtitle: string; greeting
     ],
   },
   equity: {
-    title: 'Equity Research',
+    title: 'Analista de Ações',
     subtitle: 'Análise fundamentalista',
     greeting:
       'Olá! Sou o analista de equity research. Tenho os fundamentos da empresa (DRE, balanço, fluxo de caixa, múltiplos) carregados desta página. Pode me perguntar sobre tese, valuation ou riscos.',
@@ -46,7 +46,7 @@ const SKILL_META: Record<AgentSkill, { title: string; subtitle: string; greeting
     ],
   },
   portfolio: {
-    title: 'Portfolio Manager',
+    title: 'Gestor de Carteira',
     subtitle: 'Gestão de carteira',
     greeting:
       'Olá! Sou o gestor de portfólio. Estou olhando suas posições, pesos, retornos, vol e drawdown agora. Posso revisar a carteira, sugerir rebalanceamentos ou avaliar uma ideia específica.',

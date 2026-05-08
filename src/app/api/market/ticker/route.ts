@@ -43,20 +43,21 @@ async function fetchYahooMeta(symbol: string): Promise<{ price: number; change: 
 
 async function fetchIndices(): Promise<TickerItem[]> {
   const results = await Promise.all(INDICES.map(idx => fetchYahooMeta(idx.yahoo)));
-  return results
-    .map((meta, i) => {
-      if (!meta) return null;
-      return {
-        symbol: INDICES[i].symbol,
-        name: INDICES[i].name,
-        price: meta.price,
-        change: meta.change,
-        changePercent: meta.changePercent,
-        currency: INDICES[i].currency,
-        type: 'index' as const,
-      };
-    })
-    .filter((x): x is TickerItem => x !== null);
+  const out: TickerItem[] = [];
+  for (let i = 0; i < results.length; i += 1) {
+    const meta = results[i];
+    if (!meta) continue;
+    out.push({
+      symbol: INDICES[i].symbol,
+      name: INDICES[i].name,
+      price: meta.price,
+      change: meta.change,
+      changePercent: meta.changePercent,
+      currency: INDICES[i].currency,
+      type: 'index',
+    });
+  }
+  return out;
 }
 
 async function fetchB3Stocks(): Promise<TickerItem[]> {

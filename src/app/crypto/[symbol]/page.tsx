@@ -119,9 +119,9 @@ export default function CryptoDetailPage() {
   };
 
   const getRsiLabel = (rsi: number) => {
-    if (rsi >= 70) return 'Overbought';
-    if (rsi <= 30) return 'Oversold';
-    return 'Neutral';
+    if (rsi >= 70) return 'Sobrecomprado';
+    if (rsi <= 30) return 'Sobrevendido';
+    return 'Neutro';
   };
 
   return (
@@ -162,7 +162,7 @@ export default function CryptoDetailPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-[140px] pb-6 space-y-6">
         {/* Top Tab Bar: Market / Trade Ideas */}
-        <div className="flex items-center gap-2 bg-[var(--surface)]/60 border border-[var(--border)] rounded-2xl p-1.5 overflow-x-auto sticky top-[120px] z-30 backdrop-blur-sm">
+        <div className="flex items-center gap-2 bg-[var(--surface)]/60 border border-[var(--border)] rounded-2xl p-1.5 overflow-x-auto">
           <button
             onClick={() => setTopTab('market')}
             className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium text-sm transition-all whitespace-nowrap ${
@@ -174,7 +174,7 @@ export default function CryptoDetailPage() {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
             </svg>
-            Market
+            Mercado
           </button>
           <button
             onClick={() => setTopTab('trade-ideas')}
@@ -187,7 +187,7 @@ export default function CryptoDetailPage() {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
             </svg>
-            Trade Ideas
+            Ideias de Trade
           </button>
         </div>
 
@@ -203,11 +203,11 @@ export default function CryptoDetailPage() {
                 {/* Stats Cards */}
                 {stats && (
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-                    <StatCard label="Live Price" value={formatPrice(stats.price)} />
-                    <StatCard label="24h Volume" value={formatVolume(stats.volume24h)} />
+                    <StatCard label="Preço (ao vivo)" value={formatPrice(stats.price)} />
+                    <StatCard label="Volume (24h)" value={formatVolume(stats.volume24h)} />
                     <StatCard label="MA (20)" value={formatPrice(stats.ma20)} />
                     <StatCard
-                      label="Volatility (30d)"
+                      label="Volatilidade (30d)"
                       value={`${stats.volatility30d.toFixed(1)}%`}
                       valueClass={stats.volatility30d > 80 ? 'text-red-400' : stats.volatility30d > 40 ? 'text-[var(--accent)]' : 'text-green-400'}
                     />
@@ -220,7 +220,7 @@ export default function CryptoDetailPage() {
                     <StatCard
                       label="MVRV"
                       value="—"
-                      subLabel="On-chain data"
+                      subLabel="Dados on-chain"
                       valueClass="text-[var(--text-muted)]"
                     />
                   </div>
@@ -229,7 +229,7 @@ export default function CryptoDetailPage() {
                 {/* 24h Range */}
                 {stats && (
                   <div className="bg-[var(--surface)]/50 border border-[var(--border)] rounded-2xl p-6">
-                    <h3 className="text-sm text-gray-400 mb-3">24h Range</h3>
+                    <h3 className="text-sm text-gray-400 mb-3">Faixa (24h)</h3>
                     <div className="flex items-center gap-4">
                       <span className="text-sm text-red-400 font-mono">{formatPrice(stats.low24h)}</span>
                       <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden relative">
@@ -260,7 +260,7 @@ export default function CryptoDetailPage() {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
                     </svg>
-                    TradingView Chart
+                    Gráfico (TradingView)
                   </button>
                   <button
                     onClick={() => setActiveTab('info')}
@@ -273,7 +273,7 @@ export default function CryptoDetailPage() {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Information & Flow
+                    Informações e Fluxo
                   </button>
                 </div>
 
@@ -294,16 +294,16 @@ export default function CryptoDetailPage() {
                       <svg className="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                       </svg>
-                      Your {symbol} Position
+                      Sua posição em {symbol}
                     </h2>
                     {/* Consolidated totals */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
                       <div>
-                        <p className="text-sm text-gray-400">Total Amount</p>
+                        <p className="text-sm text-gray-400">Quantidade total</p>
                         <p className="text-[var(--text)] font-mono text-lg">{bookEntry.totalAmount.toLocaleString(undefined, { maximumFractionDigits: 8 })}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-400">USD Value</p>
+                        <p className="text-sm text-gray-400">Valor em USD</p>
                         <p className="text-[var(--accent)] font-mono text-lg font-bold">
                           ${bookEntry.totalUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                         </p>
@@ -352,7 +352,7 @@ export default function CryptoDetailPage() {
 
                 {connected && !bookEntry && (
                   <div className="bg-[var(--surface)]/50 border border-[var(--border)] rounded-2xl p-6 text-center">
-                    <p className="text-[var(--text-muted)]">No {symbol} position found across your connected exchanges.</p>
+                    <p className="text-[var(--text-muted)]">Nenhuma posição em {symbol} foi encontrada nas suas exchanges conectadas.</p>
                   </div>
                 )}
               </div>
@@ -369,7 +369,7 @@ export default function CryptoDetailPage() {
       <AgentSidebar
         skill="crypto"
         contextKey={symbol}
-        title={`Crypto Analyst — ${symbol}`}
+        title={`Analista Cripto — ${symbol}`}
         context={{
           asset: symbol,
           name: getCryptoName(symbol),

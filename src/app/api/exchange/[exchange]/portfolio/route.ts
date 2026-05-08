@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { auth } from '@/auth';
 import ccxt from 'ccxt';
+import { decryptJson } from '@/lib/crypto-cookie';
 
 const SUPPORTED_EXCHANGES = ['binance', 'coinbase'];
 
@@ -18,7 +20,7 @@ function createExchange(name: string, apiKey: string, secret: string): any {
     case 'coinbase':
       return new ccxt.coinbase(config);
     default:
-      throw new Error(`Unsupported exchange: ${name}`);
+      throw new Error(`Corretora não suportada: ${name}`);
   }
 }
 
@@ -27,11 +29,16 @@ export async function GET(
   { params }: { params: Promise<{ exchange: string }> }
 ) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 });
+    }
+
     const { exchange: exchangeName } = await params;
 
     if (!SUPPORTED_EXCHANGES.includes(exchangeName)) {
       return NextResponse.json(
-        { error: `Unsupported exchange: ${exchangeName}` },
+        { error: `Corretora não suportada: ${exchangeName}` },
         { status: 400 }
       );
     }
@@ -41,12 +48,12 @@ export async function GET(
 
     if (!encoded) {
       return NextResponse.json(
-        { error: `Not connected to ${exchangeName}` },
+        { error: `${exchangeName} não conectada` },
         { status: 401 }
       );
     }
 
-    const { apiKey, secret } = JSON.parse(Buffer.from(encoded, 'base64').toString());
+    const { apiKey, secret } = decryptJson<{ apiKey: string; secret: string }>(encoded);
     const exchange = createExchange(exchangeName, apiKey, secret);
 
     const balance = await exchange.fetchBalance();
@@ -98,7 +105,7 @@ export async function GET(
 
     return NextResponse.json({ exchange: exchangeName, positions, totalValue });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
+    const message = error instanceof Error ? error.message : 'Erro desconhecido';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

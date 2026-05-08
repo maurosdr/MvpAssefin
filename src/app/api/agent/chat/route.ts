@@ -2,6 +2,9 @@ import { NextRequest } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { loadSkill, SkillId } from '@/lib/agent-skills';
 import { searchPinecone, PINECONE_NAMESPACES, PineconeNamespace, pineconeConfigured } from '@/lib/pinecone';
+import { auth } from '@/auth';
+import { rateLimit } from '@/lib/rate-limit';
+import { requireEnv } from '@/lib/env';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -93,9 +96,27 @@ async function runPineconeTool(input: unknown): Promise<string> {
 }
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }), {
+  const rl = rateLimit(req, { key: 'agent_chat_post', limit: 30, windowMs: 60_000 });
+  if (!rl.ok) {
+    return new Response(JSON.stringify({ error: 'Muitas requisições' }), {
+      status: 429,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const session = await auth();
+  if (!session?.user?.id) {
+    return new Response(JSON.stringify({ error: 'Usuário não autenticado' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  let apiKey = '';
+  try {
+    apiKey = requireEnv('ANTHROPIC_API_KEY');
+  } catch {
+    return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY não configurado' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -105,7 +126,7 @@ export async function POST(req: NextRequest) {
   try {
     body = (await req.json()) as ChatBody;
   } catch {
-    return new Response(JSON.stringify({ error: 'invalid json' }), {
+    return new Response(JSON.stringify({ error: 'JSON inválido' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -113,13 +134,13 @@ export async function POST(req: NextRequest) {
 
   const { skill, messages, context } = body;
   if (!skill || !['crypto', 'equity', 'portfolio'].includes(skill)) {
-    return new Response(JSON.stringify({ error: 'invalid skill' }), {
+    return new Response(JSON.stringify({ error: 'Skill inválida' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     });
   }
   if (!Array.isArray(messages) || messages.length === 0) {
-    return new Response(JSON.stringify({ error: 'messages required' }), {
+    return new Response(JSON.stringify({ error: 'Mensagens são obrigatórias' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     });

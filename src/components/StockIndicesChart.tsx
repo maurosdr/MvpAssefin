@@ -85,7 +85,7 @@ export default function StockIndicesChart() {
             <svg className="w-5 h-5 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
             </svg>
-            Stock Indices
+            Índices de Ações
           </h2>
           <select
             value={selected}
@@ -174,12 +174,12 @@ export default function StockIndicesChart() {
                   fontSize: '0.75rem',
                 }}
                 formatter={(value) => {
-                  if (typeof value !== 'number') return ['-', 'Value'];
+                  if (typeof value !== 'number') return ['-', 'Valor'];
                   return [
                     `${value.toLocaleString(undefined, {
                       maximumFractionDigits: 2,
                     })}`,
-                    'Value',
+                    'Valor',
                   ];
                 }}
               />

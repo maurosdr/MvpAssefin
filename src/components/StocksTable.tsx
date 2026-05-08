@@ -34,6 +34,7 @@ function StockRowWithLogo({
   return (
     <tr
       className="group hover:bg-[var(--surface-hover)] transition-all cursor-pointer relative"
+      onClick={() => router.push(`/stocks/${stock.symbol}`)}
     >
       <td className="py-4">
         <div className="flex items-center gap-3">

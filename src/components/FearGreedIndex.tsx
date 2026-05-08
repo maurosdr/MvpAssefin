@@ -12,11 +12,11 @@ function getColor(value: number): string {
 }
 
 function getLabel(value: number): string {
-  if (value <= 25) return 'Extreme Fear';
-  if (value <= 45) return 'Fear';
-  if (value <= 55) return 'Neutral';
-  if (value <= 75) return 'Greed';
-  return 'Extreme Greed';
+  if (value <= 25) return 'Medo Extremo';
+  if (value <= 45) return 'Medo';
+  if (value <= 55) return 'Neutro';
+  if (value <= 75) return 'Ganância';
+  return 'Ganância Extrema';
 }
 
 export default function FearGreedIndex() {
@@ -47,7 +47,7 @@ export default function FearGreedIndex() {
     <div className="modern-card">
       <div className="flex items-center gap-2 mb-6 pb-4 border-b border-[var(--border)]">
         <div className="w-1 h-6 bg-[var(--accent)] rounded-full" />
-        <h2 className="section-title text-[var(--accent)]">Fear & Greed Index</h2>
+        <h2 className="section-title text-[var(--accent)]">Índice de Medo e Ganância</h2>
       </div>
       <div className="flex flex-col items-center">
         <div className="relative w-full max-w-[280px] h-32 mb-6">

@@ -20,18 +20,18 @@ export async function GET() {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MarketDashboard/1.0)' },
     });
 
-    if (!res.ok) throw new Error('Failed to fetch VIX data');
+    if (!res.ok) throw new Error('Falha ao buscar dados do VIX');
     const json = await res.json();
 
     const result = json?.chart?.result?.[0];
-    if (!result) throw new Error('No VIX data');
+    if (!result) throw new Error('Sem dados do VIX');
 
     const timestamps = result.timestamp || [];
     const closes = result.indicators?.quote?.[0]?.close || [];
     const meta = result.meta || {};
 
     const data = timestamps.map((ts: number, i: number) => ({
-      date: new Date(ts * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      date: new Date(ts * 1000).toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' }),
       value: closes[i] != null ? Math.round(closes[i] * 100) / 100 : null,
     })).filter((d: { value: number | null }) => d.value !== null);
 
@@ -67,7 +67,7 @@ function getFallbackVIX() {
     value = Math.max(10, Math.min(40, value));
     const date = new Date(yearStart.getTime() + i * 24 * 60 * 60 * 1000);
     data.push({
-      date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      date: date.toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' }),
       value: Math.round(value * 100) / 100,
     });
   }

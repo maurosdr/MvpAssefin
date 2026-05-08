@@ -321,6 +321,53 @@ h3 {
 }
 
 /* ======================================================
+   BRAND LOGO — subtle premium hover
+   - Works in light/dark via CSS variables
+   - Respects prefers-reduced-motion
+====================================================== */
+.brand-logo .brand-mark {
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.12));
+  transition: transform 220ms ease, filter 220ms ease;
+}
+
+.dark .brand-logo .brand-mark {
+  filter: drop-shadow(0 10px 18px rgba(255, 204, 2, 0.08));
+}
+
+.brand-logo:hover .brand-mark {
+  transform: translateY(-1px);
+}
+
+.brand-logo .brand-accent {
+  transition: stroke-dashoffset 380ms ease, opacity 220ms ease;
+  stroke-dasharray: 42;
+  stroke-dashoffset: 0;
+  opacity: 0.95;
+}
+
+.brand-logo:hover .brand-accent {
+  stroke-dashoffset: 10;
+  opacity: 1;
+}
+
+.brand-logo .brand-dot {
+  transition: transform 240ms ease, opacity 240ms ease;
+  transform-origin: center;
+}
+
+.brand-logo:hover .brand-dot {
+  transform: scale(1.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-logo .brand-mark,
+  .brand-logo .brand-accent,
+  .brand-logo .brand-dot {
+    transition: none !important;
+  }
+}
+
+/* ======================================================
    AGENT SIDEBAR — layout shift + adaptive UX
    When sidebar opens, the app shell shrinks via padding-right.
    The body class lets us tighten dense UI (navbar, tabs)

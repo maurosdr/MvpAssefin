@@ -195,33 +195,33 @@ export default function CryptoInfoPanel({ symbol, stats }: CryptoInfoPanelProps)
           <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          Market Information
+          Informações de Mercado
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <InfoCard
-            label="Market Cap"
+            label="Valor de Mercado (Market Cap)"
             value={marketCap ? formatValue(marketCap) : '—'}
           />
           <InfoCard
-            label="Market Dominance"
+            label="Dominância de Mercado"
             value={dominance ? `${dominance.toFixed(1)}%` : '—'}
           />
           <InfoCard
-            label="24h Volume"
+            label="Volume (24h)"
             value={stats?.volume24h ? formatValue(stats.volume24h) : '—'}
           />
           <InfoCard
-            label="Year High"
+            label="Máxima (1 ano)"
             value={yearHigh ? formatPrice(yearHigh) : '—'}
             valueClass="text-green-400"
           />
           <InfoCard
-            label="Year Low"
+            label="Mínima (1 ano)"
             value={yearLow ? formatPrice(yearLow) : '—'}
             valueClass="text-red-400"
           />
           <InfoCard
-            label="24h Range"
+            label="Faixa (24h)"
             value={
               stats
                 ? `${formatPrice(stats.low24h)} - ${formatPrice(stats.high24h)}`
@@ -238,9 +238,9 @@ export default function CryptoInfoPanel({ symbol, stats }: CryptoInfoPanelProps)
             <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            Money Flow Analysis
+            Análise de Fluxo de Capital
           </h3>
-          <p className="text-[var(--text-muted)] text-sm mb-4">Inflows vs outflows by period (in millions USD)</p>
+          <p className="text-[var(--text-muted)] text-sm mb-4">Entradas vs saídas por período (em milhões de USD)</p>
 
           <div className="h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -265,10 +265,10 @@ export default function CryptoInfoPanel({ symbol, stats }: CryptoInfoPanelProps)
                     fontSize: '0.75rem',
                   }}
                   formatter={(value, name) => {
-                    if (typeof value !== 'number') return ['-', 'Value'];
+                    if (typeof value !== 'number') return ['-', 'Valor'];
                     return [
                       `$${value.toFixed(2)}M`,
-                      name === 'inflow' ? 'Inflow' : name === 'outflow' ? 'Outflow' : 'Net Flow',
+                      name === 'inflow' ? 'Entrada' : name === 'outflow' ? 'Saída' : 'Fluxo líquido',
                     ];
                   }}
                 />
@@ -287,7 +287,7 @@ export default function CryptoInfoPanel({ symbol, stats }: CryptoInfoPanelProps)
                   key={flow.period}
                   className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50"
                 >
-                  <p className="text-xs text-[var(--text-muted)] mb-1">Largest Flow ({flow.period})</p>
+                  <p className="text-xs text-[var(--text-muted)] mb-1">Maior fluxo ({flow.period})</p>
                   <div className="flex items-center gap-3">
                     <div>
                       <p className="text-green-400 font-mono text-sm">
@@ -298,7 +298,7 @@ export default function CryptoInfoPanel({ symbol, stats }: CryptoInfoPanelProps)
                       </p>
                     </div>
                     <div className="ml-auto text-right">
-                      <p className="text-xs text-[var(--text-muted)]">Net</p>
+                      <p className="text-xs text-[var(--text-muted)]">Líquido</p>
                       <p
                         className={`font-mono font-bold ${
                           flow.net >= 0 ? 'text-green-400' : 'text-red-400'
@@ -321,9 +321,9 @@ export default function CryptoInfoPanel({ symbol, stats }: CryptoInfoPanelProps)
             <svg className="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
-            Margin Debt Growth
+            Crescimento da Dívida de Margem
           </h3>
-          <p className="text-[var(--text-muted)] text-sm mb-4">Estimated margin debt trend (index basis)</p>
+          <p className="text-[var(--text-muted)] text-sm mb-4">Tendência estimada da dívida de margem (base em índice)</p>
 
           <div className="h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -361,8 +361,8 @@ export default function CryptoInfoPanel({ symbol, stats }: CryptoInfoPanelProps)
                     fontSize: '0.75rem',
                   }}
                   formatter={(value) => {
-                    if (typeof value !== 'number') return ['-', 'Debt Index'];
-                    return [`${value.toFixed(0)}`, 'Debt Index'];
+                    if (typeof value !== 'number') return ['-', 'Índice de dívida'];
+                    return [`${value.toFixed(0)}`, 'Índice de dívida'];
                   }}
                 />
                 <Area
@@ -380,7 +380,7 @@ export default function CryptoInfoPanel({ symbol, stats }: CryptoInfoPanelProps)
 
           {/* Growth rate bars */}
           <div className="mt-4">
-            <p className="text-xs text-[var(--text-muted)] mb-2">Period Growth Rate</p>
+            <p className="text-xs text-[var(--text-muted)] mb-2">Taxa de crescimento por período</p>
             <div className="h-[100px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={marginDebtData}>
@@ -400,7 +400,7 @@ export default function CryptoInfoPanel({ symbol, stats }: CryptoInfoPanelProps)
                       fontSize: '11px',
                     }}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={(value: any) => [`${(value ?? 0).toFixed(2)}%`, 'Growth']}
+                  formatter={(value: any) => [`${(value ?? 0).toFixed(2)}%`, 'Crescimento']}
                   />
                   <Bar dataKey="growth" radius={[2, 2, 0, 0]}>
                     {marginDebtData.map((entry, index) => (
