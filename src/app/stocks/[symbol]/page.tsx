@@ -1651,8 +1651,8 @@ function HistoricoTab({
 /* ─── VALUACAO TAB ─── */
 
 function ValuacaoTab({ stock }: { stock: StockDetail }) {
-  const fd = stock.financialData || {};
-  const ks = stock.defaultKeyStatistics || {};
+  const fd = useMemo(() => stock.financialData ?? {}, [stock.financialData]);
+  const ks = useMemo(() => stock.defaultKeyStatistics ?? {}, [stock.defaultKeyStatistics]);
 
   // ─── Historical data (oldest first) ────────────────────────────
   const incomeHistory: FundamentalData[] = (

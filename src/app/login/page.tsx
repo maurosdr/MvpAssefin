@@ -26,7 +26,7 @@ function LoginInner() {
       const next = searchParams.get('next');
       router.push(next && next.startsWith('/') ? next : '/crypto');
     }
-  }, [status, session, router]);
+  }, [status, session, router, searchParams]);
 
   useEffect(() => {
     // Verifica se há query param para abrir direto no modo cadastro
