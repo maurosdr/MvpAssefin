@@ -9,6 +9,7 @@ import { PredictionMarketProvider } from "@/context/PredictionMarketContext";
 import { PortfolioProvider } from "@/context/PortfolioContext";
 import { TradesProvider } from "@/context/TradesContext";
 import SessionProvider from "@/components/SessionProvider";
+import GlobalAgent from "@/components/GlobalAgent";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -53,6 +54,7 @@ export default function RootLayout({
                       <StopLossProvider>
                         <div className="app-shell relative min-h-screen">
                           {children}
+                          <GlobalAgent />
                         </div>
                       </StopLossProvider>
                     </BinanceProvider>

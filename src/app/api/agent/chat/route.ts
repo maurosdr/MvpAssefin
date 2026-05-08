@@ -5,6 +5,7 @@ import { searchPinecone, PINECONE_NAMESPACES, PineconeNamespace, pineconeConfigu
 import { auth } from '@/auth';
 import { rateLimit } from '@/lib/rate-limit';
 import { requireEnv } from '@/lib/env';
+import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -108,6 +109,17 @@ export async function POST(req: NextRequest) {
   if (!session?.user?.id) {
     return new Response(JSON.stringify({ error: 'Usuário não autenticado' }), {
       status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const activeSub = await prisma.subscription.findFirst({
+    where: { userId: session.user.id, status: 'active' },
+    select: { id: true },
+  });
+  if (!activeSub) {
+    return new Response(JSON.stringify({ error: 'Assinatura ativa necessária' }), {
+      status: 402,
       headers: { 'Content-Type': 'application/json' },
     });
   }

@@ -126,8 +126,13 @@ export default function AgentSidebar({ skill, context, title, subtitle, contextK
         });
 
         if (!res.ok || !res.body) {
-          const msg = `HTTP ${res.status}`;
-          throw new Error(msg);
+          if (res.status === 401) {
+            throw new Error('Você precisa estar logado para usar o assistente.');
+          }
+          if (res.status === 402 || res.status === 403) {
+            throw new Error('Este recurso é exclusivo para assinantes. Vá em “Assinatura” para ativar.');
+          }
+          throw new Error(`Erro ao chamar o assistente (HTTP ${res.status}).`);
         }
 
         const reader = res.body.getReader();
