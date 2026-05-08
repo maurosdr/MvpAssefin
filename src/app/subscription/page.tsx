@@ -22,12 +22,6 @@ export default function SubscriptionPage() {
     },
   ];
 
-  const priceToNumber = (label: string) => {
-    const cleaned = label.replace('R$', '').replace('/mês', '').trim().replace('.', '').replace(',', '.');
-    const n = Number(cleaned);
-    return Number.isFinite(n) ? n : 0;
-  };
-
   const handleSubscribe = async (plan: { id: string; name: string; price: string }) => {
     setSubmitting(plan.id);
     try {
