@@ -12,6 +12,21 @@ const APP_SECRET = process.env.WHATSAPP_APP_SECRET || '';
 
 const WA_API_URL = `https://graph.facebook.com/v20.0/${PHONE_NUMBER_ID}/messages`;
 
+/** Payload mínimo do webhook Meta/WhatsApp (tipagem permissiva). */
+type MetaWebhookPayload = {
+  entry?: Array<{
+    changes?: Array<{
+      value?: {
+        messages?: Array<{
+          type?: string;
+          from?: string;
+          text?: { body?: string };
+        }>;
+      };
+    }>;
+  }>;
+};
+
 function timingSafeEqual(a: string, b: string): boolean {
   const ba = Buffer.from(a);
   const bb = Buffer.from(b);
@@ -59,13 +74,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const body = raw ? (JSON.parse(raw) as unknown) : {};
+    let body: MetaWebhookPayload = {};
+    try {
+      body = raw ? (JSON.parse(raw) as MetaWebhookPayload) : {};
+    } catch {
+      return NextResponse.json({ status: 'ok' });
+    }
 
-    const messages = body?.entry?.[0]?.changes?.[0]?.value?.messages;
+    const messages = body.entry?.[0]?.changes?.[0]?.value?.messages;
     if (!messages?.length) return NextResponse.json({ status: 'ok' });
 
     const message = messages[0];
     if (message.type !== 'text') return NextResponse.json({ status: 'ok' });
+
+    if (!message.from) return NextResponse.json({ status: 'ok' });
 
     const from: string = normalizeBrazilianNumber(message.from);
     const text: string = message?.text?.body?.trim().toUpperCase() ?? '';
