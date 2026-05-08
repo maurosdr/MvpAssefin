@@ -7,7 +7,9 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import { ExchangeProvider } from "@/context/ExchangeContext";
 import { PredictionMarketProvider } from "@/context/PredictionMarketContext";
 import { PortfolioProvider } from "@/context/PortfolioContext";
+import { TradesProvider } from "@/context/TradesContext";
 import SessionProvider from "@/components/SessionProvider";
+import GlobalAgent from "@/components/GlobalAgent";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -23,6 +25,13 @@ const geistMono = localFont({
 export const metadata: Metadata = {
   title: "Assefin - Global Markets & News",
   description: "Global news, prediction markets, crypto prices, and portfolio tracking",
+  icons: {
+    icon: [
+      { url: "/icon", type: "image/png" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+    shortcut: ["/icon"],
+  },
 };
 
 export default function RootLayout({
@@ -40,11 +49,16 @@ export default function RootLayout({
             <ExchangeProvider>
               <PredictionMarketProvider>
                 <PortfolioProvider>
-                  <BinanceProvider>
-                    <StopLossProvider>
-                      {children}
-                    </StopLossProvider>
-                  </BinanceProvider>
+                  <TradesProvider>
+                    <BinanceProvider>
+                      <StopLossProvider>
+                        <div className="app-shell relative min-h-screen">
+                          {children}
+                          <GlobalAgent />
+                        </div>
+                      </StopLossProvider>
+                    </BinanceProvider>
+                  </TradesProvider>
                 </PortfolioProvider>
               </PredictionMarketProvider>
             </ExchangeProvider>

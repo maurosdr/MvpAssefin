@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
 
 interface NewsArticle {
@@ -93,10 +94,13 @@ export default function CryptoFeaturedNews() {
       {/* Image Section */}
       <div className="relative h-64 bg-gradient-to-br from-[var(--accent-soft)] to-[var(--info-soft)] overflow-hidden">
         {article.imageUrl ? (
-          <img
+          <Image
             src={article.imageUrl}
             alt={article.title}
-            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+            fill
+            sizes="(max-width: 768px) 100vw, 640px"
+            className="object-cover group-hover:scale-110 transition-transform duration-500"
+            unoptimized
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = 'none';
             }}

@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn, useSession } from 'next-auth/react';
 import AppHeader from '@/components/AppHeader';
 import MarketTickerBar from '@/components/MarketTickerBar';
 
-export default function LoginPage() {
+function LoginInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, status } = useSession();
@@ -23,9 +23,10 @@ export default function LoginPage() {
   useEffect(() => {
     // Redirecionar se já estiver logado
     if (status === 'authenticated' && session) {
-      router.push('/crypto');
+      const next = searchParams.get('next');
+      router.push(next && next.startsWith('/') ? next : '/crypto');
     }
-  }, [status, session, router]);
+  }, [status, session, router, searchParams]);
 
   useEffect(() => {
     // Verifica se há query param para abrir direto no modo cadastro
@@ -106,7 +107,8 @@ export default function LoginPage() {
           return;
         }
 
-        router.push('/crypto');
+        const next = searchParams.get('next');
+        router.push(next && next.startsWith('/') ? next : '/crypto');
       } else {
         // Fazer login
         const result = await signIn('credentials', {
@@ -120,7 +122,8 @@ export default function LoginPage() {
           return;
         }
 
-        router.push('/crypto');
+        const next = searchParams.get('next');
+        router.push(next && next.startsWith('/') ? next : '/crypto');
       }
     } catch (err) {
       console.error('Auth error:', err);
@@ -186,7 +189,7 @@ export default function LoginPage() {
                 {isSignup ? 'Criar Conta' : 'Entrar'}
               </h1>
               <p className="text-[var(--text-secondary)]">
-                {isSignup ? 'Comece sua jornada no Assefin' : 'Acesse sua conta Assefin'}
+                {isSignup ? 'Comece sua jornada no Assefin Markets' : 'Acesse sua conta Assefin Markets'}
               </p>
             </div>
 
@@ -358,6 +361,23 @@ export default function LoginPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-[var(--text-secondary)]">Carregando...</p>
+          </div>
+        </div>
+      }
+    >
+      <LoginInner />
+    </Suspense>
   );
 }
 

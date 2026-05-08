@@ -16,8 +16,8 @@ export async function GET() {
       });
     }
 
-    return NextResponse.json({ value: 50, classification: 'Neutral', timestamp: '' });
+    return NextResponse.json({ value: 50, classification: 'Neutro', timestamp: '' });
   } catch {
-    return NextResponse.json({ value: 50, classification: 'Neutral', timestamp: '' });
+    return NextResponse.json({ value: 50, classification: 'Neutro', timestamp: '' });
   }
 }

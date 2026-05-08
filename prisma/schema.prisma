@@ -73,9 +73,13 @@ model VerificationToken {
 model Subscription {
   id            String   @id @default(cuid())
   userId        String
-  planId        String   // basic, pro, premium
-  status        String   // active, cancelled, expired
-  externalId    String?  // ID do Mercado Pago
+  planId        String   // ex.: mensal, anual (catálogo de planos no app)
+  planName      String?  // nome exibível (snapshot no momento da compra)
+  status        String   // active, cancelled, expired, incomplete, trialing, past_due...
+  externalId    String?  @unique // ID da assinatura no Stripe (ex.: sub_...)
+  priceCents    Int?     // snapshot do preço (centavos) no momento da criação
+  currency      String?  // ex.: brl
+  interval      String?  // ex.: month, year
   currentPeriodStart DateTime?
   currentPeriodEnd   DateTime?
   cancelAtPeriodEnd  Boolean @default(false)
@@ -84,7 +88,7 @@ model Subscription {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, planId])
+  @@index([userId])
   @@map("subscriptions")
 }
 

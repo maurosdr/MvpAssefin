@@ -11,6 +11,8 @@ import PortfolioDrawdownChart from '@/components/PortfolioDrawdownChart';
 import PortfolioVolatilityChart from '@/components/PortfolioVolatilityChart';
 import PortfolioPositionsTable from '@/components/PortfolioPositionsTable';
 import AdvancedIndicatorsTab from '@/components/AdvancedIndicatorsTab';
+import OperacoesTab from '@/components/OperacoesTab';
+import AgentSidebar from '@/components/AgentSidebar';
 import { usePortfolio } from '@/context/PortfolioContext';
 import { useExchange } from '@/context/ExchangeContext';
 import { usePredictionMarkets } from '@/context/PredictionMarketContext';
@@ -29,7 +31,7 @@ export default function PortfolioPage() {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [backtestData, setBacktestData] = useState<PortfolioHistoryPoint[]>([]);
-  const [activeTab, setActiveTab] = useState<'carteira' | 'indicadores'>('carteira');
+  const [activeTab, setActiveTab] = useState<'carteira' | 'indicadores' | 'operacoes'>('carteira');
 
   // Refresh prices on mount
   useEffect(() => {
@@ -190,7 +192,7 @@ export default function PortfolioPage() {
         </div>
 
         {/* Tab Bar — same pill style as crypto detail page */}
-        <div className="flex items-center gap-2 bg-[var(--surface)]/60 border border-[var(--border)] rounded-2xl p-1.5 overflow-x-auto mb-6 sticky top-[120px] z-30 backdrop-blur-sm">
+        <div className="flex items-center gap-2 bg-[var(--surface)]/60 border border-[var(--border)] rounded-2xl p-1.5 overflow-x-auto mb-6">
           {(
             [
               { id: 'carteira', label: 'Carteira', icon: (
@@ -201,6 +203,11 @@ export default function PortfolioPage() {
               { id: 'indicadores', label: 'Indicadores Avançados', icon: (
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              )},
+              { id: 'operacoes', label: 'Operações', icon: (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                 </svg>
               )},
             ] as const
@@ -282,6 +289,9 @@ export default function PortfolioPage() {
           />
         )}
 
+        {/* ── Operações Tab ── */}
+        {activeTab === 'operacoes' && <OperacoesTab />}
+
         {priceLoading && (
           <div className="fixed bottom-4 right-4 bg-[var(--surface)] border border-[var(--border)] rounded-lg px-4 py-2 shadow-lg flex items-center gap-2">
             <div className="w-4 h-4 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
@@ -292,6 +302,38 @@ export default function PortfolioPage() {
 
       <Footer />
       <AddPositionModal open={showAddModal} onClose={() => setShowAddModal(false)} />
+
+      <AgentSidebar
+        skill="portfolio"
+        title="Gestor de Carteira"
+        contextKey="portfolio-page"
+        context={{
+          totals: {
+            totalValue: totalPortfolioValue,
+            totalReturn: stats.totalReturn,
+            totalReturnPct: stats.totalReturnPct,
+            volatility: stats.volatility,
+            sharpeRatio: stats.sharpeRatio,
+            maxDrawdown: stats.maxDrawdown,
+          },
+          positions: allChartPositions.map((p) => ({
+            symbol: p.symbol,
+            name: p.name,
+            type: p.type,
+            quantity: p.quantity,
+            entryPrice: p.entryPrice,
+            currentPrice: p.currentPrice,
+            value: p.value,
+            weightPct: p.weight,
+            returnPct: p.returnPct,
+            entryDate: p.entryDate,
+            side: p.side,
+          })),
+          connectedExchanges,
+          predictionMarkets: { kalshi: kalshiEnabled, polymarket: polymarketEnabled },
+          backtestPoints: backtestData.length,
+        }}
+      />
     </div>
   );
 }

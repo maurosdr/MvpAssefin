@@ -21,7 +21,7 @@ interface MacroIndicatorsResponse {
 let cache: { data: MacroIndicatorsResponse; timestamp: number } | null = null;
 const CACHE_TTL = 30 * 60 * 1000; // 30 min
 
-// --- BCB (Banco Central do Brasil) API ---
+// --- BCB (Banco Central do Brasil) ---
 
 async function fetchBCBSeries(seriesId: number): Promise<{ value: number; date: string } | null> {
   try {
@@ -37,10 +37,7 @@ async function fetchBCBSeries(seriesId: number): Promise<{ value: number; date: 
     if (!res.ok) return null;
     const data = await res.json();
     if (Array.isArray(data) && data[0]) {
-      return {
-        value: parseFloat(data[0].valor),
-        date: data[0].data,
-      };
+      return { value: parseFloat(data[0].valor), date: data[0].data };
     }
     return null;
   } catch {
@@ -50,31 +47,139 @@ async function fetchBCBSeries(seriesId: number): Promise<{ value: number; date: 
 
 async function fetchBrazilData(): Promise<MacroCountryData> {
   const [ipca, unemployment, selic] = await Promise.all([
-    fetchBCBSeries(13522),  // IPCA accumulated 12 months
-    fetchBCBSeries(24369),  // Unemployment rate (PNAD Continua)
-    fetchBCBSeries(432),    // Selic target rate
+    fetchBCBSeries(13522), // IPCA acumulado 12 meses
+    fetchBCBSeries(24369), // Desemprego PNAD Contínua
+    fetchBCBSeries(432),   // Meta Selic
   ]);
 
   return {
     inflation: {
-      value: ipca?.value ?? 4.50,
+      value: ipca?.value ?? 5.53,
       date: ipca?.date ?? '',
       label: 'IPCA 12m',
     },
     unemployment: {
-      value: unemployment?.value ?? 7.8,
+      value: unemployment?.value ?? 6.2,
       date: unemployment?.date ?? '',
       label: 'Desemprego',
     },
     interestRate: {
-      value: selic?.value ?? 13.75,
+      value: selic?.value ?? 14.75,
       date: selic?.date ?? '',
       label: 'Selic',
     },
   };
 }
 
-// --- US data from Yahoo Finance (reliable, free) ---
+// --- FRED (Federal Reserve Economic Data) ---
+// Requer FRED_API_KEY no .env — gratuito em fred.stlouisfed.org/docs/api/api_key.html
+
+async function fetchFREDObs(seriesId: string, limit: number): Promise<Array<{ value: number; date: string }>> {
+  const fredKey = process.env.FRED_API_KEY;
+  if (!fredKey) return [];
+
+  try {
+    const url = new URL('https://api.stlouisfed.org/fred/series/observations');
+    url.searchParams.set('series_id', seriesId);
+    url.searchParams.set('api_key', fredKey);
+    url.searchParams.set('file_type', 'json');
+    url.searchParams.set('sort_order', 'desc');
+    url.searchParams.set('limit', String(limit));
+
+    const res = await fetch(url.toString(), {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MarketDashboard/1.0)' },
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    const obs: Array<{ value: string; date: string }> = json?.observations ?? [];
+    return obs
+      .filter(o => o.value !== '.')
+      .map(o => ({ value: parseFloat(o.value), date: o.date }));
+  } catch {
+    return [];
+  }
+}
+
+// CPI YoY calculado de 13 meses do CPIAUCSL (CPIAUCSL é índice, não taxa)
+async function fetchFREDCPIYoY(): Promise<{ value: number; date: string } | null> {
+  const obs = await fetchFREDObs('CPIAUCSL', 13);
+  if (obs.length < 13) return null;
+  const current = obs[0].value;
+  const yearAgo = obs[12].value;
+  if (!yearAgo || isNaN(current) || isNaN(yearAgo)) return null;
+  return {
+    value: ((current / yearAgo) - 1) * 100,
+    date: obs[0].date,
+  };
+}
+
+async function fetchFREDLatest(seriesId: string): Promise<{ value: number; date: string } | null> {
+  const obs = await fetchFREDObs(seriesId, 1);
+  return obs[0] ?? null;
+}
+
+// --- BLS (Bureau of Labor Statistics) — gratuito, sem API key ---
+// Fonte oficial do governo US para CPI e Desemprego
+
+interface BLSResult {
+  cpi: { value: number; date: string } | null;
+  unemployment: { value: number; date: string } | null;
+}
+
+async function fetchBLSData(): Promise<BLSResult> {
+  try {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const res = await fetch('https://api.bls.gov/publicAPI/v1/timeseries/data/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        seriesid: [
+          'CUUR0000SA0',   // CPI All Urban Consumers (not seasonally adjusted)
+          'LNS14000000',   // Unemployment Rate (seasonally adjusted)
+        ],
+        startyear: String(currentYear - 1),
+        endyear: String(currentYear),
+      }),
+    });
+    if (!res.ok) return { cpi: null, unemployment: null };
+    const json = await res.json();
+    if (json.status !== 'REQUEST_SUCCEEDED') return { cpi: null, unemployment: null };
+
+    let cpi: { value: number; date: string } | null = null;
+    let unemployment: { value: number; date: string } | null = null;
+
+    for (const series of json.Results?.series ?? []) {
+      const data: Array<{ year: string; period: string; value: string }> = series.data ?? [];
+      if (!data.length) continue;
+
+      if (series.seriesID === 'CUUR0000SA0') {
+        // Compute YoY: most recent month vs same month last year
+        const latest = data[0];
+        const yearAgo = data.find(
+          d => d.year === String(parseInt(latest.year) - 1) && d.period === latest.period
+        );
+        if (latest && yearAgo) {
+          const yoy = ((parseFloat(latest.value) / parseFloat(yearAgo.value)) - 1) * 100;
+          const month = latest.period.replace('M', '').padStart(2, '0');
+          cpi = { value: yoy, date: `${latest.year}-${month}` };
+        }
+      }
+
+      if (series.seriesID === 'LNS14000000') {
+        const latest = data[0];
+        const month = latest.period.replace('M', '').padStart(2, '0');
+        unemployment = { value: parseFloat(latest.value), date: `${latest.year}-${month}` };
+      }
+    }
+
+    return { cpi, unemployment };
+  } catch {
+    return { cpi: null, unemployment: null };
+  }
+}
+
+// --- Yahoo Finance --- fallback para Fed Funds via T-bill de 13 semanas
 
 async function fetchYahooQuote(symbol: string): Promise<number | null> {
   try {
@@ -90,65 +195,44 @@ async function fetchYahooQuote(symbol: string): Promise<number | null> {
   }
 }
 
-// --- US data from FRED (free, requires optional API key) ---
-
-async function fetchFREDSeries(seriesId: string): Promise<{ value: number; date: string } | null> {
-  const fredKey = process.env.FRED_API_KEY;
-  if (!fredKey) return null;
-
-  try {
-    const res = await fetch(
-      `https://api.stlouisfed.org/fred/series/observations?series_id=${seriesId}&api_key=${fredKey}&file_type=json&sort_order=desc&limit=1`,
-      { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MarketDashboard/1.0)' } }
-    );
-    if (!res.ok) return null;
-    const json = await res.json();
-    const obs = json?.observations?.[0];
-    if (obs && obs.value !== '.') {
-      return { value: parseFloat(obs.value), date: obs.date };
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
+// --- US Data: FRED (com key) → BLS (sem key) → Yahoo (Fed Funds) ---
 
 async function fetchUSData(): Promise<MacroCountryData> {
-  // Try FRED first if key is available
+  // Tentar FRED (requer FRED_API_KEY no .env)
   const [fredCPI, fredUnemployment, fredFedFunds] = await Promise.all([
-    fetchFREDSeries('CPIAUCSL'),    // CPI Urban Consumers
-    fetchFREDSeries('UNRATE'),      // Unemployment Rate
-    fetchFREDSeries('FEDFUNDS'),    // Federal Funds Rate
+    fetchFREDCPIYoY(),
+    fetchFREDLatest('UNRATE'),
+    fetchFREDLatest('FEDFUNDS'),
   ]);
 
-  // Calculate CPI YoY change (CPIAUCSL is an index, not a rate)
-  // For simplicity, use the FRED annual rate series instead
-  let cpiYoY: { value: number; date: string } | null = null;
-  if (!fredCPI) {
-    // Try the annual inflation rate from FRED
-    cpiYoY = await fetchFREDSeries('FPCPITOTLZGUSA');
+  // BLS como fallback gratuito (sem key) para CPI e Desemprego
+  let blsCPI: { value: number; date: string } | null = null;
+  let blsUnemployment: { value: number; date: string } | null = null;
+  if (!fredCPI || !fredUnemployment) {
+    const bls = await fetchBLSData();
+    blsCPI = bls.cpi;
+    blsUnemployment = bls.unemployment;
   }
 
-  // Fallback: use Yahoo Finance for fed funds effective rate proxy
+  // Yahoo Finance como fallback para Fed Funds
   let fedRate = fredFedFunds?.value ?? null;
   if (fedRate === null) {
-    // ^IRX is the 13-week T-bill rate, close proxy for fed funds
     fedRate = await fetchYahooQuote('^IRX');
   }
 
   return {
     inflation: {
-      value: cpiYoY?.value ?? fredCPI?.value ?? 3.0,
-      date: cpiYoY?.date ?? fredCPI?.date ?? '',
+      value: fredCPI?.value ?? blsCPI?.value ?? 2.4,
+      date: fredCPI?.date ?? blsCPI?.date ?? '',
       label: 'CPI YoY',
     },
     unemployment: {
-      value: fredUnemployment?.value ?? 4.0,
-      date: fredUnemployment?.date ?? '',
+      value: fredUnemployment?.value ?? blsUnemployment?.value ?? 4.2,
+      date: fredUnemployment?.date ?? blsUnemployment?.date ?? '',
       label: 'Unemployment',
     },
     interestRate: {
-      value: fedRate ?? 5.25,
+      value: fedRate ?? 4.33,
       date: fredFedFunds?.date ?? '',
       label: 'Fed Funds',
     },
@@ -172,22 +256,21 @@ export async function GET() {
     cache = { data: response, timestamp: Date.now() };
     return NextResponse.json(response);
   } catch {
-    const fallback = getFallbackIndicators();
-    return NextResponse.json(fallback);
+    return NextResponse.json(getFallbackIndicators());
   }
 }
 
 function getFallbackIndicators(): MacroIndicatorsResponse {
   return {
     us: {
-      inflation: { value: 3.0, date: '2025-12', label: 'CPI YoY' },
-      unemployment: { value: 4.0, date: '2025-12', label: 'Unemployment' },
-      interestRate: { value: 5.25, date: '2025-12', label: 'Fed Funds' },
+      inflation:     { value: 2.4,  date: '', label: 'CPI YoY' },
+      unemployment:  { value: 4.2,  date: '', label: 'Unemployment' },
+      interestRate:  { value: 4.33, date: '', label: 'Fed Funds' },
     },
     br: {
-      inflation: { value: 4.50, date: '12/2025', label: 'IPCA 12m' },
-      unemployment: { value: 7.8, date: '12/2025', label: 'Desemprego' },
-      interestRate: { value: 13.75, date: '12/2025', label: 'Selic' },
+      inflation:     { value: 5.53, date: '', label: 'IPCA 12m' },
+      unemployment:  { value: 6.2,  date: '', label: 'Desemprego' },
+      interestRate:  { value: 14.75, date: '', label: 'Selic' },
     },
     lastUpdated: new Date().toISOString(),
   };

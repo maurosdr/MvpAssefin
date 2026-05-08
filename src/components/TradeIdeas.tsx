@@ -76,9 +76,9 @@ export default function TradeIdeas({ symbol, currentPrice }: TradeIdeasProps) {
   const [activeSection, setActiveSection] = useState<Section>('market-cycle');
 
   const sections: { id: Section; label: string }[] = [
-    { id: 'market-cycle', label: 'Market Cycle' },
-    { id: 'ratio-indicators', label: 'Ratio Indicators' },
-    { id: 'risk-manager', label: 'Risk Manager' },
+    { id: 'market-cycle', label: 'Ciclo de Mercado' },
+    { id: 'ratio-indicators', label: 'Indicadores de Razão' },
+    { id: 'risk-manager', label: 'Gestão de Risco' },
   ];
 
   return (
@@ -136,7 +136,7 @@ function HeatmapCard({ symbol, currentPrice }: { symbol: string; currentPrice?: 
     try {
       const pair = `${symbol}/USDT`;
       const res = await fetch(`/api/crypto/heatmap?symbol=${encodeURIComponent(pair)}`);
-      if (!res.ok) throw new Error('Failed to fetch heatmap data');
+      if (!res.ok) throw new Error('Falha ao buscar dados do heatmap');
       const result: HeatmapDataPoint[] = await res.json();
       if (Array.isArray(result) && result.length > 0) {
         setData(result);
@@ -144,7 +144,7 @@ function HeatmapCard({ symbol, currentPrice }: { symbol: string; currentPrice?: 
       }
       setLastUpdate(new Date());
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data');
+      setError(err instanceof Error ? err.message : 'Falha ao carregar dados');
     } finally {
       setLoading(false);
     }
@@ -174,17 +174,17 @@ function HeatmapCard({ symbol, currentPrice }: { symbol: string; currentPrice?: 
             <svg className="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
-            200 Week Moving Average Heatmap
+            Heatmap da Média Móvel de 200 Semanas
           </h3>
           {lastUpdate && (
             <span className="text-[10px] text-gray-600 flex items-center gap-1">
               <span className="inline-block w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-              Live — weekly data
+              Ao vivo — dados semanais
             </span>
           )}
         </div>
         <p className="text-[var(--text-muted)] text-sm mb-4">
-          Shows 200w MA vs {symbol} Price with dots showing % monthly increase of 200w MA
+          Compara a MM 200s vs o preço de {symbol}; os pontos mostram a variação mensal (%) da MM 200s
         </p>
 
         {loading ? (
@@ -228,9 +228,9 @@ function HeatmapCard({ symbol, currentPrice }: { symbol: string; currentPrice?: 
                     }}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     formatter={(value: any, name: any) => {
-                      if (name === 'price' || name === 'Price') return [`$${(value ?? 0).toLocaleString()}`, 'Price'];
+                      if (name === 'price' || name === 'Price') return [`$${(value ?? 0).toLocaleString()}`, 'Preço'];
                       if (name === 'ma200w' || name === '200w MA') return [`$${(value ?? 0).toLocaleString()}`, '200w MA'];
-                      return [`${Number(value ?? 0).toFixed(2)}%`, 'Monthly % Change'];
+                      return [`${Number(value ?? 0).toFixed(2)}%`, 'Variação mensal (%)'];
                     }}
                   />
                   {/* Current price horizontal reference line */}
@@ -252,7 +252,7 @@ function HeatmapCard({ symbol, currentPrice }: { symbol: string; currentPrice?: 
                     dot={false}
                     isAnimationActive={false}
                     connectNulls
-                    name="Price"
+                    name="Preço"
                   />
                   {/* 200w MA line */}
                   <Line
@@ -359,7 +359,7 @@ function NVTSignalCard({ symbol, currentPrice }: { symbol: string; currentPrice?
     try {
       const pair = `${symbol}/USDT`;
       const res = await fetch(`/api/crypto/nvt?symbol=${encodeURIComponent(pair)}`);
-      if (!res.ok) throw new Error('Failed to fetch NVT data');
+      if (!res.ok) throw new Error('Falha ao buscar dados de NVT');
       const result = await res.json();
       if (result.data && Array.isArray(result.data) && result.data.length > 0) {
         setData(result.data);
@@ -367,7 +367,7 @@ function NVTSignalCard({ symbol, currentPrice }: { symbol: string; currentPrice?
       }
       setLastUpdate(new Date());
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load NVT data');
+      setError(err instanceof Error ? err.message : 'Falha ao carregar dados de NVT');
     } finally {
       setLoading(false);
     }
@@ -400,9 +400,9 @@ function NVTSignalCard({ symbol, currentPrice }: { symbol: string; currentPrice?
     neutral: 'bg-yellow-500/10 border-yellow-500/30',
   };
   const zoneLabel = {
-    overbought: 'Overbought — potential sell zone',
-    oversold: 'Oversold — potential buy zone',
-    neutral: 'Neutral — within normal range',
+    overbought: 'Sobrecomprado — possível zona de venda',
+    oversold: 'Sobrevendido — possível zona de compra',
+    neutral: 'Neutro — dentro da faixa normal',
   };
 
   return (
@@ -415,12 +415,12 @@ function NVTSignalCard({ symbol, currentPrice }: { symbol: string; currentPrice?
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
-            Advanced NVT Signal
+            Sinal NVT Avançado
           </h3>
           {lastUpdate && (
             <span className="text-[10px] text-gray-600 flex items-center gap-1">
               <span className="inline-block w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-              Live — daily on-chain data
+              Ao vivo — dados on-chain diários
             </span>
           )}
         </div>
@@ -444,7 +444,7 @@ function NVTSignalCard({ symbol, currentPrice }: { symbol: string; currentPrice?
           <div className="h-[420px] flex items-center justify-center">
             <div className="text-center">
               <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-              <p className="text-[var(--text-muted)] text-xs">Loading on-chain data…</p>
+              <p className="text-[var(--text-muted)] text-xs">Carregando dados on-chain…</p>
             </div>
           </div>
         ) : error ? (
@@ -634,7 +634,7 @@ function PiCycleCard({ symbol, currentPrice }: { symbol: string; currentPrice?: 
     try {
       const pair = `${symbol}/USDT`;
       const res = await fetch(`/api/crypto/pi-cycle?symbol=${encodeURIComponent(pair)}`);
-      if (!res.ok) throw new Error('Failed to fetch Pi Cycle data');
+      if (!res.ok) throw new Error('Falha ao buscar dados do Pi Cycle');
       const result: PiCycleDataPoint[] = await res.json();
       if (Array.isArray(result) && result.length > 0) {
         setData(result);
@@ -642,7 +642,7 @@ function PiCycleCard({ symbol, currentPrice }: { symbol: string; currentPrice?: 
       }
       setLastUpdate(new Date());
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data');
+      setError(err instanceof Error ? err.message : 'Falha ao carregar dados');
     } finally {
       setLoading(false);
     }
@@ -675,9 +675,9 @@ function PiCycleCard({ symbol, currentPrice }: { symbol: string; currentPrice?: 
     neutral: 'bg-yellow-500/10 border-yellow-500/30',
   };
   const zoneLabel = {
-    top: 'Cycle Top Zone — historically within days of peak',
-    bottom: 'Bear Market Bottom Zone — historically broad lows',
-    neutral: 'Mid-Cycle — momentum building',
+    top: 'Zona de topo do ciclo — historicamente a dias do pico',
+    bottom: 'Zona de fundo (bear market) — historicamente regiões amplas de baixa',
+    neutral: 'Meio do ciclo — ganhando momentum',
   };
 
   return (
@@ -942,14 +942,14 @@ function STHMVRVCard({ symbol }: { symbol: string }) {
     try {
       const pair = `${symbol}/USDT`;
       const res = await fetch(`/api/crypto/mvrv?symbol=${encodeURIComponent(pair)}`);
-      if (!res.ok) throw new Error('Failed to fetch MVRV data');
+      if (!res.ok) throw new Error('Falha ao buscar dados de MVRV');
       const result = await res.json();
       if (result.sthMvrv && Array.isArray(result.sthMvrv)) {
         setData(result.sthMvrv);
         setError(null);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data');
+      setError(err instanceof Error ? err.message : 'Falha ao carregar dados');
     } finally {
       setLoading(false);
     }
@@ -966,26 +966,24 @@ function STHMVRVCard({ symbol }: { symbol: string }) {
           <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
-          Short Term Holder MVRV
+          MVRV de Short-Term Holders
         </h3>
         <p className="text-[var(--text-muted)] text-sm mb-4">
-          Short-Term Holder MVRV (STH-MVRV) is MVRV that only analyses UTXOs younger than 155 days.
-          As a result it is focussed only on shorter-term investors who are moving coins within a less
-          than 155 days period.
+          O Short-Term Holder MVRV (STH-MVRV) é uma versão do MVRV que analisa apenas UTXOs com menos de 155 dias.
+          Com isso, ele foca nos participantes de curto prazo que movimentam moedas dentro desse período.
         </p>
         <p className="text-[var(--text-muted)] text-sm mb-4">
-          <span className="text-gray-400 font-medium">What is MVRV?</span> The ratio between Market Value
-          (price multiplied by bitcoins in circulation) and Realized Value (the price of UTXO&apos;s when they
-          last moved onchain).
+          <span className="text-gray-400 font-medium">O que é MVRV?</span> A razão entre o Valor de Mercado
+          (preço multiplicado pelas moedas em circulação) e o Valor Realizado (o preço das UTXOs quando
+          se moveram pela última vez na blockchain).
         </p>
         <p className="text-[var(--text-muted)] text-sm mb-4">
-          Short-Term Holder MVRV is useful as it can highlight when the market value of {symbol.toLowerCase() === 'btc' ? 'bitcoin' : symbol} is
-          significantly higher or lower than the average cost basis for short-term market participants.
-          Historically, these periods have coincided with $BTC being near its respective market highs and
-          lows as shown on the chart above.
+          O STH-MVRV ajuda a identificar quando o valor de mercado de {symbol.toLowerCase() === 'btc' ? 'bitcoin' : symbol} está
+          muito acima ou abaixo do custo médio dos participantes de curto prazo.
+          Historicamente, esses períodos coincidiram com topos e fundos relativos do mercado.
         </p>
         <p className="text-gray-600 text-xs mb-4 italic">
-          Proxy-based estimate calculated from price / SMA(155) historical data.
+          Estimativa aproximada calculada a partir de preço / SMA(155) em dados históricos.
         </p>
 
         {/* Chart */}
@@ -1058,14 +1056,14 @@ function MVRVZScoreCard({ symbol }: { symbol: string }) {
     try {
       const pair = `${symbol}/USDT`;
       const res = await fetch(`/api/crypto/mvrv?symbol=${encodeURIComponent(pair)}`);
-      if (!res.ok) throw new Error('Failed to fetch MVRV data');
+      if (!res.ok) throw new Error('Falha ao buscar dados de MVRV');
       const result = await res.json();
       if (result.mvrvZScore && Array.isArray(result.mvrvZScore)) {
         setData(result.mvrvZScore);
         setError(null);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data');
+      setError(err instanceof Error ? err.message : 'Falha ao carregar dados');
     } finally {
       setLoading(false);
     }
@@ -1085,8 +1083,8 @@ function MVRVZScoreCard({ symbol }: { symbol: string }) {
           MVRV Z-Score
         </h3>
         <p className="text-[var(--text-muted)] text-sm mb-4">
-          MVRV Z-Score is a {symbol.toLowerCase() === 'btc' ? 'bitcoin' : symbol} chart that uses blockchain analysis to identify
-          periods where Bitcoin is extremely over or undervalued relative to its &apos;fair value&apos;.
+          O MVRV Z-Score é um indicador que usa análise de blockchain para identificar
+          períodos em que {symbol.toLowerCase() === 'btc' ? 'bitcoin' : symbol} está muito acima ou abaixo do seu &apos;valor justo&apos;.
         </p>
 
         {/* Metrics Description */}
@@ -1845,7 +1843,7 @@ function StopLossCard({ symbol, currentPrice }: { symbol: string; currentPrice?:
                   riskAmount: parseFloat(riskAmount) || undefined,
                 });
 
-                setAddedMessage('Stop Loss added! Check the Market tab.');
+                setAddedMessage('Stop loss adicionado! Confira a aba Mercado.');
                 setTimeout(() => setAddedMessage(null), 3000);
               }}
               className="w-full py-3 rounded-xl font-semibold text-sm transition-all bg-green-600 text-[var(--text)] hover:bg-green-500 flex items-center justify-center gap-2"
@@ -1853,7 +1851,7 @@ function StopLossCard({ symbol, currentPrice }: { symbol: string; currentPrice?:
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              Add Stop Loss to Tracking
+              Adicionar stop ao acompanhamento
             </button>
 
             {addedMessage && (
@@ -1870,10 +1868,10 @@ function StopLossCard({ symbol, currentPrice }: { symbol: string; currentPrice?:
                 {backtesting ? (
                   <>
                     <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                    Running 5Y Backtest...
+                    Rodando backtest (5 anos)...
                   </>
                 ) : (
-                  'Backtest (5 Year)'
+                  'Backtest (5 anos)'
                 )}
               </button>
             )}
@@ -1882,15 +1880,15 @@ function StopLossCard({ symbol, currentPrice }: { symbol: string; currentPrice?:
             {backtestResult && (
               <div className="space-y-4 mt-4">
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                  <MiniStat label="Total Trades" value={backtestResult.totalTrades.toString()} />
-                  <MiniStat label="Wins" value={backtestResult.wins.toString()} color="text-green-400" />
-                  <MiniStat label="Losses" value={backtestResult.losses.toString()} color="text-red-400" />
+                  <MiniStat label="Total de trades" value={backtestResult.totalTrades.toString()} />
+                  <MiniStat label="Ganhos" value={backtestResult.wins.toString()} color="text-green-400" />
+                  <MiniStat label="Perdas" value={backtestResult.losses.toString()} color="text-red-400" />
                   <MiniStat
-                    label="Win Rate"
+                    label="Taxa de acerto"
                     value={`${backtestResult.totalTrades > 0 ? ((backtestResult.wins / backtestResult.totalTrades) * 100).toFixed(1) : 0}%`}
                   />
                   <MiniStat
-                    label="Return"
+                    label="Retorno"
                     value={`${backtestResult.finalReturn >= 0 ? '+' : ''}${backtestResult.finalReturn.toFixed(2)}%`}
                     color={backtestResult.finalReturn >= 0 ? 'text-green-400' : 'text-red-400'}
                   />

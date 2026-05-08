@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { auth } from '@/auth';
+import { rateLimit } from '@/lib/rate-limit';
+import { encryptJson, decryptJson } from '@/lib/crypto-cookie';
 
 const SUPPORTED_EXCHANGES = ['binance', 'coinbase'];
 
@@ -11,12 +14,21 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ exchange: string }> }
 ) {
+  const rl = rateLimit(request, { key: 'exchange_keys_post', limit: 20, windowMs: 60_000 });
+  if (!rl.ok) {
+    return NextResponse.json({ error: 'Muitas requisições' }, { status: 429 });
+  }
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 });
+  }
+
   try {
     const { exchange } = await params;
 
     if (!SUPPORTED_EXCHANGES.includes(exchange)) {
       return NextResponse.json(
-        { error: `Unsupported exchange: ${exchange}. Supported: ${SUPPORTED_EXCHANGES.join(', ')}` },
+        { error: `Corretora não suportada: ${exchange}. Suportadas: ${SUPPORTED_EXCHANGES.join(', ')}` },
         { status: 400 }
       );
     }
@@ -24,10 +36,10 @@ export async function POST(
     const { apiKey, secret } = await request.json();
 
     if (!apiKey || !secret) {
-      return NextResponse.json({ error: 'API Key and Secret are required' }, { status: 400 });
+      return NextResponse.json({ error: 'API Key e Secret são obrigatórias' }, { status: 400 });
     }
 
-    const encoded = Buffer.from(JSON.stringify({ apiKey, secret })).toString('base64');
+    const encoded = encryptJson({ apiKey, secret });
 
     const cookieStore = await cookies();
     cookieStore.set(getCookieName(exchange), encoded, {
@@ -40,7 +52,7 @@ export async function POST(
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
+    const message = error instanceof Error ? error.message : 'Erro desconhecido';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -49,6 +61,10 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ exchange: string }> }
 ) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ connected: false }, { status: 401 });
+  }
   try {
     const { exchange } = await params;
 
@@ -63,7 +79,7 @@ export async function GET(
       return NextResponse.json({ connected: false });
     }
 
-    const { apiKey } = JSON.parse(Buffer.from(encoded, 'base64').toString());
+    const { apiKey } = decryptJson<{ apiKey: string }>(encoded);
     return NextResponse.json({
       connected: true,
       exchange,
@@ -78,6 +94,10 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ exchange: string }> }
 ) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 });
+  }
   const { exchange } = await params;
   const cookieStore = await cookies();
   cookieStore.delete(getCookieName(exchange));

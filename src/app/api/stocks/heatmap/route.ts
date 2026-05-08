@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // Uses BRAPI weekly data to calculate the 200-week SMA and monthly % change.
 // ---------------------------------------------------------------------------
 
-const BRAPI_TOKEN = 'kAohDLSrNNS3JNZijP4voJ';
+const BRAPI_TOKEN = process.env.BRAPI_TOKEN || '';
 
 // Cache: 30-minute TTL
 let cache: { data: unknown; timestamp: number; key: string } | null = null;
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
 
     const json = await res.json();
     const stock = json?.results?.[0];
-    if (!stock) throw new Error('No stock data');
+    if (!stock) throw new Error('Sem dados da ação');
 
     const history: { date: number; close?: number }[] =
       stock.historicalDataPrice || [];
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
     cache = { data, timestamp: Date.now(), key: cacheKey };
     return NextResponse.json(data);
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Unknown error';
+    const msg = error instanceof Error ? error.message : 'Erro desconhecido';
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

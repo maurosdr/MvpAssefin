@@ -1,12 +1,47 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStockName } from '@/lib/stocks-data';
 import { getRISite } from '@/lib/ri-sites';
+import crypto from 'crypto';
+import { requireEnv, isProd } from '@/lib/env';
 
-const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN!;
-const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID!;
-const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN!;
+const WHATSAPP_TOKEN = requireEnv('WHATSAPP_TOKEN');
+const BRAPI_TOKEN = process.env.BRAPI_TOKEN || '';
+const PHONE_NUMBER_ID = requireEnv('WHATSAPP_PHONE_NUMBER_ID');
+const VERIFY_TOKEN = requireEnv('WHATSAPP_VERIFY_TOKEN');
+const APP_SECRET = process.env.WHATSAPP_APP_SECRET || '';
 
 const WA_API_URL = `https://graph.facebook.com/v20.0/${PHONE_NUMBER_ID}/messages`;
+
+/** Payload mínimo do webhook Meta/WhatsApp (tipagem permissiva). */
+type MetaWebhookPayload = {
+  entry?: Array<{
+    changes?: Array<{
+      value?: {
+        messages?: Array<{
+          type?: string;
+          from?: string;
+          text?: { body?: string };
+        }>;
+      };
+    }>;
+  }>;
+};
+
+function timingSafeEqual(a: string, b: string): boolean {
+  const ba = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ba.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ba, bb);
+}
+
+function verifyMetaSignature(req: NextRequest, rawBody: string): boolean {
+  if (!APP_SECRET) return false;
+  const header = req.headers.get('x-hub-signature-256');
+  if (!header || !header.startsWith('sha256=')) return false;
+  const expected = crypto.createHmac('sha256', APP_SECRET).update(rawBody, 'utf8').digest('hex');
+  const got = header.slice('sha256='.length);
+  return timingSafeEqual(expected, got);
+}
 
 // GET: Meta webhook verification
 export async function GET(request: NextRequest) {
@@ -18,20 +53,41 @@ export async function GET(request: NextRequest) {
   if (mode === 'subscribe' && token === VERIFY_TOKEN) {
     return new NextResponse(challenge, { status: 200 });
   }
-  return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  return NextResponse.json({ error: 'Proibido' }, { status: 403 });
 }
 
 // POST: receive incoming WhatsApp messages
 export async function POST(request: NextRequest) {
   // Always return 200 to Meta — they retry on anything else
   try {
-    const body = await request.json().catch(() => ({}));
+    const raw = await request.text().catch(() => '');
+    if (isProd()) {
+      // Em produção, exigimos assinatura do Meta quando o APP_SECRET estiver configurado.
+      // Se não estiver, preferimos falhar fechado (mas ainda retornamos 200 para evitar retries infinitos).
+      if (!APP_SECRET) {
+        console.error('WHATSAPP_APP_SECRET não configurado (verificação de assinatura desabilitada)');
+        return NextResponse.json({ status: 'ok' });
+      }
+      if (!verifyMetaSignature(request, raw)) {
+        console.error('WhatsApp webhook: assinatura inválida');
+        return NextResponse.json({ status: 'ok' });
+      }
+    }
 
-    const messages = body?.entry?.[0]?.changes?.[0]?.value?.messages;
+    let body: MetaWebhookPayload = {};
+    try {
+      body = raw ? (JSON.parse(raw) as MetaWebhookPayload) : {};
+    } catch {
+      return NextResponse.json({ status: 'ok' });
+    }
+
+    const messages = body.entry?.[0]?.changes?.[0]?.value?.messages;
     if (!messages?.length) return NextResponse.json({ status: 'ok' });
 
     const message = messages[0];
     if (message.type !== 'text') return NextResponse.json({ status: 'ok' });
+
+    if (!message.from) return NextResponse.json({ status: 'ok' });
 
     const from: string = normalizeBrazilianNumber(message.from);
     const text: string = message?.text?.body?.trim().toUpperCase() ?? '';
@@ -61,7 +117,7 @@ function normalizeBrazilianNumber(num: string): string {
 
 async function fetchStockFromBrapi(symbol: string) {
   const res = await fetch(`https://brapi.dev/api/quote/${symbol}`, {
-    headers: { Authorization: 'Bearer kAohDLSrNNS3JNZijP4voJ' },
+    headers: { Authorization: `Bearer ${BRAPI_TOKEN}` },
   });
   if (!res.ok) return null;
   const data = await res.json();
@@ -92,10 +148,10 @@ function formatStockMessage(stock: Record<string, unknown>, symbol: string): str
   const riSite = getRISite(symbol);
 
   let msg = `*${symbol} — ${name}*\n\n`;
-  msg += `💰 Preço: R$ ${price}\n`;
+  msg += `Preço: R$ ${price}\n`;
   msg += `${arrow} Variação: ${sign}${changePct}% (${sign}R$ ${change})\n`;
-  msg += `📅 Fechamento anterior: R$ ${prevClose}\n`;
-  if (riSite) msg += `\n🔗 Site RI: ${riSite}`;
+  msg += `Fechamento anterior: R$ ${prevClose}\n`;
+  if (riSite) msg += `\nSite RI: ${riSite}`;
 
   return msg;
 }

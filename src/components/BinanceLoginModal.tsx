@@ -40,7 +40,7 @@ export default function ExchangeLoginModal({
       setApiKey('');
       setSecret('');
       setJustConnected(selectedExchange);
-      // Auto-switch to the other exchange if not connected
+      // Auto-troca para a outra exchange se ainda não estiver conectada
       const otherExchange = EXCHANGE_OPTIONS.find(
         (ex) => ex.id !== selectedExchange && !exchanges[ex.id].connected
       );
@@ -48,7 +48,7 @@ export default function ExchangeLoginModal({
         setSelectedExchange(otherExchange.id);
       }
     } else {
-      setError(`Failed to connect to ${selectedExchange}. Please check your API keys.`);
+      setError(`Não foi possível conectar na ${selectedExchange}. Verifique suas chaves de API.`);
     }
   };
 
@@ -62,7 +62,7 @@ export default function ExchangeLoginModal({
       <div className="bg-[var(--surface)] border border-gray-700 rounded-xl p-6 w-full max-w-md mx-4">
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-[var(--text)]">Connect Exchanges</h2>
+          <h2 className="text-xl font-bold text-[var(--text)]">Conectar corretoras</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-[var(--text)] text-2xl leading-none">
             &times;
           </button>
@@ -110,7 +110,7 @@ export default function ExchangeLoginModal({
         {justConnected && !allConnected && (
           <div className="bg-green-900/20 border border-green-700/30 rounded-lg p-3 mb-4">
             <p className="text-green-400 text-sm">
-              {justConnected.charAt(0).toUpperCase() + justConnected.slice(1)} connected! You can now connect another exchange to consolidate your book.
+              {justConnected.charAt(0).toUpperCase() + justConnected.slice(1)} conectada! Você pode conectar outra corretora para consolidar sua carteira.
             </p>
           </div>
         )}
@@ -146,7 +146,7 @@ export default function ExchangeLoginModal({
           <div className="space-y-4">
             <div className="bg-green-900/30 border border-green-700 rounded-lg p-4">
               <p className="text-green-400 font-medium">
-                {selectedExchange.charAt(0).toUpperCase() + selectedExchange.slice(1)} Connected
+                {selectedExchange.charAt(0).toUpperCase() + selectedExchange.slice(1)} conectada
               </p>
               <p className="text-gray-400 text-sm mt-1">API Key: {currentExchange.apiKeyPreview}</p>
             </div>
@@ -154,7 +154,7 @@ export default function ExchangeLoginModal({
               onClick={handleDisconnect}
               className="w-full py-3 bg-red-600 hover:bg-red-700 text-[var(--text)] rounded-lg font-medium transition-colors"
             >
-              Disconnect {selectedExchange.charAt(0).toUpperCase() + selectedExchange.slice(1)}
+              Desconectar {selectedExchange.charAt(0).toUpperCase() + selectedExchange.slice(1)}
             </button>
           </div>
         ) : (
@@ -166,7 +166,7 @@ export default function ExchangeLoginModal({
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-[var(--text)] placeholder-gray-500 focus:outline-none focus:border-[var(--accent)]"
-                placeholder={`Enter your ${selectedExchange} API Key`}
+                placeholder={`Digite sua API Key da ${selectedExchange}`}
                 required
               />
             </div>
@@ -177,13 +177,13 @@ export default function ExchangeLoginModal({
                 value={secret}
                 onChange={(e) => setSecret(e.target.value)}
                 className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-[var(--text)] placeholder-gray-500 focus:outline-none focus:border-[var(--accent)]"
-                placeholder={`Enter your ${selectedExchange} Secret Key`}
+                placeholder={`Digite sua Secret Key da ${selectedExchange}`}
                 required
               />
             </div>
             {error && <p className="text-red-400 text-sm">{error}</p>}
             <p className="text-[var(--text-muted)] text-xs">
-              Keys are stored in httpOnly cookies. Use read-only API keys for safety.
+              As chaves ficam em cookies httpOnly. Por segurança, use chaves de API apenas de leitura.
             </p>
             <button
               type="submit"
@@ -195,8 +195,8 @@ export default function ExchangeLoginModal({
               }`}
             >
               {saving
-                ? 'Connecting...'
-                : `Connect ${selectedExchange.charAt(0).toUpperCase() + selectedExchange.slice(1)}`}
+                ? 'Conectando…'
+                : `Conectar ${selectedExchange.charAt(0).toUpperCase() + selectedExchange.slice(1)}`}
             </button>
           </form>
         )}
@@ -204,7 +204,7 @@ export default function ExchangeLoginModal({
         {/* Prediction Markets Section */}
         <div className="mt-5 pt-5 border-t border-gray-700">
           <h3 className="text-sm font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3">
-            Prediction Markets
+            Mercados de previsão
           </h3>
           <div className="space-y-3">
             {[
@@ -254,7 +254,7 @@ export default function ExchangeLoginModal({
             onClick={onClose}
             className="w-full mt-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg font-medium text-sm transition-colors border border-gray-700"
           >
-            {allConnected && kalshiEnabled && polymarketEnabled ? 'Done' : 'Done (connect more later)'}
+            {allConnected && kalshiEnabled && polymarketEnabled ? 'Concluir' : 'Concluir (conectar mais depois)'}
           </button>
         )}
       </div>

@@ -59,10 +59,6 @@ export default function FocusCard() {
       .finally(() => setLoading(false));
   }, []);
 
-  const indicators = tab === 'annual'
-    ? ['IPCA', 'PIB Total', 'Selic', 'Câmbio']
-    : ['IPCA', 'Selic'];
-
   const expectations = (tab === 'annual' ? data?.annual : data?.monthly) ?? [];
   const filtered = expectations
     .filter((e) => e.indicator === activeIndicator)

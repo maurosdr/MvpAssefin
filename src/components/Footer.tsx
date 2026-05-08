@@ -68,7 +68,7 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-12">
           {/* Brand Section */}
           <div className="lg:col-span-2">
-            <Link href="/crypto" className="inline-block mb-4 group">
+            <Link href="/" className="inline-block mb-4 group">
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <div className="text-2xl font-black leading-none tracking-tight">

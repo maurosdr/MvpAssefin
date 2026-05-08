@@ -159,6 +159,7 @@ export default function AdvancedIndicatorsTab({ positions, manualPositions, cryp
           brinson: [],
           waterfall: [],
           blAllocation: null,
+          var: null,
         });
         setLoading(false);
         return;

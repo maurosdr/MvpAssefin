@@ -8,6 +8,7 @@ import { getStockLogoUrl, getStockInitials } from '@/lib/stock-logos';
 import { MAIN_STOCKS, STOCK_NAMES } from '@/lib/stocks-data';
 import { calculateSMA, calculateEMA } from '@/lib/indicators';
 import StockTradeIdeas from '@/components/StockTradeIdeas';
+import AgentSidebar from '@/components/AgentSidebar';
 import {
   Area,
   AreaChart,
@@ -236,7 +237,7 @@ export default function StockDetailPage() {
         </div>
 
         {/* Tab Bar */}
-        <div className="flex items-center gap-2 bg-[var(--surface)]/60 border border-[var(--border)] rounded-2xl p-1.5 overflow-x-auto sticky top-[120px] z-30 backdrop-blur-sm">
+        <div className="flex items-center gap-2 bg-[var(--surface)]/60 border border-[var(--border)] rounded-2xl p-1.5 overflow-x-auto">
           {([
             { key: 'sumario', label: 'Sumario', icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
             { key: 'contabil', label: 'Contabil', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
@@ -269,6 +270,41 @@ export default function StockDetailPage() {
         )}
         {activeTab === 'valuation' && <ValuacaoTab stock={stock} />}
       </main>
+
+      <AgentSidebar
+        skill="equity"
+        contextKey={symbol}
+        title={`Análise de Ações — ${symbol}`}
+        context={{
+          symbol: stock.symbol,
+          name: stock.name,
+          quote: {
+            currentPrice: stock.currentPrice,
+            change: stock.change,
+            changePercent: stock.changePercent,
+            volume: stock.volume,
+            marketCap: stock.marketCap,
+            high: stock.high,
+            low: stock.low,
+            open: stock.open,
+            previousClose: stock.previousClose,
+            fiftyTwoWeekHigh: stock.fiftyTwoWeekHigh,
+            fiftyTwoWeekLow: stock.fiftyTwoWeekLow,
+            averageDailyVolume3Month: stock.averageDailyVolume3Month,
+          },
+          summaryProfile: stock.summaryProfile,
+          financialData: stock.financialData,
+          defaultKeyStatistics: stock.defaultKeyStatistics,
+          incomeStatementHistory: stock.incomeStatementHistory,
+          balanceSheetHistory: stock.balanceSheetHistory,
+          cashflowHistory: stock.cashflowHistory,
+          calendarEvents: stock.calendarEvents,
+          recommendationTrend: stock.recommendationTrend,
+          majorHolders: stock.majorHolders,
+          earningsHistory: stock.earningsHistory,
+          dividendsData: stock.dividendsData,
+        }}
+      />
     </div>
   );
 }
@@ -1615,8 +1651,8 @@ function HistoricoTab({
 /* ─── VALUACAO TAB ─── */
 
 function ValuacaoTab({ stock }: { stock: StockDetail }) {
-  const fd = stock.financialData || {};
-  const ks = stock.defaultKeyStatistics || {};
+  const fd = useMemo(() => stock.financialData ?? {}, [stock.financialData]);
+  const ks = useMemo(() => stock.defaultKeyStatistics ?? {}, [stock.defaultKeyStatistics]);
 
   // ─── Historical data (oldest first) ────────────────────────────
   const incomeHistory: FundamentalData[] = (
@@ -1697,22 +1733,55 @@ function ValuacaoTab({ stock }: { stock: StockDetail }) {
     };
   });
 
-  // ─── Initial projection values from last historical period ──────
+  // ─── Initial projection values from average of last 5 historical periods ─
   const lastH = histMetrics[histMetrics.length - 1];
   const lastRevenue = lastH?.revenue || fd.totalRevenue || 0;
-  const initRevGrowth = parseFloat(((fd.revenueGrowth || 0.05) * 100).toFixed(1));
-  const initEbitdaMargin = parseFloat(((lastH?.ebitdaMargin || 0.15) * 100).toFixed(1));
-  const initDaRate = parseFloat(((lastH?.daRate || 0.03) * 100).toFixed(1));
-  const initCapexRate = parseFloat(((lastH?.capexRate || 0.04) * 100).toFixed(1));
-  const initNwcRate = parseFloat(((lastH?.chgNwcRate || 0.01) * 100).toFixed(1));
+  const last5 = histMetrics.slice(-5);
+
+  // Revenue Growth: average YoY growth over last 5 years
+  const revGrowthRates: number[] = [];
+  for (let i = 1; i < last5.length; i++) {
+    const prev = last5[i - 1].revenue;
+    const curr = last5[i].revenue;
+    if (prev > 0) revGrowthRates.push((curr - prev) / prev);
+  }
+  const avg5RevGrowth = revGrowthRates.length > 0
+    ? revGrowthRates.reduce((a, b) => a + b, 0) / revGrowthRates.length
+    : (fd.revenueGrowth || 0.05);
+
+  const validEbitda5 = last5.filter(h => h.revenue > 0);
+  const avg5EbitdaMargin = validEbitda5.length > 0
+    ? validEbitda5.reduce((sum, h) => sum + (h.ebitdaMargin || 0), 0) / validEbitda5.length
+    : (lastH?.ebitdaMargin || 0.15);
+
+  const validDa5 = last5.filter(h => h.revenue > 0 && h.daRate > 0);
+  const avg5DaRate = validDa5.length > 0
+    ? validDa5.reduce((sum, h) => sum + h.daRate, 0) / validDa5.length
+    : (lastH?.daRate || 0.03);
+
+  const validCapex5 = last5.filter(h => h.revenue > 0 && h.capexRate > 0);
+  const avg5CapexRate = validCapex5.length > 0
+    ? validCapex5.reduce((sum, h) => sum + h.capexRate, 0) / validCapex5.length
+    : (lastH?.capexRate || 0.04);
+
+  const validNwc5 = last5.filter(h => h.revenue > 0);
+  const avg5NwcRate = validNwc5.length > 0
+    ? validNwc5.reduce((sum, h) => sum + (h.chgNwcRate || 0), 0) / validNwc5.length
+    : (lastH?.chgNwcRate || 0.01);
+
+  const initRevGrowth = parseFloat((avg5RevGrowth * 100).toFixed(1));
+  const initEbitdaMargin = parseFloat((avg5EbitdaMargin * 100).toFixed(1));
+  const initDaRate = parseFloat((avg5DaRate * 100).toFixed(1));
+  const initCapexRate = parseFloat((avg5CapexRate * 100).toFixed(1));
+  const initNwcRate = parseFloat((avg5NwcRate * 100).toFixed(1));
   const initTaxRate = parseFloat(((lastH?.effectiveTaxRate || 0.25) * 100).toFixed(1));
 
   const YEARS = 10;
 
   // ─── State ──────────────────────────────────────────────────────
-  const [wacc, setWacc] = useState(10.0);
-  const [tgr, setTgr] = useState(3.5);
-  const [taxRate, setTaxRate] = useState(initTaxRate);
+  const [wacc, setWacc] = useState(20.0);
+  const [tgr, setTgr] = useState(3.0);
+  const [taxRate, setTaxRate] = useState(35.0);
   const [revenueGrowth, setRevenueGrowth] = useState<number[]>(Array(YEARS).fill(initRevGrowth));
   const [ebitdaMargin, setEbitdaMargin] = useState<number[]>(Array(YEARS).fill(initEbitdaMargin));
   const [daRate, setDaRate] = useState<number[]>(Array(YEARS).fill(initDaRate));

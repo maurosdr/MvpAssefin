@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
         // fallback also failed
       }
     }
-    const message = error instanceof Error ? error.message : 'Unknown error';
+    const message = error instanceof Error ? error.message : 'Erro desconhecido';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

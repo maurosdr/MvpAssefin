@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { getStockLogoUrl, getStockInitials } from '@/lib/stock-logos';
@@ -34,6 +35,7 @@ function StockRowWithLogo({
   return (
     <tr
       className="group hover:bg-[var(--surface-hover)] transition-all cursor-pointer relative"
+      onClick={() => router.push(`/stocks/${stock.symbol}`)}
     >
       <td className="py-4">
         <div className="flex items-center gap-3">
@@ -41,10 +43,13 @@ function StockRowWithLogo({
           {/* Logo da empresa */}
           <div className="w-10 h-10 rounded-lg bg-[var(--surface)] border border-[var(--border)] flex items-center justify-center flex-shrink-0 overflow-hidden">
             {logoUrl && !logoError ? (
-              <img
+              <Image
                 src={logoUrl}
                 alt={stock.name}
+                width={40}
+                height={40}
                 className="w-full h-full object-contain p-1.5"
+                unoptimized
                 onError={() => setLogoError(true)}
               />
             ) : (

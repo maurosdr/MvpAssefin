@@ -5,7 +5,7 @@ const cache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_TTL = 60 * 1000;
 const FUNDAMENTAL_CACHE_TTL = 5 * 60 * 1000;
 
-const BRAPI_TOKEN = 'kAohDLSrNNS3JNZijP4voJ';
+const BRAPI_TOKEN = process.env.BRAPI_TOKEN || '';
 
 interface HistoryItem {
   date: number;
@@ -85,7 +85,7 @@ async function fetchFromBRApi(symbol: string, range: string, interval: string, m
   });
 
   if (!res.ok) {
-    const errorText = await res.text().catch(() => 'Unknown error');
+    const errorText = await res.text().catch(() => 'Erro desconhecido');
     throw new Error(`BRAPI ${res.status}: ${errorText}`);
   }
 
@@ -143,6 +143,6 @@ export async function GET(request: NextRequest) {
     }
   } catch (error) {
     console.error('BRAPI quote error:', error);
-    return NextResponse.json({ error: 'Failed to fetch stock data' }, { status: 500 });
+    return NextResponse.json({ error: 'Falha ao buscar dados da ação' }, { status: 500 });
   }
 }

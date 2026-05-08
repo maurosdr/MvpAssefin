@@ -5,16 +5,12 @@ import AppHeader from '@/components/AppHeader';
 import MarketTickerBar from '@/components/MarketTickerBar';
 import Footer from '@/components/Footer';
 import StockIndicesChart from '@/components/StockIndicesChart';
-import MacroIndicatorsCard from '@/components/MacroIndicatorsCard';
 import VIXCard from '@/components/VIXCard';
 import CurrencyTable from '@/components/CurrencyTable';
 import MacroNewsCard from '@/components/MacroNewsCard';
 import BloombergNewsTicker from '@/components/BloombergNewsTicker';
 
-// Lazy load componentes pesados
-const YieldCurveChart = lazy(() => import('@/components/YieldCurveChart'));
 const PolymarketCards = lazy(() => import('@/components/PolymarketCards'));
-const FocusCard = lazy(() => import('@/components/FocusCard'));
 
 interface NewsArticle {
   id: string;
@@ -72,15 +68,8 @@ export default function MarketsPage() {
           </p>
         </div>
 
-        {/* Row 1: Stock Indices Chart + Macro Indicators */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
-            <StockIndicesChart />
-          </div>
-          <div>
-            <MacroIndicatorsCard />
-          </div>
-        </div>
+        {/* Row 1: Stock Indices Chart */}
+        <StockIndicesChart />
 
         {/* Row 2: Bloomberg-style News Wire */}
         <BloombergNewsTicker />
@@ -102,7 +91,7 @@ export default function MarketsPage() {
           </div>
         )}
 
-        {/* Row 3: VIX + Currency Table */}
+        {/* Row 4: VIX + Currency Table */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div>
             <VIXCard />
@@ -133,33 +122,8 @@ export default function MarketsPage() {
             <MacroNewsCard articles={secondBatch} />
           </div>
         )}
-
-        {/* Row 7: Yield Curve + Focus (BCB) */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
-            <Suspense fallback={
-              <div className="modern-card p-8 flex items-center justify-center">
-                <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
-              </div>
-            }>
-              <YieldCurveChart />
-            </Suspense>
-          </div>
-          <div>
-            <Suspense fallback={
-              <div className="modern-card p-8 flex items-center justify-center">
-                <div className="w-6 h-6 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
-              </div>
-            }>
-              <FocusCard />
-            </Suspense>
-          </div>
-        </div>
       </main>
       <Footer />
     </div>
   );
 }
-
-
-

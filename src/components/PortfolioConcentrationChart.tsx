@@ -3,15 +3,6 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { PortfolioChartPosition } from '@/types/portfolio';
 
-const CATEGORY_COLORS: Record<string, string> = {
-  crypto: '#F7931A',
-  stock: '#3FB950',
-  etf: '#58A6FF',
-  bdr: '#D2A8FF',
-  fii: '#F0883E',
-  prediction: '#FF6B6B',
-};
-
 const ASSET_COLORS = [
   '#F7931A', '#3FB950', '#58A6FF', '#D2A8FF', '#F0883E',
   '#FF6B6B', '#22c55e', '#8b5cf6', '#06b6d4', '#f59e0b',

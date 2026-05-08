@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ccxt from 'ccxt';
+import { rateLimit } from '@/lib/rate-limit';
 
-const BRAPI_TOKEN = 'kAohDLSrNNS3JNZijP4voJ';
+const BRAPI_TOKEN = process.env.BRAPI_TOKEN || '';
 
 const binance = new ccxt.binance({ enableRateLimit: true, timeout: 10_000 });
 
@@ -58,13 +59,17 @@ async function fetchCryptoHistory(symbol: string, range: string): Promise<Histor
 }
 
 export async function GET(request: NextRequest) {
+  const rl = rateLimit(request, { key: 'portfolio_historical_get', limit: 30, windowMs: 60_000 });
+  if (!rl.ok) {
+    return NextResponse.json({ error: 'Muitas requisições' }, { status: 429 });
+  }
   const { searchParams } = new URL(request.url);
   const symbols = searchParams.get('symbols')?.split(',') || [];
   const types = searchParams.get('types')?.split(',') || [];
   const range = searchParams.get('range') || '1y';
 
   if (symbols.length === 0) {
-    return NextResponse.json({ error: 'symbols required' }, { status: 400 });
+    return NextResponse.json({ error: 'Parâmetro "symbols" é obrigatório' }, { status: 400 });
   }
 
   const results: Record<string, HistoricalPoint[]> = {};

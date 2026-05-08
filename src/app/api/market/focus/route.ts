@@ -168,7 +168,7 @@ export async function GET() {
     return NextResponse.json(data);
   } catch {
     return NextResponse.json(
-      { error: 'Failed to fetch Focus data', annual: [], monthly: [], updatedAt: new Date().toISOString() },
+      { error: 'Falha ao buscar dados do Focus', annual: [], monthly: [], updatedAt: new Date().toISOString() },
       { status: 200 } // return 200 with empty data so UI doesn't crash
     );
   }

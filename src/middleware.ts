@@ -7,13 +7,24 @@ export async function middleware(request: NextRequest) {
   const sessionToken = request.cookies.get('authjs.session-token') || 
                        request.cookies.get('__Secure-authjs.session-token');
   
-  if (!sessionToken) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/login';
-    return NextResponse.redirect(url);
+  const res = sessionToken
+    ? NextResponse.next()
+    : request.nextUrl.pathname.startsWith('/api/')
+      ? NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 })
+      : NextResponse.redirect(Object.assign(request.nextUrl.clone(), { pathname: '/login' }));
+
+  // Basic security headers (safe defaults).
+  res.headers.set('X-Content-Type-Options', 'nosniff');
+  res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.headers.set('X-Frame-Options', 'DENY');
+  res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.headers.set('X-DNS-Prefetch-Control', 'off');
+  res.headers.set('X-Permitted-Cross-Domain-Policies', 'none');
+  if (process.env.NODE_ENV === 'production') {
+    res.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   }
-  
-  return NextResponse.next();
+
+  return res;
 }
 
 export const config = {
@@ -24,6 +35,7 @@ export const config = {
     '/api/subscription/status/:path*',
     '/api/exchange/:path*',
     '/api/binance/:path*',
+    '/api/payment/create-preference',
     // Adicione outras rotas protegidas aqui
   ],
 };

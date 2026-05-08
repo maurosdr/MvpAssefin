@@ -1,29 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/app/api/auth/[...nextauth]/route';
-import { prisma } from '@/lib/prisma';
+import { auth } from '@/auth';
+import { getStripe } from '@/lib/stripe';
+import { rateLimit } from '@/lib/rate-limit';
+import { getPlanById } from '@/lib/plans';
 
-// Forçar Node.js runtime
 export const runtime = 'nodejs';
 
 /**
- * API Route para criar preferência de pagamento no Mercado Pago
- * 
- * Documentação: https://www.mercadopago.com.br/developers/pt/docs/checkout-pro/integration-configuration/integrate-checkout-pro
- * 
- * Para usar em produção, você precisa:
- * 1. Criar uma conta no Mercado Pago Developers: https://www.mercadopago.com.br/developers
- * 2. Obter suas credenciais (Access Token) em: https://www.mercadopago.com.br/developers/panel/credentials
- * 3. Configurar as variáveis de ambiente:
- *    - MERCADOPAGO_ACCESS_TOKEN (token de produção)
- *    - MERCADOPAGO_PUBLIC_KEY (chave pública - opcional, para frontend)
- * 4. Configurar URLs de retorno em: https://www.mercadopago.com.br/developers/panel/app
+ * Cria uma sessão do Stripe Checkout (assinatura mensal em BRL).
+ *
+ * Docs: https://stripe.com/docs/api/checkout/sessions/create
+ *
+ * Env: STRIPE_SECRET_KEY (sk_test_... ou sk_live_...),
+ *      NEXT_PUBLIC_BASE_URL (ex.: https://seu-dominio.com)
+ *
+ * Webhook: configure POST /api/payment/webhook no Stripe Dashboard com
+ *          STRIPE_WEBHOOK_SECRET para assinar eventos.
  */
 
 export async function POST(request: NextRequest) {
+  const rl = rateLimit(request, { key: 'payment_create_preference_post', limit: 10, windowMs: 60_000 });
+  if (!rl.ok) {
+    return NextResponse.json({ error: 'Muitas requisições' }, { status: 429 });
+  }
   try {
-    // Verificar autenticação
-    const session = await auth();
-    if (!session?.user?.id) {
+    const sessionAuth = await auth();
+    if (!sessionAuth?.user?.id) {
       return NextResponse.json(
         { error: 'Usuário não autenticado' },
         { status: 401 }
@@ -31,154 +33,150 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { planId, planName, price, description } = body;
+    const { planId } = body as { planId?: string };
 
-    if (!planId || !planName || !price) {
+    if (!planId) {
       return NextResponse.json(
-        { error: 'Dados do plano são obrigatórios' },
+        { error: 'Plano é obrigatório' },
         { status: 400 }
       );
     }
 
-    // Obter Access Token do Mercado Pago
-    const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
-    if (!accessToken) {
+    const plan = getPlanById(planId);
+    if (!plan) {
+      return NextResponse.json({ error: 'Plano inválido' }, { status: 400 });
+    }
+
+    const secretKey = process.env.STRIPE_SECRET_KEY;
+    if (!secretKey) {
       return NextResponse.json(
-        { error: 'MERCADOPAGO_ACCESS_TOKEN não configurado' },
+        { error: 'STRIPE_SECRET_KEY não configurado' },
         { status: 500 }
       );
     }
 
-    // Validar formato do token
-    if (!accessToken.startsWith('TEST-') && !accessToken.startsWith('APP_USR-')) {
+    if (!secretKey.startsWith('sk_test_') && !secretKey.startsWith('sk_live_')) {
       return NextResponse.json(
-        { 
-          error: 'Token inválido. Use um token de TESTE (TEST-...) ou PRODUÇÃO (APP_USR-...)',
-          hint: 'Obtenha em: https://www.mercadopago.com.br/developers/panel/credentials'
+        {
+          error:
+            'Chave secreta Stripe inválida. Use sk_test_... (teste) ou sk_live_... (produção)',
+          hint: 'https://dashboard.stripe.com/apikeys',
         },
         { status: 400 }
       );
     }
 
-    // URL base do Mercado Pago
-    const baseUrl = 'https://api.mercadopago.com';
+    const baseUrl_app =
+      process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const successUrl = `${baseUrl_app}/subscription/success?plan=${encodeURIComponent(planId)}&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${baseUrl_app}/subscription/failure?plan=${encodeURIComponent(planId)}`;
 
-    // Construir URLs de retorno
-    const baseUrl_app = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    const successUrl = `${baseUrl_app}/subscription/success?plan=${planId}`;
-    const failureUrl = `${baseUrl_app}/subscription/failure?plan=${planId}`;
-    const pendingUrl = `${baseUrl_app}/subscription/pending?plan=${planId}`;
-    const webhookUrl = `${baseUrl_app}/api/payment/webhook`;
-
-    // Validar URLs
-    if (!successUrl || !successUrl.includes('http')) {
+    if (!successUrl.includes('http')) {
       return NextResponse.json(
-        { 
+        {
           error: 'URL de sucesso não configurada',
           hint: 'Configure NEXT_PUBLIC_BASE_URL no .env',
-          debug: { baseUrl_app, successUrl }
+          debug: { baseUrl_app, successUrl },
         },
         { status: 400 }
       );
     }
 
-    // Criar preferência de pagamento
-    const preferenceData: Record<string, unknown> = {
-      items: [
-        {
-          title: description || `Assinatura ${planName} - Assefin`,
-          description: `Plano ${planName} - Assinatura mensal`,
-          quantity: 1,
-          unit_price: parseFloat(price),
-          currency_id: 'BRL',
-        },
-      ],
-      back_urls: {
-        success: successUrl,
-        failure: failureUrl,
-        pending: pendingUrl,
-      },
-    };
-
-    // Só adicionar auto_return se success URL estiver definida
-    if (successUrl && successUrl.includes('http')) {
-      preferenceData.auto_return = 'approved';
-    }
-
-    // Adicionar webhook apenas se URL válida
-    if (webhookUrl && webhookUrl.includes('http')) {
-      preferenceData.notification_url = webhookUrl;
-    }
-
-    // Adicionar outros campos
-    preferenceData.statement_descriptor = 'ASSEFIN';
-    preferenceData.external_reference = `${session.user.id}:${planId}`;
-    preferenceData.metadata = {
-      user_id: session.user.id,
-      user_email: session.user.email,
-      plan_id: planId,
-      plan_name: planName,
-    };
-
-    // Fazer requisição para o Mercado Pago
-    const response = await fetch(`${baseUrl}/checkout/preferences`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(preferenceData),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Erro ao criar preferência no Mercado Pago:', errorData);
-      
-      // Mensagens de erro mais amigáveis
-      let errorMessage = 'Erro ao criar preferência de pagamento';
-      let hint = '';
-      
-      if (response.status === 401 || response.status === 403) {
-        errorMessage = 'Credenciais inválidas ou sem permissão';
-        hint = 'Verifique se o Access Token está correto e é um token de TESTE (TEST-...). Obtenha em: https://www.mercadopago.com.br/developers/panel/credentials';
-      } else if (response.status === 400) {
-        errorMessage = 'Dados inválidos na requisição';
-        hint = errorData.message || 'Verifique os dados enviados';
-      }
-      
+    const unitAmount = Math.round(plan.priceCents);
+    if (unitAmount < 50) {
       return NextResponse.json(
-        { 
-          error: errorMessage,
-          details: errorData,
-          hint,
-          status: response.status
+        {
+          error: 'Valor mínimo para cobrança em BRL (Stripe): R$ 0,50',
         },
-        { status: response.status }
+        { status: 400 }
       );
     }
 
-    const preference = await response.json();
+    const stripe = getStripe();
 
-    // Em desenvolvimento, usar sandbox_init_point se disponível
-    // Em produção, usar init_point
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    const checkoutUrl = isDevelopment && preference.sandbox_init_point 
-      ? preference.sandbox_init_point 
-      : preference.init_point;
+    const displayName = plan.description;
+
+    const checkoutSession = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: plan.currency,
+            unit_amount: unitAmount,
+            recurring: {
+              interval: plan.interval,
+            },
+            product_data: {
+              name: displayName,
+              description: `Plano ${plan.name} — cobrança ${plan.interval === 'month' ? 'mensal' : plan.interval}`,
+            },
+          },
+          quantity: 1,
+        },
+      ],
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      client_reference_id: `${sessionAuth.user.id}:${planId}`,
+      customer_email: sessionAuth.user.email ?? undefined,
+      subscription_data: {
+        metadata: {
+          user_id: sessionAuth.user.id,
+          plan_id: String(planId),
+          plan_name: String(plan.name),
+          price_cents: String(plan.priceCents),
+          currency: String(plan.currency),
+          interval: String(plan.interval),
+        },
+      },
+      metadata: {
+        user_id: sessionAuth.user.id,
+        plan_id: String(planId),
+        plan_name: String(plan.name),
+        price_cents: String(plan.priceCents),
+        currency: String(plan.currency),
+        interval: String(plan.interval),
+      },
+    });
+
+    const checkoutUrl = checkoutSession.url;
+    if (!checkoutUrl) {
+      return NextResponse.json(
+        { error: 'Stripe não retornou URL de checkout' },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json({
-      id: preference.id,
+      id: checkoutSession.id,
       init_point: checkoutUrl,
-      sandbox_init_point: preference.sandbox_init_point,
+      url: checkoutUrl,
     });
   } catch (error) {
-    console.error('Erro na API de pagamento:', error);
+    console.error('Erro na API de pagamento (Stripe):', error);
+    const message =
+      error instanceof Error ? error.message : 'Erro interno do servidor';
     return NextResponse.json(
-      { error: 'Erro interno do servidor', details: error instanceof Error ? error.message : 'Unknown error' },
+      {
+        error: 'Erro ao criar sessão de pagamento',
+        details: message,
+      },
       { status: 500 }
     );
   }
 }
 
-
-
+export async function GET() {
+  return NextResponse.json(
+    {
+      error: 'Método não permitido',
+      hint: 'Use POST para criar a sessão de pagamento (Stripe Checkout).',
+      example: {
+        method: 'POST',
+        url: '/api/payment/create-preference',
+        body: { planId: 'pro', planName: 'Pro', price: 79, description: 'Assinatura Pro - Assefin Markets' },
+      },
+    },
+    { status: 405, headers: { Allow: 'POST' } }
+  );
+}

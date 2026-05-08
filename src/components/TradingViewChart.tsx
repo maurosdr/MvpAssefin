@@ -10,10 +10,11 @@ function TradingViewChartInner({ symbol }: TradingViewChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    const root = containerRef.current;
+    if (!root) return;
 
     // Clear previous widget
-    containerRef.current.innerHTML = '';
+    root.innerHTML = '';
 
     const widgetContainer = document.createElement('div');
     widgetContainer.className = 'tradingview-widget-container';
@@ -57,12 +58,10 @@ function TradingViewChartInner({ symbol }: TradingViewChartProps) {
     });
 
     widgetContainer.appendChild(script);
-    containerRef.current.appendChild(widgetContainer);
+    root.appendChild(widgetContainer);
 
     return () => {
-      if (containerRef.current) {
-        containerRef.current.innerHTML = '';
-      }
+      root.innerHTML = '';
     };
   }, [symbol]);
 

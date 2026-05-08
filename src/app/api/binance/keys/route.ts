@@ -1,18 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { auth } from '@/auth';
+import { rateLimit } from '@/lib/rate-limit';
+import { encryptJson, decryptJson } from '@/lib/crypto-cookie';
 
 const COOKIE_NAME = 'binance_keys';
 
 export async function POST(request: NextRequest) {
+  const rl = rateLimit(request, { key: 'binance_keys_post', limit: 20, windowMs: 60_000 });
+  if (!rl.ok) {
+    return NextResponse.json({ error: 'Muitas requisições' }, { status: 429 });
+  }
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 });
+  }
   try {
     const { apiKey, secret } = await request.json();
 
     if (!apiKey || !secret) {
-      return NextResponse.json({ error: 'API Key and Secret are required' }, { status: 400 });
+      return NextResponse.json({ error: 'API Key e Secret são obrigatórias' }, { status: 400 });
     }
 
-    // Store encrypted in httpOnly cookie (in production, use proper encryption + DB)
-    const encoded = Buffer.from(JSON.stringify({ apiKey, secret })).toString('base64');
+    const encoded = encryptJson({ apiKey, secret });
 
     const cookieStore = await cookies();
     cookieStore.set(COOKIE_NAME, encoded, {
@@ -25,12 +35,16 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
+    const message = error instanceof Error ? error.message : 'Erro desconhecido';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 export async function GET() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ connected: false }, { status: 401 });
+  }
   try {
     const cookieStore = await cookies();
     const encoded = cookieStore.get(COOKIE_NAME)?.value;
@@ -39,7 +53,7 @@ export async function GET() {
       return NextResponse.json({ connected: false });
     }
 
-    const { apiKey } = JSON.parse(Buffer.from(encoded, 'base64').toString());
+    const { apiKey } = decryptJson<{ apiKey: string }>(encoded);
     return NextResponse.json({
       connected: true,
       apiKeyPreview: apiKey.slice(0, 6) + '...' + apiKey.slice(-4),
@@ -50,6 +64,10 @@ export async function GET() {
 }
 
 export async function DELETE() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 });
+  }
   const cookieStore = await cookies();
   cookieStore.delete(COOKIE_NAME);
   return NextResponse.json({ success: true });

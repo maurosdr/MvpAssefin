@@ -90,7 +90,7 @@ export default function MacroIndicatorsCard() {
           </div>
         </div>
       ) : (
-        <p className="text-sm text-[var(--text-muted)] text-center py-4">Failed to load data</p>
+        <p className="text-sm text-[var(--text-muted)] text-center py-4">Falha ao carregar dados</p>
       )}
     </div>
   );
