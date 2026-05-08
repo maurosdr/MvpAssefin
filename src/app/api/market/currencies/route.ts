@@ -49,11 +49,13 @@ export async function GET() {
 
   try {
     const brapiCodes = BRAPI_PAIRS.map((p) => p.brapi).join(',');
-    const token = process.env.BRAPI_TOKEN || '';
-    const url = `https://brapi.dev/api/v2/currency?currency=${brapiCodes}&token=${token}`;
+    const url = `https://brapi.dev/api/v2/currency?currency=${brapiCodes}`;
 
     const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
+      headers: {
+        'User-Agent': 'Mozilla/5.0',
+        'Authorization': 'Bearer kAohDLSrNNS3JNZijP4voJ',
+      },
       next: { revalidate: 300 },
     });
 

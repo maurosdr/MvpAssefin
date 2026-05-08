@@ -13,26 +13,29 @@ interface StockData {
   low?: number;
   open?: number;
   previousClose?: number;
+  logoUrl?: string;
 }
 
-// Cache simples (5 minutos)
-let cache: { data: StockData[]; timestamp: number } | null = null;
+// Cache simples (5 minutos) - cache por categoria
+const cacheMap = new Map<string, { data: StockData[]; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000;
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const symbols = searchParams.get('symbols') || MAIN_STOCKS.join(',');
   const category = searchParams.get('category');
-  
+
   // Se categoria especificada, usar ações da categoria
   let symbolsToFetch = symbols;
   if (category && STOCKS_BY_CATEGORY[category as keyof typeof STOCKS_BY_CATEGORY]) {
     symbolsToFetch = STOCKS_BY_CATEGORY[category as keyof typeof STOCKS_BY_CATEGORY].join(',');
   }
 
-  // Verificar cache
-  if (cache && cache.data && Date.now() - cache.timestamp < CACHE_TTL) {
-    return NextResponse.json(cache.data);
+  // Verificar cache (incluir categoria na chave do cache)
+  const cacheKey = category || 'all';
+  const cached = cacheMap.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return NextResponse.json(cached.data);
   }
 
   interface BRAPIStock {
@@ -48,9 +51,11 @@ export async function GET(request: NextRequest) {
     regularMarketDayLow?: number;
     regularMarketOpen?: number;
     regularMarketPreviousClose?: number;
+    logourl?: string;
+    logoUrl?: string;
   }
 
-  const transformStock = (stock: BRAPIStock): StockData => ({
+  const transformStock = (stock: BRAPIStock): StockData & { logoUrl?: string } => ({
     symbol: stock.symbol,
     name: stock.longName || stock.shortName || stock.symbol,
     price: stock.regularMarketPrice || 0,
@@ -62,31 +67,32 @@ export async function GET(request: NextRequest) {
     low: stock.regularMarketDayLow,
     open: stock.regularMarketOpen,
     previousClose: stock.regularMarketPreviousClose,
+    logoUrl: stock.logoUrl || stock.logourl,
   });
 
   try {
     const symbolsArray = symbolsToFetch.split(',').filter(Boolean);
-    
+
     // Se tiver mais de 20 ações, fazer requisições em lote
     if (symbolsArray.length > 20) {
       const batches: string[][] = [];
       for (let i = 0; i < symbolsArray.length; i += 20) {
         batches.push(symbolsArray.slice(i, i + 20));
       }
-      
+
       const allStocks: StockData[] = [];
-      
-      // Fazer requisições em lote (máximo 3 batches = 60 ações para não exceder rate limit)
-      for (const batch of batches.slice(0, 3)) {
+
+      // Fazer requisições em lote (máximo 4 batches = 80 ações para não exceder rate limit)
+      for (const batch of batches.slice(0, 4)) {
         try {
-          const url = `https://brapi.dev/api/quote/${batch.join(',')}?token=${process.env.BRAPI_TOKEN || ''}`;
+          const url = `https://brapi.dev/api/quote/${batch.join(',')}?token=kAohDLSrNNS3JNZijP4voJ`;
           const res = await fetch(url, {
             headers: {
               'User-Agent': 'Mozilla/5.0',
             },
             next: { revalidate: 300 },
           });
-          
+
           if (res.ok) {
             const data = await res.json();
             if (data.results && Array.isArray(data.results)) {
@@ -100,16 +106,16 @@ export async function GET(request: NextRequest) {
           console.error('Batch error:', batchError);
           // Continuar com próximo batch mesmo se um falhar
         }
-        
+
         // Pequeno delay entre batches para não exceder rate limit
         if (batches.indexOf(batch) < batches.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 200));
         }
       }
-      
+
       if (allStocks.length > 0) {
         allStocks.sort((a, b) => b.volume - a.volume);
-        cache = { data: allStocks, timestamp: Date.now() };
+        cacheMap.set(cacheKey, { data: allStocks, timestamp: Date.now() });
         return NextResponse.json(allStocks);
       } else {
         // Se nenhum batch retornou dados, usar fallback
@@ -119,8 +125,8 @@ export async function GET(request: NextRequest) {
     } else {
       // Código original para menos de 20 ações
       const limitedSymbols = symbolsArray.slice(0, 20).join(',');
-      const url = `https://brapi.dev/api/quote/${limitedSymbols}?token=${process.env.BRAPI_TOKEN || ''}`;
-      
+      const url = `https://brapi.dev/api/quote/${limitedSymbols}?token=kAohDLSrNNS3JNZijP4voJ`;
+
       const res = await fetch(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0',
@@ -133,7 +139,7 @@ export async function GET(request: NextRequest) {
       }
 
       const data = await res.json();
-      
+
       if (!data.results || !Array.isArray(data.results)) {
         throw new Error('Invalid BRAPI response');
       }
@@ -141,7 +147,7 @@ export async function GET(request: NextRequest) {
       const stocks: StockData[] = data.results.map(transformStock);
       stocks.sort((a, b) => b.volume - a.volume);
 
-      cache = { data: stocks, timestamp: Date.now() };
+      cacheMap.set(cacheKey, { data: stocks, timestamp: Date.now() });
       return NextResponse.json(stocks);
     }
   } catch (error) {
@@ -206,9 +212,8 @@ function getFallbackStocks(): StockData[] {
     BTLG11: 94.20,
     RBRF11: 96.80,
     TOTS3: 32.40,
-    LWSA3: 8.90,
-    CASH3: 2.10,
-    STOC31: 12.40,
+    POSI3: 6.80,
+    INTB3: 38.50,
     PRIO3: 24.80,
     RDOR3: 28.60,
     DXCO3: 9.20,

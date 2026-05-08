@@ -118,7 +118,7 @@ export default function VIXCard() {
                 />
 
                 <Area
-                  type="monotone"
+                  type="linear"
                   dataKey="value"
                   stroke="#a855f7"
                   strokeWidth={2}

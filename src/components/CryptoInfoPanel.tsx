@@ -366,7 +366,7 @@ export default function CryptoInfoPanel({ symbol, stats }: CryptoInfoPanelProps)
                   }}
                 />
                 <Area
-                  type="monotone"
+                  type="linear"
                   dataKey="debt"
                   stroke="#f59e0b"
                   strokeWidth={2}

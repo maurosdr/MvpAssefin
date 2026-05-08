@@ -38,7 +38,7 @@ export default function MacroNewsCard({ articles }: { articles: NewsArticle[] })
   if (articles.length === 0) return null;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {articles.map((article) => {
         const colors = getCategoryColor(article.category);
         return (
@@ -50,7 +50,7 @@ export default function MacroNewsCard({ articles }: { articles: NewsArticle[] })
             className="block bg-[var(--surface)]/50 border border-[var(--border)] rounded-2xl overflow-hidden hover:bg-gray-800/30 hover:border-gray-700 transition-all group"
           >
             {article.imageUrl && (
-              <div className="relative h-40 w-full overflow-hidden bg-gray-800">
+              <div className="relative h-72 w-full overflow-hidden bg-gray-800">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={article.imageUrl}
@@ -63,14 +63,14 @@ export default function MacroNewsCard({ articles }: { articles: NewsArticle[] })
                 />
               </div>
             )}
-            <div className="p-5">
-              <div className="flex items-start justify-between gap-3 mb-2">
+            <div className="p-7">
+              <div className="flex items-start justify-between gap-3 mb-3">
                 <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${colors.bg} ${colors.accent} border ${colors.border}`}>
                   {article.category.charAt(0).toUpperCase() + article.category.slice(1)}
                 </span>
                 <span className="text-[10px] text-gray-600 whitespace-nowrap">{formatTimeAgo(article.publishedAt)}</span>
               </div>
-              <h3 className="text-sm text-[var(--text)] font-medium line-clamp-2 mb-2 group-hover:text-[var(--accent)] transition-colors">
+              <h3 className="text-base text-[var(--text)] font-medium line-clamp-3 mb-3 group-hover:text-[var(--accent)] transition-colors">
                 {article.title}
               </h3>
               <div className="flex items-center justify-between">

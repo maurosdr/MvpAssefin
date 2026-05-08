@@ -185,7 +185,7 @@ export default function StockIndicesChart() {
               />
 
               <Area
-                type="monotone"
+                type="linear"
                 dataKey="close"
                 stroke={isPositive ? '#22c55e' : '#ef4444'}
                 strokeWidth={2}

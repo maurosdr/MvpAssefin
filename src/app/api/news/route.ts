@@ -123,9 +123,9 @@ export async function GET() {
     // If we got any live news, return it
     if (cryptoNews.length > 0 || politicsNews.length > 0 || economyNews.length > 0) {
       return NextResponse.json({
-        politics: politicsNews.slice(0, 5),
-        crypto: cryptoNews.slice(0, 5),
-        economy: economyNews.slice(0, 5),
+        politics: politicsNews.slice(0, 6),
+        crypto: cryptoNews.slice(0, 6),
+        economy: economyNews.slice(0, 6),
         source: 'live',
       });
     }
@@ -154,6 +154,7 @@ function getFallbackNews() {
       { id: 'pol-3', title: 'White House Announces New Trade Policy with EU Partners', source: 'AP News', url: 'https://apnews.com', publishedAt: hoursAgo(4), category: 'politics', description: 'The administration unveiled a comprehensive trade agreement framework designed to strengthen economic ties with European allies.' },
       { id: 'pol-4', title: 'Federal Court Rules on Major Antitrust Case Against Big Tech', source: 'WSJ', url: 'https://wsj.com', publishedAt: hoursAgo(6), category: 'politics', description: 'A landmark court decision could reshape how antitrust laws are applied to dominant technology platforms.' },
       { id: 'pol-5', title: 'State Governors Meet to Discuss Climate Change Initiatives', source: 'NYT', url: 'https://nytimes.com', publishedAt: hoursAgo(8), category: 'politics', description: 'State leaders convened to coordinate regional strategies for addressing climate change and transitioning to renewable energy.' },
+      { id: 'pol-6', title: 'Supreme Court Hears Arguments on Voting Rights Legislation', source: 'CNN', url: 'https://cnn.com', publishedAt: hoursAgo(10), category: 'politics', description: 'The nations highest court is considering a case that could significantly impact voting access and election procedures across the country.' },
     ],
     crypto: [
       { id: 'cry-1', title: 'Bitcoin Surges Past $100k as Institutional Adoption Accelerates', source: 'CoinTelegraph', url: 'https://cointelegraph.com', publishedAt: hoursAgo(1), category: 'crypto', description: 'Bitcoin reached new all-time highs as major corporations and investment funds continue to add cryptocurrency to their balance sheets, signaling mainstream acceptance.' },
@@ -161,6 +162,7 @@ function getFallbackNews() {
       { id: 'cry-3', title: 'SEC Approves New Cryptocurrency ETF Applications', source: 'CoinDesk', url: 'https://coindesk.com', publishedAt: hoursAgo(5), category: 'crypto', description: 'Regulatory approval of new crypto exchange-traded funds opens the door for broader institutional investment in digital assets.' },
       { id: 'cry-4', title: 'Major Bank Launches Crypto Custody Service for Clients', source: 'The Block', url: 'https://theblock.co', publishedAt: hoursAgo(7), category: 'crypto', description: 'A leading financial institution has introduced secure cryptocurrency storage services, enabling traditional investors to safely hold digital assets.' },
       { id: 'cry-5', title: 'DeFi Protocol Records $50B in Total Value Locked', source: 'CoinTelegraph', url: 'https://cointelegraph.com', publishedAt: hoursAgo(9), category: 'crypto', description: 'Decentralized finance platforms have reached a major milestone in total assets locked, demonstrating growing confidence in smart contract-based financial services.' },
+      { id: 'cry-6', title: 'NFT Market Sees Resurgence with New Utility-Focused Projects', source: 'Decrypt', url: 'https://decrypt.co', publishedAt: hoursAgo(11), category: 'crypto', description: 'Non-fungible token platforms are experiencing renewed interest as projects focus on real-world utility and integration with traditional industries.' },
     ],
     economy: [
       { id: 'eco-1', title: 'Federal Reserve Signals Potential Rate Cut in Coming Months', source: 'Bloomberg', url: 'https://bloomberg.com', publishedAt: hoursAgo(1), category: 'economy', description: 'Central bank officials hint at monetary policy adjustments as economic indicators suggest a shift in inflation and growth expectations.' },
@@ -168,6 +170,7 @@ function getFallbackNews() {
       { id: 'eco-3', title: 'S&P 500 Hits All-Time High Amid Tech Rally', source: 'MarketWatch', url: 'https://marketwatch.com', publishedAt: hoursAgo(4), category: 'economy', description: 'Major stock indices reached record levels as technology companies led a broad market advance, driven by strong earnings and optimistic outlooks.' },
       { id: 'eco-4', title: 'Inflation Data Shows Continued Cooling Trend', source: 'Reuters', url: 'https://reuters.com', publishedAt: hoursAgo(6), category: 'economy', description: 'Price growth metrics indicate a sustained moderation in inflation, providing relief to consumers and policymakers alike.' },
       { id: 'eco-5', title: 'Treasury Yields Fall as Investors Anticipate Policy Shift', source: 'FT', url: 'https://ft.com', publishedAt: hoursAgo(8), category: 'economy', description: 'Government bond yields declined as market participants position for potential changes in monetary policy and economic conditions.' },
+      { id: 'eco-6', title: 'Global Supply Chain Disruptions Ease as Shipping Costs Normalize', source: 'WSJ', url: 'https://wsj.com', publishedAt: hoursAgo(10), category: 'economy', description: 'International trade flows are stabilizing as transportation costs return to pre-pandemic levels, easing pressure on consumer prices.' },
     ],
   };
 }
