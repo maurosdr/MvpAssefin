@@ -94,14 +94,12 @@ export default function AppHeader({
           <div className="flex items-center justify-between h-20 gap-2 sm:gap-4">
             {/* Left Section: Logo + Navigation */}
             <div className="flex items-center gap-4 sm:gap-6 lg:gap-8 flex-1 min-w-0 overflow-hidden">
-              {/* Logo */}
+              {/* Marca (somente texto, sem ícone) */}
               <div
                 className="flex items-center gap-2 sm:gap-3 cursor-pointer group flex-shrink-0 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
                 onClick={() => router.push('/')}
               >
-                <div className="hidden sm:block">
-                  <BrandLogo className="group" />
-                </div>
+                <BrandLogo className="group" wordmarkOnly />
               </div>
 
               {/* Desktop Navigation */}

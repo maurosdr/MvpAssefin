@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
+import { getPublicBaseUrl } from '@/lib/public-url';
 import { getStripe } from '@/lib/stripe';
 import { rateLimit } from '@/lib/rate-limit';
 import { getPlanById } from '@/lib/plans';
@@ -12,7 +13,7 @@ export const runtime = 'nodejs';
  * Docs: https://stripe.com/docs/api/checkout/sessions/create
  *
  * Env: STRIPE_SECRET_KEY (sk_test_... ou sk_live_...),
- *      NEXT_PUBLIC_BASE_URL (ex.: https://seu-dominio.com)
+ *      NEXT_PUBLIC_BASE_URL ou NEXTAUTH_URL (origem pública; senão usa Host do request atrás do proxy)
  *
  * Webhook: configure POST /api/payment/webhook no Stripe Dashboard com
  *          STRIPE_WEBHOOK_SECRET para assinar eventos.
@@ -66,21 +67,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const baseUrl_app =
-      process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    const successUrl = `${baseUrl_app}/subscription/success?plan=${encodeURIComponent(planId)}&session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = `${baseUrl_app}/subscription/failure?plan=${encodeURIComponent(planId)}`;
-
-    if (!successUrl.includes('http')) {
-      return NextResponse.json(
-        {
-          error: 'URL de sucesso não configurada',
-          hint: 'Configure NEXT_PUBLIC_BASE_URL no .env',
-          debug: { baseUrl_app, successUrl },
-        },
-        { status: 400 }
-      );
-    }
+    const baseUrlApp = getPublicBaseUrl(request);
+    const successUrl = `${baseUrlApp}/subscription/success?plan=${encodeURIComponent(planId)}&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${baseUrlApp}/subscription/failure?plan=${encodeURIComponent(planId)}`;
 
     const unitAmount = Math.round(plan.priceCents);
     if (unitAmount < 50) {
