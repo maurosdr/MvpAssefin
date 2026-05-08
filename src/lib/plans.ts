@@ -19,7 +19,7 @@ export const PLANS: AppPlan[] = [
   {
     id: 'mensal',
     name: 'Plano Mensal',
-    description: 'Assinatura Mensal - Assefin',
+    description: 'Assinatura Mensal - Assefin Markets',
     priceCents: 2990,
     currency: 'brl',
     interval: 'month',

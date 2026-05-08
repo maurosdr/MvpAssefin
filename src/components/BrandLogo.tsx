@@ -9,7 +9,7 @@ export default function BrandLogo({
   size = 28,
   className,
   monochrome = false,
-  label = 'Assefin',
+  label = 'Assefin Markets',
 }: {
   variant?: BrandLogoVariant;
   size?: number;
@@ -86,7 +86,7 @@ export default function BrandLogo({
           ASSEFIN
         </span>
         <span className="block text-[9px] sm:text-[10px] font-extrabold uppercase tracking-[0.22em] text-[var(--text-muted)]">
-          Mercados
+          Markets
         </span>
       </span>
     </span>

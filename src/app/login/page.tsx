@@ -189,7 +189,7 @@ function LoginInner() {
                 {isSignup ? 'Criar Conta' : 'Entrar'}
               </h1>
               <p className="text-[var(--text-secondary)]">
-                {isSignup ? 'Comece sua jornada no Assefin' : 'Acesse sua conta Assefin'}
+                {isSignup ? 'Comece sua jornada no Assefin Markets' : 'Acesse sua conta Assefin Markets'}
               </p>
             </div>
 

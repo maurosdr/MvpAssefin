@@ -174,7 +174,7 @@ export async function GET() {
       example: {
         method: 'POST',
         url: '/api/payment/create-preference',
-        body: { planId: 'pro', planName: 'Pro', price: 79, description: 'Assinatura Pro - Assefin' },
+        body: { planId: 'pro', planName: 'Pro', price: 79, description: 'Assinatura Pro - Assefin Markets' },
       },
     },
     { status: 405, headers: { Allow: 'POST' } }
