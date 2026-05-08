@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma';
 import { verifyPassword } from '@/lib/auth';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  // Produção atrás de Caddy/nginx: evita UntrustedHost em /api/auth/*
+  trustHost: true,
   providers: [
     Credentials({
       credentials: {
