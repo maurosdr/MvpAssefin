@@ -1,6 +1,11 @@
 import { compare, hash } from 'bcryptjs';
 import { prisma } from './prisma';
 
+/** Email para login/cadastro: trim + minúsculas (comportamento esperado para endereços). */
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
 export async function hashPassword(password: string): Promise<string> {
   return hash(password, 12);
 }
@@ -17,10 +22,11 @@ export async function createUser(
   cpf?: string
 ) {
   const hashedPassword = await hashPassword(password);
-  
+  const emailStored = normalizeEmail(email);
+
   return prisma.user.create({
     data: {
-      email,
+      email: emailStored,
       password: hashedPassword,
       name,
       phone: phone ? phone.replace(/\D/g, '') : null, // Remove caracteres não numéricos
@@ -38,8 +44,11 @@ export async function createUser(
 }
 
 export async function getUserByEmail(email: string) {
-  return prisma.user.findUnique({
-    where: { email },
+  const normalized = normalizeEmail(email);
+  return prisma.user.findFirst({
+    where: {
+      email: { equals: normalized, mode: 'insensitive' },
+    },
   });
 }
 

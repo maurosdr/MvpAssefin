@@ -97,7 +97,7 @@ export default function AddPositionModal({
 
         // Only add position on buy
         if (operation === 'buy') {
-          addPosition({
+          await addPosition({
             type: 'prediction',
             symbol: side,
             name: marketName,
@@ -145,7 +145,7 @@ export default function AddPositionModal({
             // proceed without current price
           }
 
-          addPosition({
+          await addPosition({
             type: assetType,
             symbol: selectedSymbol,
             name: assetName,
@@ -159,8 +159,8 @@ export default function AddPositionModal({
 
       resetForm();
       onClose();
-    } catch {
-      setError('Erro ao registrar operação.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro ao registrar operação.');
     } finally {
       setSaving(false);
     }
