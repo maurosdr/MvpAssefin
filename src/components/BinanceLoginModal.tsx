@@ -1,5 +1,10 @@
 'use client';
 
+/**
+ * Modal de APIs (Binance/Coinbase + prediction markets Kalshi/Polymarket).
+ * Não está montado no AppHeader no momento; lógica mantida para uso futuro.
+ */
+
 import { useState } from 'react';
 import { useExchange, ExchangeName } from '@/context/ExchangeContext';
 import { usePredictionMarkets } from '@/context/PredictionMarketContext';
