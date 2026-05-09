@@ -45,11 +45,12 @@ export async function createUser(
 
 export async function getUserByEmail(email: string) {
   const normalized = normalizeEmail(email);
-  return prisma.user.findFirst({
-    where: {
-      email: { equals: normalized, mode: 'insensitive' },
-    },
+  const matches = await prisma.user.findMany({
+    where: { email: { equals: normalized, mode: 'insensitive' } },
+    take: 2,
   });
+  // Se houver duplicidade por case, tratamos como "existe" (evita criar outra conta).
+  return matches[0] ?? null;
 }
 
 export async function getUserById(id: string) {

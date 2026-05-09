@@ -4,6 +4,7 @@ import { getPublicBaseUrl } from '@/lib/public-url';
 import { getStripe } from '@/lib/stripe';
 import { rateLimit } from '@/lib/rate-limit';
 import { getPlanById } from '@/lib/plans';
+import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
 
@@ -46,6 +47,18 @@ export async function POST(request: NextRequest) {
     const plan = getPlanById(planId);
     if (!plan) {
       return NextResponse.json({ error: 'Plano inválido' }, { status: 400 });
+    }
+
+    // Evita que assinantes comprem novamente sem necessidade.
+    const activeSub = await prisma.subscription.findFirst({
+      where: { userId: sessionAuth.user.id, status: 'active' },
+      select: { id: true },
+    });
+    if (activeSub) {
+      return NextResponse.json(
+        { error: 'Você já possui uma assinatura ativa. Vá em “Assinatura” para gerenciar/cancelar.' },
+        { status: 409 }
+      );
     }
 
     const secretKey = process.env.STRIPE_SECRET_KEY;
