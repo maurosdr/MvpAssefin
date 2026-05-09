@@ -165,6 +165,88 @@ export async function POST(req: NextRequest) {
         );
         break;
       }
+      /**
+       * Stripe frequentemente entrega `payment_intent.succeeded` na criação da assinatura;
+       * o objeto inclui `payment_details.order_reference` = id da Checkout Session (`cs_...`).
+       * Sem este case o endpoint respondia 200 mas não persistia `sub_` no banco.
+       */
+      case 'payment_intent.succeeded': {
+        const pi = event.data.object as Stripe.PaymentIntent & {
+          payment_details?: { order_reference?: string | null } | null;
+        };
+        const orderRef = pi.payment_details?.order_reference?.trim();
+
+        if (orderRef && orderRef.startsWith('cs_')) {
+          const session = await stripe.checkout.sessions.retrieve(orderRef);
+          const subscriptionId =
+            typeof session.subscription === 'string'
+              ? session.subscription
+              : session.subscription?.id ?? null;
+
+          if (subscriptionId) {
+            const ref = session.client_reference_id ?? '';
+            const parts = ref.split(':');
+            const fallbackUserId = parts[0] ?? '';
+            const fallbackPlanId = parts[1] ?? '';
+
+            if (fallbackUserId && fallbackPlanId) {
+              await persistSubscriptionFromStripe(
+                stripe,
+                subscriptionId,
+                fallbackUserId,
+                fallbackPlanId
+              );
+            } else {
+              console.warn(
+                'payment_intent.succeeded: checkout sem client_reference_id; tentando via assinatura',
+                orderRef
+              );
+              const stripeSub = await stripe.subscriptions.retrieve(subscriptionId);
+              const userId =
+                typeof stripeSub.metadata?.user_id === 'string' ? stripeSub.metadata.user_id : '';
+              const planId =
+                typeof stripeSub.metadata?.plan_id === 'string' ? stripeSub.metadata.plan_id : '';
+              if (userId && planId) {
+                await persistSubscriptionFromStripe(stripe, subscriptionId, userId, planId);
+              }
+            }
+          }
+          break;
+        }
+
+        const customerId =
+          typeof pi.customer === 'string'
+            ? pi.customer
+            : pi.customer && typeof pi.customer === 'object' && 'deleted' in pi.customer && pi.customer.deleted
+              ? null
+              : (pi.customer as Stripe.Customer | null)?.id ?? null;
+
+        if (customerId) {
+          const list = await stripe.subscriptions.list({
+            customer: customerId,
+            limit: 10,
+            status: 'all',
+          });
+          const preferred =
+            list.data.find((s) => s.status === 'active' || s.status === 'trialing') ??
+            list.data[0];
+          if (preferred) {
+            const userId =
+              typeof preferred.metadata?.user_id === 'string' ? preferred.metadata.user_id : '';
+            const planId =
+              typeof preferred.metadata?.plan_id === 'string' ? preferred.metadata.plan_id : '';
+            if (userId && planId) {
+              await persistSubscriptionFromStripe(stripe, preferred.id, userId, planId);
+            } else {
+              console.warn(
+                'payment_intent.succeeded: subscription sem metadata (fallback por customer)',
+                preferred.id
+              );
+            }
+          }
+        }
+        break;
+      }
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object as Stripe.Invoice & {
           subscription?: string | Stripe.Subscription | null;
