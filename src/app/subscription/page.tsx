@@ -123,12 +123,12 @@ export default function SubscriptionPage() {
       <main className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 pt-[140px] pb-16">
         <div className="max-w-5xl mx-auto">
           <div className="text-center">
-            <div className="section-title">assinatura</div>
+            <div className="section-title">plano</div>
             <h1 className="mt-3 text-3xl sm:text-4xl font-black tracking-tight text-[var(--text-primary)]">
               Assinatura
             </h1>
             <p className="mt-3 text-[var(--text-secondary)] max-w-2xl mx-auto">
-              Um único plano, simples e direto — acesso total por um preço único.
+              Escolha o plano e gerencie sua assinatura.
             </p>
           </div>
 
