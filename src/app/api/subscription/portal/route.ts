@@ -7,6 +7,16 @@ import { rateLimit } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 
+type PaymentIntentWithInvoice = {
+  invoice?:
+    | string
+    | null
+    | {
+        subscription?: string | null | { id: string };
+        customer?: string | null | { id: string };
+      };
+};
+
 /**
  * Cria uma sessão do Stripe Billing Portal para o usuário.
  * Permite cancelar/gerenciar, evitando que assinantes comprem novamente.
@@ -24,7 +34,7 @@ export async function POST(request: NextRequest) {
 
   const sub = await prisma.subscription.findFirst({
     where: { userId: session.user.id, status: 'active' },
-    select: { externalId: true },
+    select: { id: true, externalId: true },
     orderBy: { updatedAt: 'desc' },
   });
   if (!sub?.externalId) {
@@ -32,11 +42,53 @@ export async function POST(request: NextRequest) {
   }
 
   const stripe = getStripe();
-  const stripeSub = await stripe.subscriptions.retrieve(sub.externalId);
-  const customer =
-    typeof stripeSub.customer === 'string' ? stripeSub.customer : stripeSub.customer?.id ?? null;
+  let subscriptionId = sub.externalId;
+  let customer: string | null = null;
+
+  // Reparação defensiva: instalações antigas podem ter persistido payment_intent (pi_) em externalId.
+  if (subscriptionId.startsWith('pi_')) {
+    try {
+      const piResp = await stripe.paymentIntents.retrieve(subscriptionId, {
+        expand: ['invoice.subscription', 'invoice.customer'],
+      });
+      const pi = piResp as unknown as PaymentIntentWithInvoice;
+      const invoice = typeof pi.invoice === 'string' ? null : pi.invoice;
+      const invSub =
+        invoice && typeof invoice.subscription === 'string'
+          ? invoice.subscription
+          : invoice && invoice.subscription && typeof invoice.subscription !== 'string'
+            ? invoice.subscription.id
+            : null;
+      const invCustomer =
+        invoice && typeof invoice.customer === 'string'
+          ? invoice.customer
+          : invoice && invoice.customer && typeof invoice.customer !== 'string'
+            ? invoice.customer.id
+            : null;
+
+      if (invSub) {
+        subscriptionId = invSub;
+        customer = invCustomer;
+        await prisma.subscription.update({
+          where: { id: sub.id },
+          data: { externalId: invSub },
+        });
+      }
+    } catch (e) {
+      console.error('Falha ao reparar externalId via payment_intent:', e);
+    }
+  }
+
   if (!customer) {
-    return NextResponse.json({ error: 'Cliente Stripe não encontrado' }, { status: 500 });
+    const stripeSub = await stripe.subscriptions.retrieve(subscriptionId);
+    customer =
+      typeof stripeSub.customer === 'string' ? stripeSub.customer : stripeSub.customer?.id ?? null;
+  }
+  if (!customer) {
+    return NextResponse.json(
+      { error: 'Cliente Stripe não encontrado. Tente novamente em alguns minutos.' },
+      { status: 500 }
+    );
   }
 
   const baseUrl = getPublicBaseUrl(request);
