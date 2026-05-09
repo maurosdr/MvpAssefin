@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ccxt from 'ccxt';
+import { usdtSymbolToCoinbaseUsd } from '@/lib/exchange-restrictions';
 
 const binance = new ccxt.binance({ enableRateLimit: true, timeout: 10_000 });
 const coinbase = new ccxt.coinbase({ enableRateLimit: true, timeout: 10_000 });
@@ -18,10 +19,9 @@ const TIMEFRAME_MAP: Record<string, { tf: string; limit: number }> = {
   '1y': { tf: '1d', limit: 365 },
 };
 
-// Cache simples por combinação de símbolo/janela/exchange
 type CacheEntry = { data: unknown; timestamp: number };
 const cache = new Map<string, CacheEntry>();
-const CACHE_TTL = 10 * 1000; // 10 segundos
+const CACHE_TTL = 10 * 1000;
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -38,11 +38,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(cached.data);
   }
 
-  try {
-    const ohlcv = await exchange.fetchOHLCV(symbol, config.tf, undefined, config.limit);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data = ohlcv.map(([timestamp, open, high, low, close, volume]: any[]) => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mapRowsSimple = (ohlcv: any[]) =>
+    ohlcv.map(([timestamp, open, high, low, close, volume]: number[]) => ({
       timestamp,
       open,
       high,
@@ -51,26 +49,31 @@ export async function GET(request: NextRequest) {
       volume,
     }));
 
+  try {
+    const ohlcv = await exchange.fetchOHLCV(symbol, config.tf, undefined, config.limit);
+    const data = mapRowsSimple(ohlcv);
     cache.set(cacheKey, { data, timestamp: Date.now() });
-
     return NextResponse.json(data);
   } catch (error: unknown) {
-    // If the selected exchange fails, try Binance as fallback (sem cache, pois já falhou)
     if (exchangeName !== 'binance') {
       try {
         const ohlcv = await exchanges.binance.fetchOHLCV(symbol, config.tf, undefined, config.limit);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const data = ohlcv.map(([timestamp, open, high, low, close, volume]: any[]) => ({
-          timestamp,
-          open,
-          high,
-          low,
-          close,
-          volume,
-        }));
+        const data = mapRowsSimple(ohlcv);
         return NextResponse.json(data);
       } catch {
-        // fallback also failed
+        // segue
+      }
+    } else {
+      const altSymbol = usdtSymbolToCoinbaseUsd(symbol);
+      try {
+        const ohlcv = await coinbase.fetchOHLCV(altSymbol, config.tf, undefined, config.limit);
+        const data = mapRowsSimple(ohlcv);
+        cache.set(cacheKey, { data, timestamp: Date.now() });
+        const res = NextResponse.json(data);
+        res.headers.set('X-OHLCV-Provider', 'coinbase');
+        return res;
+      } catch {
+        // Coinbase falhou
       }
     }
     const message = error instanceof Error ? error.message : 'Erro desconhecido';
