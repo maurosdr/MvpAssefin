@@ -33,6 +33,7 @@ export const config = {
     '/api/subscription/create/:path*',
     '/api/subscription/cancel/:path*',
     '/api/subscription/status/:path*',
+    '/api/subscription/portal/:path*',
     '/api/exchange/:path*',
     '/api/binance/:path*',
     '/api/payment/create-preference',

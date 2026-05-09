@@ -3,12 +3,15 @@
 
 import AppHeader from '@/components/AppHeader';
 import MarketTickerBar from '@/components/MarketTickerBar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PLANS } from '@/lib/plans';
 
 export default function SubscriptionPage() {
   const [submitting, setSubmitting] = useState<string | null>(null);
+  const [loadingStatus, setLoadingStatus] = useState(true);
+  const [hasActive, setHasActive] = useState(false);
+  const [cancelAtPeriodEnd, setCancelAtPeriodEnd] = useState(false);
   const router = useRouter();
 
   const plan = PLANS[0];
@@ -21,6 +24,57 @@ export default function SubscriptionPage() {
       featured: true,
     },
   ];
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/subscription/status', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          hasActive?: boolean;
+          subscription?: { cancelAtPeriodEnd?: boolean } | null;
+        };
+        if (!cancelled) {
+          setHasActive(Boolean(data?.hasActive));
+          setCancelAtPeriodEnd(Boolean(data?.subscription?.cancelAtPeriodEnd));
+        }
+      } catch {
+        // sem status
+      } finally {
+        if (!cancelled) setLoadingStatus(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleManage = async () => {
+    setSubmitting('manage');
+    try {
+      const res = await fetch('/api/subscription/portal', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 401) {
+          router.push('/login?mode=signup&next=%2Fsubscription');
+          return;
+        }
+        alert(data?.error || 'Não foi possível abrir o portal de cobrança.');
+        return;
+      }
+      const url = data?.url;
+      if (typeof url !== 'string' || !url) {
+        alert('URL do portal inválida.');
+        return;
+      }
+      window.location.href = url;
+    } catch {
+      alert('Erro ao abrir portal.');
+    } finally {
+      setSubmitting(null);
+    }
+  };
 
   const handleSubscribe = async (plan: { id: string; name: string; price: string }) => {
     setSubmitting(plan.id);
@@ -38,6 +92,11 @@ export default function SubscriptionPage() {
         if (res.status === 401) {
           const next = `/subscription?plan=${encodeURIComponent(plan.id)}`;
           router.push(`/login?mode=signup&next=${encodeURIComponent(next)}`);
+          return;
+        }
+        if (res.status === 409) {
+          // Já possui assinatura ativa; levar para gerenciamento.
+          router.push('/subscription');
           return;
         }
         alert(data?.error || 'Não foi possível iniciar o pagamento.');
@@ -100,15 +159,19 @@ export default function SubscriptionPage() {
 
                 <button
                   type="button"
-                  onClick={() => handleSubscribe(p)}
-                  disabled={submitting === p.id}
+                  onClick={() => (hasActive ? handleManage() : handleSubscribe(p))}
+                  disabled={loadingStatus || submitting === p.id || submitting === 'manage'}
                   className={`mt-6 inline-flex w-full justify-center items-center px-4 py-3 rounded-xl font-bold transition-colors ${
                     p.featured
                       ? 'bg-[var(--accent)] text-[var(--text-inverse)] hover:bg-[var(--accent-hover)]'
                       : 'bg-[var(--surface)] border border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
-                  } ${submitting === p.id ? 'opacity-60 cursor-not-allowed' : ''}`}
+                  } ${(loadingStatus || submitting === p.id || submitting === 'manage') ? 'opacity-60 cursor-not-allowed' : ''}`}
                 >
-                  {submitting === p.id ? 'Abrindo checkout…' : 'Assinar'}
+                  {loadingStatus
+                    ? 'Carregando…'
+                    : hasActive
+                      ? (submitting === 'manage' ? 'Abrindo portal…' : (cancelAtPeriodEnd ? 'Gerenciar (cancelamento agendado)' : 'Gerenciar assinatura'))
+                      : (submitting === p.id ? 'Abrindo checkout…' : 'Assinar')}
                 </button>
 
                 <p className="mt-3 text-xs text-[var(--text-muted)]">
