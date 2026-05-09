@@ -1,0 +1,53 @@
+name: Deploy (prod)
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          port: ${{ secrets.PROD_SSH_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd /home/deploy/apps/assefin
+
+            # Carregar env do serviço (DATABASE_URL etc.) se existir
+            if [ -f /etc/assefin/assefin.env ]; then
+              set -a
+              . /etc/assefin/assefin.env
+              set +a
+            fi
+
+            # Garantir branch main atualizada
+            sudo -u deploy git fetch origin
+            sudo -u deploy git checkout main
+            sudo -u deploy git pull origin main
+
+            # Instalar deps e build
+            sudo -u deploy npm ci
+
+            # Rodar migrations
+            if [ -n "${DATABASE_URL:-}" ]; then
+              sudo -u deploy env DATABASE_URL="$DATABASE_URL" npx prisma migrate deploy
+            else
+              sudo -u deploy npx prisma migrate deploy
+            fi
+
+            sudo -u deploy npm run build
+
+            # Restart do serviço
+            sudo systemctl restart assefin
+            sudo systemctl --no-pager --full status assefin
