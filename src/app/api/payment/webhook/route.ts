@@ -165,6 +165,32 @@ export async function POST(req: NextRequest) {
         );
         break;
       }
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object as Stripe.Invoice & {
+          subscription?: string | Stripe.Subscription | null;
+        };
+        const subscriptionId =
+          typeof invoice.subscription === 'string'
+            ? invoice.subscription
+            : invoice.subscription?.id ?? null;
+        if (!subscriptionId) {
+          break;
+        }
+        const stripeSub = await stripe.subscriptions.retrieve(subscriptionId);
+        const userId =
+          typeof stripeSub.metadata?.user_id === 'string' ? stripeSub.metadata.user_id : '';
+        const planId =
+          typeof stripeSub.metadata?.plan_id === 'string' ? stripeSub.metadata.plan_id : '';
+        if (!userId || !planId) {
+          console.warn(
+            'invoice.payment_succeeded: subscription sem metadata user_id/plan_id',
+            subscriptionId
+          );
+          break;
+        }
+        await persistSubscriptionFromStripe(stripe, subscriptionId, userId, planId);
+        break;
+      }
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted': {
         const sub = event.data.object as Stripe.Subscription;
