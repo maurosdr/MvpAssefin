@@ -18,11 +18,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         const emailKey = normalizeEmail(credentials.email as string);
-        const user = await prisma.user.findFirst({
-          where: {
-            email: { equals: emailKey, mode: 'insensitive' },
-          },
+        // Defensivo: evita ambiguidade se existirem emails duplicados por case (ex.: JOAO@ e joao@).
+        const candidates = await prisma.user.findMany({
+          where: { email: { equals: emailKey, mode: 'insensitive' } },
+          take: 2,
         });
+        if (candidates.length !== 1) {
+          return null;
+        }
+        const user = candidates[0];
 
         if (!user || !user.password) {
           return null;
