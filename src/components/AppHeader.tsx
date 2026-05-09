@@ -3,11 +3,8 @@
 import { useRouter, usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import AssetSearch from '@/components/AssetSearch';
-import BinanceLoginModal from '@/components/BinanceLoginModal';
 import BrandLogo from '@/components/BrandLogo';
-import { useExchange } from '@/context/ExchangeContext';
 import { useTheme } from '@/context/ThemeContext';
-import { usePredictionMarkets } from '@/context/PredictionMarketContext';
 import { useState, useRef, useEffect } from 'react';
 
 interface SearchableCrypto {
@@ -34,12 +31,7 @@ export default function AppHeader({
   const router = useRouter();
   const pathname = usePathname();
   const { data: session, status } = useSession();
-  const { connectedExchanges } = useExchange();
   const { theme, toggleTheme } = useTheme();
-  const { enabledCount: predictionCount } = usePredictionMarkets();
-  const totalConnections = connectedExchanges.length + predictionCount;
-  const connected = totalConnections > 0;
-  const [showModal, setShowModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -94,14 +86,12 @@ export default function AppHeader({
           <div className="flex items-center justify-between h-20 gap-2 sm:gap-4">
             {/* Left Section: Logo + Navigation */}
             <div className="flex items-center gap-4 sm:gap-6 lg:gap-8 flex-1 min-w-0 overflow-hidden">
-              {/* Logo */}
+              {/* Marca (somente texto, sem ícone) */}
               <div
                 className="flex items-center gap-2 sm:gap-3 cursor-pointer group flex-shrink-0 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
                 onClick={() => router.push('/')}
               >
-                <div className="hidden sm:block">
-                  <BrandLogo className="group" />
-                </div>
+                <BrandLogo className="group" wordmarkOnly />
               </div>
 
               {/* Desktop Navigation */}
@@ -283,32 +273,6 @@ export default function AppHeader({
                 </div>
               )}
 
-              {/* APIs Button */}
-              <button
-                onClick={() => setShowModal(true)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-semibold text-sm transition-all whitespace-nowrap border ${
-                  connected
-                    ? 'bg-[var(--success-soft)] text-[var(--success)] border-[var(--success)]/30 hover:bg-[var(--success-soft)] hover:border-[var(--success)]/50'
-                    : 'bg-[var(--accent-soft)] text-[var(--accent)] border-[var(--accent)]/30 hover:bg-[var(--accent-soft)] hover:border-[var(--accent)]/50'
-                } active:scale-95 shadow-sm`}
-              >
-                {connected ? (
-                  <>
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>{totalConnections}/4 APIs</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 2L6.5 7.5 12 13l5.5-5.5L12 2zm0 22l5.5-5.5L12 13l-5.5 5.5L12 24zm-10-10l5.5 5.5L13 12 7.5 6.5 2 12zm20 0l-5.5-5.5L11 12l5.5 5.5L22 12z" />
-                    </svg>
-                    <span>APIs</span>
-                  </>
-                )}
-              </button>
-
               {/* Mobile Menu Toggle */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -456,7 +420,11 @@ export default function AppHeader({
         </div>
       </header>
 
-      <BinanceLoginModal open={showModal} onClose={() => setShowModal(false)} />
+      {/*
+       * Conexão de corretoras / prediction APIs (BinanceLoginModal): desativada na navbar por ora.
+       * Código preservado em src/components/BinanceLoginModal.tsx + ExchangeContext / PredictionMarketContext no layout.
+       * Para reativar: importar BinanceLoginModal, useExchange, usePredictionMarkets; estado showModal; botão "APIs" + modal abaixo.
+       */}
     </>
   );
 }

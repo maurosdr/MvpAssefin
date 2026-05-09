@@ -1,7 +1,7 @@
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import { prisma } from '@/lib/prisma';
-import { verifyPassword } from '@/lib/auth';
+import { normalizeEmail, verifyPassword } from '@/lib/auth';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   // Produção atrás de Caddy/nginx: evita UntrustedHost em /api/auth/*
@@ -17,8 +17,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
+        const emailKey = normalizeEmail(credentials.email as string);
+        const user = await prisma.user.findFirst({
+          where: {
+            email: { equals: emailKey, mode: 'insensitive' },
+          },
         });
 
         if (!user || !user.password) {

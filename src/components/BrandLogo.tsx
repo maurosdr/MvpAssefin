@@ -10,6 +10,8 @@ export default function BrandLogo({
   className,
   monochrome = false,
   label = 'Assefin Markets',
+  /** Somente o texto ASSEFIN / Markets, sem o ícone SVG (ex.: menu superior) */
+  wordmarkOnly = false,
 }: {
   variant?: BrandLogoVariant;
   size?: number;
@@ -17,6 +19,7 @@ export default function BrandLogo({
   monochrome?: boolean;
   /** Acessibilidade (lido por leitores de tela) */
   label?: string;
+  wordmarkOnly?: boolean;
 }) {
   const mark = (
     <svg
@@ -79,8 +82,16 @@ export default function BrandLogo({
   }
 
   return (
-    <span className={['brand-logo inline-flex items-center gap-2 select-none', className].filter(Boolean).join(' ')}>
-      {mark}
+    <span
+      className={[
+        'brand-logo inline-flex items-center select-none',
+        !wordmarkOnly && 'gap-2',
+        className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      {!wordmarkOnly && mark}
       <span className="brand-wordmark leading-none">
         <span className="block text-[15px] sm:text-[16px] font-black tracking-tight text-[var(--text-primary)]">
           ASSEFIN

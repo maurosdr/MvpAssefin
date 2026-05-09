@@ -27,6 +27,7 @@ model User {
   subscriptions Subscription[]
   exchangeKeys  ExchangeKey[]
   tradingRules  TradingRule[]
+  portfolioPositions PortfolioPosition[]
 
   @@map("users")
 }
@@ -125,4 +126,26 @@ model TradingRule {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("trading_rules")
+}
+
+/** Posições manuais da carteira (antes só em localStorage). */
+model PortfolioPosition {
+  id           String   @id @default(cuid())
+  userId       String
+  type         String   // crypto | stock | etf | bdr | fii | prediction
+  symbol       String
+  name         String
+  entryDate    DateTime
+  entryPrice   Float
+  quantity     Float
+  currentPrice Float?
+  side         String?  // YES | NO (mercados de previsão)
+  market       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("portfolio_positions")
 }

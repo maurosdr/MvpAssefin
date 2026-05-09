@@ -33,10 +33,13 @@ export default function PortfolioPage() {
   const [backtestData, setBacktestData] = useState<PortfolioHistoryPoint[]>([]);
   const [activeTab, setActiveTab] = useState<'carteira' | 'indicadores' | 'operacoes'>('carteira');
 
-  // Refresh prices on mount
+  // Atualizar cotações quando houver posições manuais (evita loop: não depender de refreshCurrentPrices)
   useEffect(() => {
-    refreshCurrentPrices();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (manualPositions.length > 0) {
+      void refreshCurrentPrices();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intencional: só quando a lista muda de tamanho
+  }, [manualPositions.length]);
 
   // Build unified positions list for display
   const allChartPositions = useMemo<PortfolioChartPosition[]>(() => {
@@ -134,11 +137,17 @@ export default function PortfolioPage() {
 
   // Handle remove
   const handleRemove = useCallback(
-    (symbol: string, type: string) => {
+    async (symbol: string, type: string) => {
       const pos = manualPositions.find(
         (p) => (p.type === 'prediction' ? p.side === symbol : p.symbol === symbol) && p.type === type
       );
-      if (pos) removePosition(pos.id);
+      if (pos) {
+        try {
+          await removePosition(pos.id);
+        } catch {
+          // erro já visível na UI se necessário
+        }
+      }
     },
     [manualPositions, removePosition]
   );
