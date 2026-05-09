@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
+import { portfolioPosition } from '@/lib/prisma-portfolio';
 import { rateLimit } from '@/lib/rate-limit';
 import { rowToManual, parseEntryDate } from '@/lib/portfolio-position-map';
 import { createPositionSchema } from '@/lib/portfolio-position-valid';
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
   const rows = await prisma.$transaction(
     items.map((d) => {
       const entryDate = parseEntryDate(d.entryDate);
-      return prisma.portfolioPosition.create({
+      return portfolioPosition.create({
         data: {
           userId,
           type: d.type,

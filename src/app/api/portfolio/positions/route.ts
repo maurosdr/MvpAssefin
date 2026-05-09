@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { auth } from '@/auth';
-import { prisma } from '@/lib/prisma';
+import { portfolioPosition } from '@/lib/prisma-portfolio';
 import { rateLimit } from '@/lib/rate-limit';
 import { rowToManual, parseEntryDate } from '@/lib/portfolio-position-map';
 import { createPositionSchema } from '@/lib/portfolio-position-valid';
@@ -15,7 +15,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
   }
 
-  const rows = await prisma.portfolioPosition.findMany({
+  const rows = await portfolioPosition.findMany({
     where: { userId: session.user.id },
     orderBy: { entryDate: 'desc' },
   });
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Data de entrada inválida' }, { status: 400 });
   }
 
-  const row = await prisma.portfolioPosition.create({
+  const row = await portfolioPosition.create({
     data: {
       userId: session.user.id,
       type: d.type,
@@ -110,18 +110,14 @@ export async function PATCH(request: NextRequest) {
   const userId = session.user.id;
 
   const withPrice = updates.filter((u) => u.currentPrice !== undefined);
-  if (withPrice.length > 0) {
-    await prisma.$transaction(
-      withPrice.map((u) =>
-        prisma.portfolioPosition.updateMany({
-          where: { id: u.id, userId },
-          data: { currentPrice: u.currentPrice },
-        })
-      )
-    );
+  for (const u of withPrice) {
+    await portfolioPosition.updateMany({
+      where: { id: u.id, userId },
+      data: { currentPrice: u.currentPrice },
+    });
   }
 
-  const rows = await prisma.portfolioPosition.findMany({
+  const rows = await portfolioPosition.findMany({
     where: { userId },
     orderBy: { entryDate: 'desc' },
   });

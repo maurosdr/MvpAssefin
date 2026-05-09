@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { prisma } from '@/lib/prisma';
+import { portfolioPosition } from '@/lib/prisma-portfolio';
 import { rateLimit } from '@/lib/rate-limit';
 import { rowToManual, parseEntryDate } from '@/lib/portfolio-position-map';
 import { patchPositionSchema } from '@/lib/portfolio-position-valid';
@@ -35,7 +35,7 @@ export async function PATCH(request: NextRequest, ctx: RouteCtx) {
   }
 
   const data = parsed.data;
-  const existing = await prisma.portfolioPosition.findFirst({
+  const existing = await portfolioPosition.findFirst({
     where: { id, userId: session.user.id },
   });
   if (!existing) {
@@ -51,7 +51,7 @@ export async function PATCH(request: NextRequest, ctx: RouteCtx) {
     }
   }
 
-  const row = await prisma.portfolioPosition.update({
+  const row = await portfolioPosition.update({
     where: { id },
     data: {
       ...(data.type !== undefined ? { type: data.type } : {}),
@@ -82,7 +82,7 @@ export async function DELETE(request: NextRequest, ctx: RouteCtx) {
 
   const { id } = ctx.params;
 
-  const deleted = await prisma.portfolioPosition.deleteMany({
+  const deleted = await portfolioPosition.deleteMany({
     where: { id, userId: session.user.id },
   });
 
