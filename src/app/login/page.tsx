@@ -19,6 +19,10 @@ function LoginInner() {
   const [cpf, setCpf] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [signupEmailSent, setSignupEmailSent] = useState(false);
+  const [signupEmail, setSignupEmail] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendOk, setResendOk] = useState(false);
 
   useEffect(() => {
     // Redirecionar se já estiver logado
@@ -73,7 +77,6 @@ function LoginInner() {
 
     try {
       if (isSignup) {
-        // Registrar novo usuário
         const registerResponse = await fetch('/api/auth/register', {
           method: 'POST',
           headers: {
@@ -95,20 +98,11 @@ function LoginInner() {
           return;
         }
 
-        // Após registro bem-sucedido, fazer login automaticamente
-        const result = await signIn('credentials', {
-          email,
-          password,
-          redirect: false,
-        });
-
-        if (result?.error) {
-          setError('Conta criada, mas erro ao fazer login. Tente fazer login manualmente.');
-          return;
-        }
-
-        const next = searchParams.get('next');
-        router.push(next && next.startsWith('/') ? next : '/crypto');
+        setSignupEmail(registerData.user?.email || email);
+        setSignupEmailSent(true);
+        setPassword('');
+        setConfirmPassword('');
+        return;
       } else {
         // Fazer login
         const result = await signIn('credentials', {
@@ -118,6 +112,12 @@ function LoginInner() {
         });
 
         if (result?.error) {
+          if (result.code === 'email_unverified') {
+            setError(
+              'Confirme seu e-mail antes de entrar. Verifique a caixa de entrada e o spam.'
+            );
+            return;
+          }
           setError('Email ou senha incorretos.');
           return;
         }
@@ -133,6 +133,37 @@ function LoginInner() {
     }
   };
 
+  const handleResendVerification = async () => {
+    const target = (signupEmail || email).trim();
+    if (!target) {
+      setError('Informe seu e-mail para reenviar o link.');
+      return;
+    }
+    setResendLoading(true);
+    setError('');
+    setResendOk(false);
+    try {
+      const r = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: target }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setError(typeof data.error === 'string' ? data.error : 'Não foi possível reenviar.');
+        return;
+      }
+      setResendOk(true);
+    } catch {
+      setError('Não foi possível reenviar. Tente novamente.');
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
+  const verifiedNotice = searchParams.get('verified');
+  const verifyNotice = searchParams.get('verify');
+
   return (
     <div className="min-h-screen bg-[var(--bg)]">
       <MarketTickerBar />
@@ -141,8 +172,69 @@ function LoginInner() {
       <main className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 pt-[140px] pb-8">
         <div className="max-w-md mx-auto">
           <div className="modern-card p-8">
-            {/* Toggle Buttons */}
-            <div className="flex gap-2 mb-8 bg-[var(--surface)] p-1 rounded-xl">
+            {verifiedNotice === '1' && (
+              <div className="mb-6 rounded-xl border border-[var(--success)]/30 bg-[var(--success-soft)] px-4 py-3 text-sm text-[var(--text-primary)]">
+                E-mail confirmado. Você já pode entrar com sua senha.
+              </div>
+            )}
+            {verifyNotice === 'expired' && (
+              <div className="mb-6 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--text-secondary)]">
+                Este link de confirmação expirou ou já foi usado. Solicite um novo e-mail abaixo ou faça o cadastro
+                novamente.
+              </div>
+            )}
+            {verifyNotice === 'invalid' && (
+              <div className="mb-6 rounded-xl border border-[var(--danger)]/30 bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">
+                Link inválido. Use o botão no e-mail ou peça um novo link.
+              </div>
+            )}
+
+            {signupEmailSent ? (
+              <div className="space-y-6">
+                <div className="text-center mb-2">
+                  <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Confira seu e-mail</h1>
+                  <p className="text-[var(--text-secondary)] text-sm leading-relaxed px-1">
+                    Enviamos um link para{' '}
+                    <strong className="text-[var(--text-primary)]">{signupEmail}</strong>. Abra a mensagem e clique em{' '}
+                    <strong className="text-[var(--text-primary)]">Confirmar e-mail</strong> para ativar sua conta (validade
+                    de 24 horas).
+                  </p>
+                </div>
+                {resendOk && (
+                  <div className="rounded-xl border border-[var(--success)]/30 bg-[var(--success-soft)] px-4 py-3 text-sm text-[var(--text-primary)]">
+                    Se existir conta pendente neste e-mail, um novo link foi enviado.
+                  </div>
+                )}
+                {error && (
+                  <div className="bg-[var(--danger-soft)] border border-[var(--danger)]/30 rounded-xl p-3">
+                    <p className="text-sm text-[var(--danger)]">{error}</p>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={handleResendVerification}
+                  disabled={resendLoading}
+                  className="w-full bg-[var(--accent)] text-[var(--text-inverse)] font-bold py-3 rounded-xl hover:bg-[var(--accent-hover)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {resendLoading ? 'Enviando…' : 'Reenviar e-mail de confirmação'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSignupEmailSent(false);
+                    setResendOk(false);
+                    setIsSignup(false);
+                    setError('');
+                  }}
+                  className="w-full border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] font-semibold py-3 rounded-xl hover:bg-[var(--surface-hover)] transition-colors"
+                >
+                  Ir para Entrar
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Toggle Buttons */}
+                <div className="flex gap-2 mb-8 bg-[var(--surface)] p-1 rounded-xl">
               <button
                 type="button"
                 onClick={() => {
@@ -344,8 +436,18 @@ function LoginInner() {
               )}
 
               {error && (
-                <div className="bg-[var(--danger-soft)] border border-[var(--danger)]/30 rounded-xl p-3">
+                <div className="bg-[var(--danger-soft)] border border-[var(--danger)]/30 rounded-xl p-3 space-y-3">
                   <p className="text-sm text-[var(--danger)]">{error}</p>
+                  {!isSignup && error.includes('Confirme seu e-mail') && (
+                    <button
+                      type="button"
+                      onClick={handleResendVerification}
+                      disabled={resendLoading}
+                      className="text-sm font-semibold text-[var(--accent)] underline-offset-2 hover:underline disabled:opacity-50"
+                    >
+                      Reenviar link de confirmação
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -357,6 +459,8 @@ function LoginInner() {
                 {loading ? (isSignup ? 'Criando conta...' : 'Entrando...') : (isSignup ? 'Criar Conta' : 'Entrar')}
               </button>
             </form>
+              </>
+            )}
           </div>
         </div>
       </main>

@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { rateLimit } from '@/lib/rate-limit';
 import { isProd } from '@/lib/env';
+import { isSmtpConfigured, getPublicAppUrl } from '@/lib/email';
+import { sendVerificationEmailForUser } from '@/lib/verification-email';
 
 // Forçar Node.js runtime para suportar bcrypt
 export const runtime = 'nodejs';
@@ -72,6 +74,23 @@ export async function POST(request: NextRequest) {
 
     const { email, password, name, phone, cpf } = validation.data;
 
+    if (isProd()) {
+      if (!isSmtpConfigured()) {
+        return NextResponse.json(
+          { error: 'Cadastro temporariamente indisponível (e-mail não configurado).' },
+          { status: 503 }
+        );
+      }
+      try {
+        getPublicAppUrl();
+      } catch {
+        return NextResponse.json(
+          { error: 'Cadastro temporariamente indisponível (URL pública não configurada).' },
+          { status: 503 }
+        );
+      }
+    }
+
     // Verificar se usuário já existe (email)
     const existingUser = await getUserByEmail(email);
     if (existingUser) {
@@ -95,12 +114,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Criar usuário
     const user = await createUser(email, password, name, phone, cpf);
+
+    try {
+      await sendVerificationEmailForUser({ email: user.email, name: user.name });
+    } catch (err) {
+      console.error('Verification email failed:', err);
+      await prisma.user.delete({ where: { id: user.id } }).catch(() => {});
+      return NextResponse.json(
+        { error: 'Não foi possível enviar o e-mail de confirmação. Tente novamente em instantes.' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(
       {
         success: true,
+        needsEmailVerification: true,
         user: {
           id: user.id,
           email: user.email,

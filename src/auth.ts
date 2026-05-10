@@ -1,4 +1,4 @@
-import NextAuth from 'next-auth';
+import NextAuth, { CredentialsSignin } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import { prisma } from '@/lib/prisma';
 import { normalizeEmail, verifyPassword } from '@/lib/auth';
@@ -35,6 +35,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const isValid = await verifyPassword(credentials.password as string, user.password);
         if (!isValid) {
           return null;
+        }
+
+        if (!user.emailVerified) {
+          const err = new CredentialsSignin();
+          err.code = 'email_unverified';
+          throw err;
         }
 
         return {
